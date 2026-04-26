@@ -693,8 +693,11 @@
           // Add loading state
           const originalText = button.textContent;
           button.disabled = true;
-          button.textContent = '설정 중...';
-          button.classList.add('opacity-70');
+          button.textContent = '선정 중...';
+          button.classList.add('opacity-70', 'cursor-wait');
+          
+          // Atomic update: Clear all flags first, then set new one
+          console.log('Starting atomic Book of the Month update...');
           
           // Step 1: Clear all Book of the Month flags in database
           const { error: clearError } = await sb.from("books").update({ is_book_of_the_month: false }).neq('id', 'nonexistent');
@@ -704,23 +707,31 @@
           const { error: setError } = await sb.from("books").update({ is_book_of_the_month: true }).eq("id", bookId);
           if (setError) throw setError;
           
-          // Step 3: Update local state
+          // Step 3: Update local state immediately
           currentBookId = bookId;
           
-          // Step 4: Refresh cache and re-render
+          // Step 4: Refresh cache to ensure data consistency
           await refreshFromDb();
+          
+          // Step 5: Switch to Book of the Month tab and re-render
+          currentTab = "reading"; // Book of the Month is in the reading tab
           renderApp();
           
-          showToast(`"${bookTitle}"이(가) 이달의 책으로 설정되었습니다.`);
+          // Step 6: Close any open modals
+          closeModal();
+          
+          showToast(`"${bookTitle}"이(가) 이달의 책으로 선정되었습니다.`);
           
         } catch (error) {
           console.error('Error setting Book of the Month:', error);
-          showToast('이달의 책 설정에 실패했습니다.', 'error');
+          showToast('이달의 책 선정에 실패했습니다.', 'error');
           
           // Restore button state on error
-          button.disabled = false;
-          button.textContent = originalText;
-          button.classList.remove('opacity-70');
+          if (button) {
+            button.disabled = false;
+            button.textContent = originalText;
+            button.classList.remove('opacity-70', 'cursor-wait');
+          }
         }
       };
       function renderBookshelfTab() {
@@ -842,21 +853,8 @@
                 
                 <!-- Book of the Month Selection -->
                 <div class="mb-6">
-                  <h4 class="text-sm font-semibold text-deep mb-3">이달의 책 선택</h4>
-                  <div class="space-y-2">
-                    ${(cache.books || []).map((book) => `
-                      <label class="flex items-center gap-3 p-3 rounded-lg border border-deep/10 bg-white/70 hover:bg-white/90 cursor-pointer transition-colors">
-                        <input type="radio" name="bookOfTheMonth" value="${book.id}" 
-                               ${book.id === currentBookId ? "checked" : ""} 
-                               class="rounded text-deep focus:ring-deep/20" />
-                        <div class="flex-1">
-                          <p class="font-medium text-deep">${escapeHtml(book.title)}</p>
-                          <p class="text-xs text-deep/60">${escapeHtml(book.author || "저자 미입력")}</p>
-                        </div>
-                        ${book.id === currentBookId ? '<span class="text-xs bg-gold text-white px-2 py-1 rounded-full">현재 선택</span>' : ''}
-                      </label>
-                    `).join("")}
-                  </div>
+                  <h4 class="text-sm font-semibold text-deep mb-3">이달의 책 선정</h4>
+                  <div class="text-xs text-deep/60 mb-3">현재 선택: <span class="font-medium text-gold">${cache.books?.find(b => b.id === currentBookId)?.title || '없음'}</span></div>
                 </div>
                 
                 <!-- Existing Books List -->
@@ -884,10 +882,10 @@
                             <button class="btn-ghost !px-3 !py-2 !text-xs text-red-600" onclick="confirmDeleteBook('${book.id}', '${escapeHtml(book.title)}')">삭제</button>
                           </div>
                           <button id="btn-set-book-month-${book.id}" 
-                                  class="btn-primary !px-3 !py-2 !text-xs w-full ${book.id === currentBookId ? '!bg-gold !cursor-not-allowed' : ''}" 
+                                  class="btn-primary !px-3 !py-2 !text-xs w-full ${book.id === currentBookId ? '!bg-gold !border-gold !cursor-not-allowed' : ''}" 
                                   onclick="setBookOfTheMonthDirect('${book.id}', '${escapeHtml(book.title)}')"
                                   ${book.id === currentBookId ? 'disabled' : ''}>
-                            ${book.id === currentBookId ? '현재 이달의 책' : '이달의 책으로 설정'}
+                            ${book.id === currentBookId ? '현재 이달의 책 ✓' : '이달의 책으로 선정'}
                           </button>
                         </div>
                       </div>
@@ -1152,29 +1150,7 @@
               return;
             }
             
-            // Book of the Month selection handler
-            const bookOfTheMonthRadio = form.elements.namedItem("bookOfTheMonth");
-            if (bookOfTheMonthRadio && bookOfTheMonthRadio.checked) {
-              const isAdmin = currentMemberId === 'chloe';
-              
-              if (!isAdmin) {
-                alert("관리자 기능에 접근할 수 없습니다.");
-                return renderApp();
-              }
-              
-              const selectedBookId = bookOfTheMonthRadio.value;
-              
-              try {
-                await setBookOfTheMonth(selectedBookId);
-                renderApp();
-                showToast("이달의 책이 변경되었습니다.");
-              } catch (error) {
-                console.error('Error setting Book of the Month:', error);
-                showToast('이달의 책 변경에 실패했습니다.', 'error');
-              }
-              return;
-            }
-            
+                        
             if (form.id === "form-book-settings") {
               // Check if user is chloe before allowing admin access
               const isAdmin = currentMemberId === 'chloe';
