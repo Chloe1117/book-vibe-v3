@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BookVibe 2026</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["Pretendard", "system-ui", "sans-serif"],
+              serif: ["Georgia", "Times New Roman", "serif"],
+            },
+            colors: {
+              deep: "#0c1f18",
+              "deep-soft": "#1a3a2d",
+              beige: "#f3f0e8",
+              mist: "#e8e5dd",
+              gold: "#c4a35a",
+            },
+            maxWidth: { content: "1100px" },
+          },
+        },
+      };
+    </script>
+    <style>
+      body {
+        background: #f3f0e8;
+        color: #0c1f18;
+      }
+      .app-bg {
+        background: radial-gradient(circle at 20% 10%, rgba(12, 31, 24, 0.08), transparent 42%), #f3f0e8;
+      }
+      .book-card {
+        aspect-ratio: 2 / 3;
+        border-radius: 0.65rem;
+        overflow: hidden;
+        background: linear-gradient(165deg, #ece9e1 0%, #ddd9cf 100%);
+        box-shadow: 0 6px 18px rgba(12, 31, 24, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+      }
+      .book-card img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      /* Pastel-toned cards for missing covers */
+      .book-card-placeholder {
+        background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 50%, #74b9ff 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 1rem;
+        position: relative;
+        overflow: hidden;
+      }
+      .book-card-placeholder::before {
+        content: "";
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: shimmer 3s ease-in-out infinite;
+      }
+      @keyframes shimmer {
+        0%, 100% { transform: rotate(0deg); }
+        50% { transform: rotate(180deg); }
+      }
+      .book-card-placeholder .book-title {
+        font-weight: 600;
+        color: #2d3436;
+        font-size: 0.9rem;
+        line-height: 1.3;
+        z-index: 1;
+        position: relative;
+      }
+      .paper-panel {
+        background: linear-gradient(160deg, #fcf8ef 0%, #f4eddf 100%);
+      }
+      .wood-touch {
+        background: linear-gradient(145deg, #2f2018 0%, #5d3f2d 50%, #6e4c36 100%);
+        position: relative;
+      }
+      .wood-touch::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: repeating-linear-gradient(
+          0deg,
+          rgba(255, 255, 255, 0.03),
+          rgba(255, 255, 255, 0.03) 2px,
+          rgba(0, 0, 0, 0.05) 2px,
+          rgba(0, 0, 0, 0.05) 6px
+        );
+      }
+      .input-field {
+        width: 100%;
+        border-radius: 0.6rem;
+        border: 1px solid rgba(12, 31, 24, 0.14);
+        padding: 0.65rem 0.75rem;
+        font-size: 0.875rem;
+        background: #fff;
+      }
+      .btn-primary {
+        border-radius: 0.6rem;
+        background: #0c1f18;
+        color: #f3f0e8;
+        font-size: 0.875rem;
+        font-weight: 600;
+        padding: 0.65rem 0.95rem;
+      }
+      .btn-ghost {
+        border-radius: 0.6rem;
+        border: 1px solid rgba(12, 31, 24, 0.15);
+        color: #0c1f18;
+        font-size: 0.875rem;
+        padding: 0.65rem 0.95rem;
+      }
+      .modal-bg {
+        background: rgba(12, 31, 24, 0.56);
+        backdrop-filter: blur(5px);
+      }
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: 5.5rem;
+        transform: translateX(-50%);
+        z-index: 80;
+        background: #0c1f18;
+        color: #f3f0e8;
+        border-radius: 999px;
+        padding: 0.55rem 0.95rem;
+        font-size: 0.78rem;
+        box-shadow: 0 8px 20px rgba(12, 31, 24, 0.28);
+      }
+      .guide-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        border-radius: 999px;
+        padding: 0.22rem 0.55rem;
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: #0c1f18;
+        background: #e7d4a0;
+        border: 1px solid rgba(196, 163, 90, 0.5);
+      }
+    </style>
+  </head>
+  <body class="app-bg min-h-screen antialiased">
+    <div id="app-root"></div>
+    <script type="module">
+      import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+      const SUPABASE_URL = "https://gmhnnahtfjcgnbeyzctq.supabase.co";
+      const SUPABASE_ANON_KEY = "sb_publishable_fQ0No6cq6837PG0xo3SaSA_0x7R1nJI";
+      const USER_PASSWORD = "stair";
+      const ADMIN_PASSWORD = "dance";
+      const BOOK_TOTAL = 10;
+      const DEFAULT_MEMBERS = [
+        { id: "mary", display_name: "Mary", sort_order: 3, password: "", is_first_login: true },
+        { id: "chad", display_name: "Chad", sort_order: 1, password: "", is_first_login: true },
+        { id: "chloe", display_name: "Chloe", sort_order: 2, password: "", is_first_login: true },
+      ];
+
+      const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      let cache = { books: [] };
+      let members = [];
+      let currentTab = "reading";
+      let currentBookId = "b3";
+      let currentMemberId = sessionStorage.getItem("currentMemberId") || "";
+      let currentMemberName = sessionStorage.getItem("currentMemberName") || "";
+      let isGatePassed = sessionStorage.getItem("isGatePassed") === "true";
+      let isAdminMode = sessionStorage.getItem("isAdminMode") === "true";
+      let detailBookId = null;
+      let uiModal = { type: null, error: "", meta: {} };
+      let pendingSecureAction = null;
+      let toastMessage = "";
+      let toastTimer = null;
+      let loadError = null;
+      let rtChannel = null;
+      let debounceTimer = null;
+
+      // Safe parse function for nested JSON strings
+      function safeParse(jsonString) {
+        if (!jsonString || typeof jsonString !== 'string') {
+          return { text: "", memberId: "", chapter: null };
+        }
+        
+        try {
+          // Try to parse as JSON first
+          const parsed = JSON.parse(jsonString);
+          if (parsed && typeof parsed === 'object' && 'text' in parsed) {
+            return {
+              text: typeof parsed.text === 'string' ? parsed.text : "",
+              memberId: typeof parsed.memberId === 'string' ? parsed.memberId : "",
+              chapter: Number.isFinite(parseInt(parsed.chapter, 10)) ? parseInt(parsed.chapter, 10) : null
+            };
+          }
+        } catch (e) {
+          // If JSON parsing fails, treat as plain text
+          return { text: jsonString, memberId: "", chapter: null };
+        }
+        
+        return { text: "", memberId: "", chapter: null };
+      }
+
+      function memberList() {
+        return members.length ? members : DEFAULT_MEMBERS;
+      }
+      function currentMember() {
+        return memberList().find((m) => m.id === currentMemberId) || null;
+      }
+      function memberNameById(id) {
+        return memberList().find((m) => m.id === id)?.display_name || "";
+      }
+      function escapeHtml(s) {
+        return String(s ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+      function openModal(type, meta = {}, error = "") {
+        uiModal = { type, meta, error };
+      }
+      function closeModal() {
+        uiModal = { type: null, meta: {}, error: "" };
+      }
+      function showToast(msg) {
+        toastMessage = msg;
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          toastMessage = "";
+          renderApp();
+        }, 2300);
+      }
+      function bookById(id) {
+        return cache.books.find((b) => b.id === id) || null;
+      }
+      function ensureBook(id) {
+        const hit = bookById(id);
+        if (hit) return hit;
+        const g = memberList()[0]?.id || "jeongeun";
+        const totalChapters = 4;
+        return {
+          id,
+          title: id,
+          author: "",
+          coverUrl: "",
+          guideId: g,
+          chapters: alignChaptersToTotal({}, totalChapters),
+          totalChapters,
+          finalSentence: { text: "", memberId: "", chapter: null },
+          finalAt: null,
+        };
+      }
+      function fileToDataUrl(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = () => reject(new Error("이미지 파일을 읽지 못했습니다."));
+          reader.readAsDataURL(file);
+        });
+      }
+      function bookIdSortIndex(id) {
+        const m = /^b(\d+)$/i.exec(String(id || ""));
+        return m ? parseInt(m[1], 10) : 1e9;
+      }
+      function sortRows(rows) {
+        return (rows || []).slice().sort((a, b) => bookIdSortIndex(a.id) - bookIdSortIndex(b.id));
+      }
+      function emptyChapterRecord() {
+        const o = {};
+        memberList().forEach((m) => (o[m.id] = ""));
+        return o;
+      }
+      function alignChaptersToTotal(chapters, total) {
+        const normalized = { ...(chapters || {}) };
+        for (let c = 1; c <= total; c++) {
+          if (!normalized[c]) normalized[c] = emptyChapterRecord();
+        }
+        Object.keys(normalized).forEach((k) => {
+          const n = parseInt(k, 10);
+          if (Number.isFinite(n) && n > total) delete normalized[k];
+        });
+        return normalized;
+      }
+      function normalizeMilestones(rawInput) {
+        const raw = rawInput && typeof rawInput === "object" ? rawInput : {};
+        const meta = raw._meta && typeof raw._meta === "object" ? raw._meta : {};
+        const total = Math.max(1, parseInt(meta.totalChapters || 4, 10) || 4);
+        const chapters = {};
+        for (let c = 1; c <= total; c++) {
+          const src = raw[c] ?? raw[String(c)] ?? {};
+          const rec = emptyChapterRecord();
+          memberList().forEach((m) => {
+            rec[m.id] = typeof src[m.id] === "string" ? src[m.id] : "";
+          });
+          chapters[c] = rec;
+        }
+        return { chapters, total, guideIdInMeta: typeof meta.guideId === "string" ? meta.guideId : "" };
+      }
+      function normalizeFinalSentence(v) {
+        // Use safeParse to handle nested JSON strings
+        if (v && typeof v === "object" && !Array.isArray(v) && "text" in v) {
+          return {
+            text: typeof v.text === "string" ? v.text : "",
+            memberId: typeof v.memberId === "string" ? v.memberId : "",
+            chapter: Number.isFinite(parseInt(v.chapter, 10)) ? parseInt(v.chapter, 10) : null,
+          };
+        }
+        
+        // Handle string values that might be JSON
+        if (typeof v === "string") {
+          const parsed = safeParse(v);
+          if (parsed.text) {
+            return parsed;
+          }
+          return { text: v, memberId: "", chapter: null };
+        }
+        
+        return { text: "", memberId: "", chapter: null };
+      }
+      function normalizeBook(row, index) {
+        const norm = normalizeMilestones(row.milestones);
+        const rawGuide = row.guide_id || row.guide_name || norm.guideIdInMeta || "";
+        const guideId = memberList().find((m) => m.id === rawGuide || m.display_name === rawGuide)?.id || memberList()[0]?.id || "jeongeun";
+        const totalChapters = Math.max(1, parseInt(row.total_chapters ?? norm.total, 10) || norm.total || 4);
+        return {
+          id: row.id || `b${index + 1}`,
+          title: row.title || `2026 독서 ${index + 1}`,
+          author: row.author || "",
+          coverUrl: row.cover_url || "",
+          guideId,
+          chapters: alignChaptersToTotal(norm.chapters, totalChapters),
+          totalChapters,
+          finalSentence: normalizeFinalSentence(row.final_sentence),
+          finalAt: row.final_at || null,
+        };
+      }
+      function serializeMilestones(book) {
+        const p = { _meta: { totalChapters: book.totalChapters, guideId: book.guideId } };
+        for (let c = 1; c <= book.totalChapters; c++) p[c] = book.chapters[c] || emptyChapterRecord();
+        return p;
+      }
+      function bookToRow(book) {
+        return {
+          id: book.id,
+          title: book.title,
+          author: book.author || "",
+          cover_url: book.coverUrl || null,
+          guide_id: book.guideId,
+          guide_name: memberNameById(book.guideId),
+          total_chapters: book.totalChapters,
+          milestones: serializeMilestones(book),
+          final_sentence: book.finalSentence,
+          final_at: book.finalAt,
+          updated_at: new Date().toISOString(),
+        };
+      }
+      function chapterProgress(book) {
+        const done = Array.from({ length: book.totalChapters }, (_, i) => i + 1).filter((c) => memberList().every((m) => (book.chapters[c]?.[m.id] || "").trim())).length;
+        return { done, total: book.totalChapters, pct: Math.round((done / Math.max(1, book.totalChapters)) * 100) };
+      }
+      function isGuideFor(book) {
+        return !!currentMemberId && book.guideId === currentMemberId;
+      }
+
+      async function loadMembers() {
+        const { data, error } = await sb.from("club_members").select("id,display_name,sort_order,password,is_first_login").order("sort_order", { ascending: true });
+        if (error) throw error;
+        members = (data || []).map((m) => ({
+          id: m.id,
+          display_name: m.display_name,
+          sort_order: m.sort_order,
+          password: m.password || "",
+          is_first_login: !!m.is_first_login,
+        }));
+      }
+      async function refreshFromDb() {
+        const { data, error } = await sb.from("books").select("*");
+        if (error) throw error;
+        const sorted = sortRows(data);
+        if (!sorted.length) {
+          const g = memberList()[0]?.id || "jeongeun";
+          const seed = [];
+          for (let i = 1; i <= BOOK_TOTAL; i++) {
+            seed.push({
+              id: `b${i}`,
+              title: `2026 독서 ${i}`,
+              author: "",
+              cover_url: null,
+              guide_id: g,
+              guide_name: memberNameById(g),
+              total_chapters: 4,
+              milestones: { _meta: { totalChapters: 4, guideId: g }, 1: emptyChapterRecord(), 2: emptyChapterRecord(), 3: emptyChapterRecord(), 4: emptyChapterRecord() },
+              final_sentence: { text: "", memberId: "", chapter: null },
+              final_at: null,
+            });
+          }
+          await sb.from("books").insert(seed);
+          return refreshFromDb();
+        }
+        cache.books = sorted.map((row, i) => normalizeBook(row, i));
+        if (!cache.books.find((b) => b.id === currentBookId)) currentBookId = cache.books[0]?.id || "b1";
+      }
+      async function persistBook(book) {
+        const row = bookToRow(book);
+        let { error } = await sb.from("books").upsert(row, { onConflict: "id" });
+        if (error && /guide_(id|name)/i.test(String(error.message || ""))) {
+          const fallback = { ...row };
+          delete fallback.guide_id;
+          delete fallback.guide_name;
+          const retry = await sb.from("books").upsert(fallback, { onConflict: "id" });
+          error = retry.error;
+        }
+        if (error) throw error;
+      }
+      function scheduleRefresh() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(async () => {
+          try {
+            await refreshFromDb();
+            renderApp();
+          } catch (e) {
+            loadError = e.message || String(e);
+            renderApp();
+          }
+        }, 140);
+      }
+      function subscribeRealtime() {
+        if (rtChannel) sb.removeChannel(rtChannel);
+        rtChannel = sb.channel("bookvibe-live").on("postgres_changes", { event: "*", schema: "public", table: "books" }, scheduleRefresh).subscribe();
+      }
+      function setMemberSession(member) {
+        currentMemberId = member.id;
+        currentMemberName = member.display_name;
+        sessionStorage.setItem("currentMemberId", member.id);
+        sessionStorage.setItem("currentMemberName", member.display_name);
+      }
+      function clearMemberSession() {
+        currentMemberId = "";
+        currentMemberName = "";
+        isAdminMode = false;
+        sessionStorage.removeItem("currentMemberId");
+        sessionStorage.removeItem("currentMemberName");
+        sessionStorage.removeItem("isAdminMode");
+      }
+
+      function renderHeader() {
+        const adminBadge = isAdminMode ? `<span class="rounded-full bg-deep px-2.5 py-1 text-[10px] font-semibold text-beige">관리자</span>` : "";
+        return `<header class="sticky top-0 z-20 border-b border-deep/10 bg-beige/95 backdrop-blur"><div class="mx-auto flex max-w-content items-center justify-between px-4 py-4"><div><p class="text-[10px] uppercase tracking-[0.2em] text-deep/45">Stair</p><h1 class="font-serif text-xl text-deep">2026 Book Club</h1></div><div class="flex items-center gap-2"><span class="rounded-full bg-deep-soft px-2.5 py-1 text-[10px] font-semibold text-beige">${escapeHtml(currentMemberName)}</span>${adminBadge}<button id="btn-admin-mode" class="btn-ghost !px-3 !py-2 !text-xs">책 정보 설정</button><button id="btn-logout" class="btn-ghost !px-3 !py-2 !text-xs">로그아웃</button></div></div></header>`;
+      }
+      function renderGuideEditForm(book) {
+        const canEdit = isGuideFor(book) || isAdminMode;
+        return `<section class="paper-panel mt-4 rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep">책 정보 설정</h3><p class="mt-1 text-xs text-deep/55">${canEdit ? "저장 시 길잡이 본인 인증이 필요합니다." : "해당 책의 길잡이만 수정 가능합니다."}</p><form id="form-book-edit" class="mt-3 grid gap-3" data-book="${book.id}"><input class="input-field" name="title" value="${escapeHtml(book.title)}" ${canEdit ? "" : "disabled"} /><input class="input-field" name="author" value="${escapeHtml(book.author)}" ${canEdit ? "" : "disabled"} /><input class="input-field" name="coverUrl" value="${escapeHtml(book.coverUrl)}" ${canEdit ? "" : "disabled"} /><select class="input-field" name="guideId" ${isAdminMode ? "" : "disabled"}>${memberList().map((m) => `<option value="${m.id}" ${book.guideId === m.id ? "selected" : ""}>길잡이: ${escapeHtml(m.display_name)}</option>`).join("")}</select><input class="input-field" type="number" min="1" max="50" name="totalChapters" value="${book.totalChapters}" ${canEdit ? "" : "disabled"} /><button class="btn-primary ${canEdit ? "" : "opacity-40"}" ${canEdit ? "" : "disabled"}>저장</button></form></section>`;
+      }
+      function renderReadingTab() {
+        const selected = cache.books.find((b) => b.id === currentBookId) || cache.books[0];
+        if (!selected) return `<main class="mx-auto max-w-content px-4 py-6 pb-28 text-sm text-deep/55">불러오는 중...</main>`;
+        const progress = chapterProgress(selected);
+        const chapterOpts = Array.from({ length: selected.totalChapters }, (_, i) => i + 1).map((n) => `<option value="${n}">Chapter ${n}</option>`).join("");
+        const rows = Array.from({ length: selected.totalChapters }, (_, i) => i + 1)
+          .map((c) => `<section class="mt-3 rounded-xl border border-deep/10 bg-white/65 p-3"><div class="mb-2 flex items-center justify-between"><h4 class="font-semibold text-deep">Chapter ${c}</h4><span class="text-xs text-deep/45">${memberList().filter((m) => (selected.chapters[c]?.[m.id] || "").trim()).length}/${memberList().length} 작성</span></div><ul class="space-y-2">${memberList().map((m) => `<li class="rounded-lg border border-deep/10 bg-white/70 px-3 py-2"><p class="text-[11px] font-semibold text-deep/60">${escapeHtml(m.display_name)}</p><p class="mt-1 text-sm text-deep/85">${(selected.chapters[c]?.[m.id] || "").trim() ? escapeHtml(selected.chapters[c][m.id]) : `<span class="text-deep/35">아직 기록 없음</span>`}</p></li>`).join("")}</ul></section>`)
+          .join("");
+        return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm"><div class="flex items-center justify-between gap-3"><div><p class="text-[11px] uppercase tracking-[0.18em] text-gold">이달의 책</p><h2 class="font-serif text-xl">${escapeHtml(selected.title)}</h2><p class="mt-1"><span class="guide-badge">⭐ 길잡이: ${escapeHtml(memberNameById(selected.guideId))}</span></p></div><span class="text-xs text-deep/50">${progress.done}/${progress.total} 완료</span></div><div class="mt-3 h-2 overflow-hidden rounded-full bg-mist"><div class="h-full rounded-full bg-deep-soft" style="width:${progress.pct}%"></div></div><form id="form-reading-input" class="mt-4 grid gap-2 sm:grid-cols-4"><select class="input-field sm:col-span-2" name="bookId">${cache.books.map((b) => `<option value="${b.id}" ${b.id === selected.id ? "selected" : ""}>${escapeHtml(b.title)}</option>`).join("")}</select><select class="input-field" name="chapter">${chapterOpts}</select><select class="input-field" name="member">${memberList().map((m) => `<option value="${m.id}">${escapeHtml(m.display_name)}</option>`).join("")}</select><textarea class="input-field sm:col-span-4" rows="3" name="sentence" placeholder="기억에 남는 문장을 입력하세요" required></textarea><button class="btn-primary sm:col-span-4">문장 기록</button></form></section><section class="mt-4">${rows}</section></main>`;
+      }
+      function renderBookshelfTab() {
+        return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><section class="wood-touch relative overflow-hidden rounded-2xl p-4"><div class="relative z-10"><h2 class="font-serif text-xl text-[#f4e6c2]">2026 북쉘프</h2><div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">${cache.books.map((b) => `<button type="button" class="group text-left" data-open-book="${b.id}"><div class="book-card">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy"/>` : `<div class="book-card-placeholder"><div class="book-title">${escapeHtml(b.title)}</div></div>`}</div><p class="mt-2 truncate text-sm font-semibold text-deep">${escapeHtml(b.title)}</p><p class="truncate text-xs text-deep/50">${escapeHtml(b.author || "저자 미입력")}</p><p class="mt-1"><span class="guide-badge">🚩 길잡이: ${escapeHtml(memberNameById(b.guideId))}</span></p></button>`).join("")}</div></div></section></main>`;
+      }
+      function renderHallTab() {
+        return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><h2 class="font-serif text-xl text-deep">올해의 문장</h2>${cache.books.map((b) => `<article class="paper-panel mt-3 rounded-xl border border-deep/10 p-3 shadow-sm"><h3 class="font-serif text-lg text-deep">${escapeHtml(b.title)}</h3><p class="text-xs text-deep/55">${escapeHtml(b.author || "저자 미입력")}</p><p class="mt-1"><span class="guide-badge">⭐ 길잡이: ${escapeHtml(memberNameById(b.guideId))}</span></p><div class="mt-3 rounded-lg border border-deep/10 bg-white/75 px-3 py-3"><p class="text-sm text-deep/90">${b.finalSentence.text ? `"${escapeHtml(b.finalSentence.text)}" by ${escapeHtml(memberNameById(b.finalSentence.memberId))}` : `<span class="text-deep/35">아직 선정되지 않았어요.</span>`}</p><p class="mt-1 text-xs text-deep/60">${b.finalSentence.text ? `길잡이 ${escapeHtml(memberNameById(b.guideId))}이(가) 선정한 문장입니다` : ""}</p></div></article>`).join("")}</main>`;
+      }
+      function renderSettingsTab() {
+        const adminPart = isAdminMode
+          ? `<section class="paper-panel mt-4 rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep">멤버 관리</h3><div class="mt-3 space-y-3">${memberList().map((m) => `<div class="rounded-lg border border-deep/10 bg-white/80 p-3"><p class="text-sm font-semibold">${escapeHtml(m.display_name)}</p><p class="mt-1 text-xs text-deep/55">is_first_login: ${m.is_first_login ? "true" : "false"}</p><form class="mt-2 grid gap-2 sm:grid-cols-2" data-member-reset="${m.id}"><button class="btn-ghost !text-xs">최초 로그인 초기화</button><input class="input-field" type="password" name="newPassword" placeholder="임시 비밀번호(선택)" /></form></div>`).join("")}</div></section>` 
+          : "";
+        return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep">비밀번호 변경</h3><form id="form-change-password" class="mt-3 grid gap-2"><input class="input-field" type="password" name="currentPassword" placeholder="현재 비밀번호" required /><input class="input-field" type="password" name="newPassword" placeholder="새 비밀번호" required /><input class="input-field" type="password" name="confirmPassword" placeholder="새 비밀번호 확인" required /><button class="btn-primary">변경하기</button></form></section>${adminPart}</main>`;
+      }
+      function renderBookDetailModal(bookId) {
+        const b = cache.books.find((x) => x.id === bookId);
+        if (!b) return "";
+        const canSelect = isGuideFor(b);
+        const rows = Array.from({ length: b.totalChapters }, (_, i) => i + 1)
+          .map((c) => `<section class="mt-3 rounded-lg border border-deep/10 bg-white/70 p-3"><h4 class="font-semibold text-sm text-deep">Chapter ${c}</h4><ul class="mt-2 space-y-2">${memberList().map((m) => {
+            const txt = (b.chapters[c]?.[m.id] || "").trim();
+            return `<li class="rounded-md border border-deep/10 px-2 py-2"><span class="text-[11px] font-semibold text-deep/55">${escapeHtml(m.display_name)}</span><p class="text-sm text-deep/85">${txt ? escapeHtml(txt) : `<span class="text-deep/35">기록 없음</span>`}</p>${txt ? `<div class="mt-1.5 text-right"><button type="button" class="btn-ghost !px-2.5 !py-1 !text-[11px] ${canSelect ? "" : "opacity-40"}" data-select-final="1" data-book="${b.id}" data-member="${m.id}" data-chapter="${c}" ${canSelect ? "" : "disabled"}>최종 선택</button></div>` : ""}</li>`;
+          }).join("")}</ul></section>`)
+          .join("");
+        return `<div class="modal-bg fixed inset-0 z-40 flex items-end justify-center p-0 sm:items-center sm:p-5"><div class="paper-panel max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-deep/12 p-5 shadow-2xl sm:rounded-2xl"><div class="mb-3 flex items-start justify-between gap-3"><div><h3 class="font-serif text-xl text-deep">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/55">${escapeHtml(b.author || "저자 미입력")}</p><p class="mt-1"><span class="guide-badge">🚩 이번 책의 길잡이: ${escapeHtml(memberNameById(b.guideId))}</span></p></div><button class="btn-ghost !py-1.5 !text-xs" data-close-detail="1">닫기</button></div><p class="text-xs text-deep/60">${canSelect ? "최종 선택 전 길잡이 비밀번호를 재확인합니다." : "길잡이의 비밀번호가 일치하지 않습니다."}</p>${rows}</div></div>`;
+      }
+      function renderBottomTabs() {
+        const tab = (id, label) => `<button type="button" class="flex-1 py-3 text-center text-[12px] font-semibold ${currentTab === id ? "text-deep" : "text-deep/45"}" data-tab="${id}">${label}</button>`;
+        return `<nav class="fixed bottom-0 left-0 right-0 z-30 border-t border-deep/10 bg-beige/95 backdrop-blur"><div class="mx-auto flex max-w-content">${tab("reading", "이달의 책")}${tab("shelf", "2026 북쉘프")}${tab("hall", "올해의 문장")}${tab("settings", "설정")}</div></nav>`;
+      }
+      function renderAuthModal() {
+        if (!uiModal.type) return "";
+        if (uiModal.type === "master") return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><h2 class="font-serif text-2xl">BookVibe 2026</h2><form id="form-master-auth" class="mt-4 space-y-3"><input type="password" name="password" class="input-field" placeholder="마스터 비밀번호" required /><button class="btn-primary w-full">확인</button></form>${uiModal.error ? `<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>` : ""}</div></div>`;
+        if (uiModal.type === "member-login") return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><h2 class="font-serif text-2xl">누구신가요?</h2><form id="form-member-login" class="mt-4 space-y-3"><select name="memberId" class="input-field">${memberList().map((m) => `<option value="${m.id}">${escapeHtml(m.display_name)}</option>`).join("")}</select><input type="password" name="password" class="input-field" placeholder="개인 비밀번호" required /><button class="btn-primary w-full">로그인</button></form>${uiModal.error ? `<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>` : ""}</div></div>`;
+        if (uiModal.type === "first-login") return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><h2 class="font-serif text-xl">처음 오셨네요!</h2><p class="mt-2 text-sm text-deep/60">앞으로 사용할 비밀번호를 설정해주세요.</p><form id="form-first-password" class="mt-4 space-y-3"><input type="password" name="password" class="input-field" placeholder="새 비밀번호" required /><input type="password" name="confirmPassword" class="input-field" placeholder="새 비밀번호 확인" required /><button class="btn-primary w-full">저장</button></form>${uiModal.error ? `<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>` : ""}</div></div>`;
+        if (uiModal.type === "admin-book-auth")
+          return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><div class="flex items-center justify-between"><h2 class="font-serif text-xl">책 정보 설정 인증</h2><button type="button" class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><form id="form-admin-book-auth" class="mt-4 space-y-3"><input type="password" name="password" class="input-field" placeholder='관리자 비밀번호 입력' required /><button class="btn-primary w-full">인증</button></form>${uiModal.error ? `<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>` : ""}</div></div>`;
+        if (uiModal.type === "book-settings") {
+          const selectedId = uiModal.meta.bookId || "";
+          const selectedBook = bookById(selectedId);
+          const selectOptions = cache.books.map((b) => `<option value="${b.id}" ${selectedId === b.id ? "selected" : ""}>${b.id} · ${escapeHtml(b.title)}</option>`).join("");
+          return `<div class="modal-bg fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-5"><div class="paper-panel max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-2xl border border-deep/12 p-5 shadow-2xl sm:rounded-2xl"><div class="sticky top-0 z-10 -mx-5 -mt-5 mb-4 flex items-center justify-between border-b border-deep/10 bg-[#f7f1e5]/95 px-5 py-3 backdrop-blur"><h2 class="font-serif text-xl">책 정보 설정(관리자)</h2><button type="button" class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><form id="form-book-settings" class="grid gap-3"><div><label class="text-xs text-deep/60">책 선택</label><select class="input-field mt-1" name="bookPick"><option value="">새 ID 사용</option>${selectOptions}</select></div><div><label class="text-xs text-deep/60">새 ID (예: b11, 선택 입력)</label><input class="input-field mt-1" name="bookId" value="${selectedBook ? "" : escapeHtml(selectedId)}" placeholder="b1" /></div><div><label class="text-xs text-deep/60">책 제목</label><input class="input-field mt-1" name="title" value="${escapeHtml(selectedBook?.title || "")}" required /></div><div><label class="text-xs text-deep/60">저자</label><input class="input-field mt-1" name="author" value="${escapeHtml(selectedBook?.author || "")}" /></div><div><label class="text-xs text-deep/60">총 챕터 수</label><input class="input-field mt-1" type="number" min="1" max="150" name="totalChapters" value="${selectedBook?.totalChapters || 4}" required /></div><div><label class="text-xs text-deep/60">길잡이 지정</label><select class="input-field mt-1" name="guideId">${memberList().map((m) => `<option value="${m.id}" ${selectedBook?.guideId === m.id ? "selected" : ""}>${escapeHtml(m.display_name)}</option>`).join("")}</select></div><div><label class="text-xs text-deep/60">표지 이미지 URL</label><input class="input-field mt-1" name="coverUrl" value="${escapeHtml(selectedBook?.coverUrl || "")}" placeholder="https://..." /></div><div><label class="text-xs text-deep/60">또는 파일 업로드</label><input class="input-field mt-1" type="file" name="coverFile" accept="image/*" /></div><button class="btn-primary mt-1">저장</button></form></div></div>`;
+        }
+        if (uiModal.type === "secure-confirm") return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><h2 class="font-serif text-xl">본인 인증</h2><p class="mt-2 text-sm text-deep/60">${escapeHtml(uiModal.meta.message || "")}</p><form id="form-secure-confirm" class="mt-4 space-y-3"><input type="password" name="password" class="input-field" placeholder="개인 비밀번호" required /><button class="btn-primary w-full">확인</button></form>${uiModal.error ? `<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>` : ""}</div></div>`;
+        return "";
+      }
+
+      function renderApp() {
+        const root = document.getElementById("app-root");
+        if (!root) return;
+        const main =
+          isGatePassed && currentMemberId
+            ? currentTab === "shelf"
+              ? renderBookshelfTab()
+              : currentTab === "hall"
+              ? renderHallTab()
+              : currentTab === "settings"
+              ? renderSettingsTab()
+              : renderReadingTab()
+            : `<main class="min-h-screen"></main>`;
+        const toast = toastMessage ? `<div class="toast">${escapeHtml(toastMessage)}</div>` : "";
+        root.innerHTML = `${isGatePassed && currentMemberId ? renderHeader() : ""}${main}${isGatePassed && currentMemberId ? renderBottomTabs() : ""}${detailBookId && currentMemberId ? renderBookDetailModal(detailBookId) : ""}${renderAuthModal()}${toast}`;
+      }
+
+      function askSecure(action, message) {
+        pendingSecureAction = action;
+        openModal("secure-confirm", { message });
+      }
+      async function executeSecureAction() {
+        if (!pendingSecureAction) return;
+        if (pendingSecureAction.type === "final-select") {
+          const { bookId, memberId, chapter } = pendingSecureAction.payload;
+          const b = cache.books.find((x) => x.id === bookId);
+          if (!b) return;
+          const txt = (b.chapters[chapter]?.[memberId] || "").trim();
+          if (!txt) return;
+          b.finalSentence = { text: txt, memberId, chapter };
+          b.finalAt = new Date().toISOString();
+          await persistBook(b);
+          await refreshFromDb();
+        } else if (pendingSecureAction.type === "book-edit") {
+          const { bookId, payload } = pendingSecureAction.payload;
+          const b = cache.books.find((x) => x.id === bookId);
+          if (!b) return;
+          b.title = payload.title || b.title;
+          b.author = payload.author || "";
+          b.coverUrl = payload.coverUrl || "";
+          if (isAdminMode && payload.guideId) b.guideId = payload.guideId;
+          const nextTotal = Math.max(1, parseInt(payload.totalChapters, 10) || 1);
+          if (nextTotal > b.totalChapters) for (let c = b.totalChapters + 1; c <= nextTotal; c++) b.chapters[c] = emptyChapterRecord();
+          if (nextTotal < b.totalChapters) for (let c = b.totalChapters; c > nextTotal; c--) delete b.chapters[c];
+          b.totalChapters = nextTotal;
+          await persistBook(b);
+          await refreshFromDb();
+        }
+        pendingSecureAction = null;
+      }
+
+      function bindEvents() {
+        document.addEventListener("click", (e) => {
+          const t = e.target;
+          const tab = t.closest && t.closest("[data-tab]");
+          if (tab) {
+            currentTab = tab.getAttribute("data-tab");
+            return renderApp();
+          }
+          if (t.id === "btn-logout") {
+            clearMemberSession();
+            detailBookId = null;
+            openModal("member-login");
+            return renderApp();
+          }
+          if (t.id === "btn-admin-mode") {
+            openModal("admin-book-auth");
+            return renderApp();
+          }
+          const closeModalBtn = t.closest && t.closest("[data-close-modal]");
+          if (closeModalBtn) {
+            closeModal();
+            return renderApp();
+          }
+          const openBook = t.closest && t.closest("[data-open-book]");
+          if (openBook) {
+            detailBookId = openBook.getAttribute("data-open-book");
+            return renderApp();
+          }
+          const closeDetail = t.closest && t.closest("[data-close-detail]");
+          if (closeDetail || (t.classList && t.classList.contains("modal-bg") && !uiModal.type)) {
+            detailBookId = null;
+            return renderApp();
+          }
+          const pick = t.closest && t.closest("[data-select-final]");
+          if (pick) {
+            const b = cache.books.find((x) => x.id === pick.getAttribute("data-book"));
+            if (!b || !isGuideFor(b)) return alert("길잡이의 비밀번호가 일치하지 않습니다.");
+            askSecure(
+              { type: "final-select", payload: { bookId: pick.getAttribute("data-book"), memberId: pick.getAttribute("data-member"), chapter: parseInt(pick.getAttribute("data-chapter"), 10) } },
+              "길잡이 본인 인증을 위해 비밀번호를 다시 입력하세요."
+            );
+            return renderApp();
+          }
+        });
+
+        document.addEventListener("change", (e) => {
+          const el = e.target;
+          if (el && el.name === "bookPick" && uiModal.type === "book-settings") {
+            const picked = (el.value || "").trim();
+            openModal("book-settings", { bookId: picked || "" });
+            renderApp();
+          }
+        });
+
+        document.addEventListener("submit", async (e) => {
+          const form = e.target;
+          if (form.tagName !== "FORM") return;
+          e.preventDefault();
+          try {
+            if (form.id === "form-master-auth") {
+              const pw = form.elements.namedItem("password").value;
+              if (pw !== USER_PASSWORD) {
+                openModal("master", {}, "마스터 비밀번호가 올바르지 않습니다.");
+                return renderApp();
+              }
+              isGatePassed = true;
+              sessionStorage.setItem("isGatePassed", "true");
+              openModal("member-login");
+              return renderApp();
+            }
+            if (form.id === "form-member-login") {
+              const memberId = form.elements.namedItem("memberId").value;
+              const pw = form.elements.namedItem("password").value;
+              const mem = memberList().find((m) => m.id === memberId);
+              if (!mem) {
+                openModal("member-login", {}, "멤버를 찾을 수 없습니다.");
+                return renderApp();
+              }
+              if (mem.is_first_login) {
+                setMemberSession(mem);
+                openModal("first-login", { memberId: mem.id });
+                return renderApp();
+              }
+              if ((mem.password || "") !== pw) {
+                openModal("member-login", {}, "개인 비밀번호가 일치하지 않습니다.");
+                return renderApp();
+              }
+              setMemberSession(mem);
+              await refreshFromDb();
+              subscribeRealtime();
+              closeModal();
+              return renderApp();
+            }
+            if (form.id === "form-first-password") {
+              const mem = memberList().find((m) => m.id === uiModal.meta.memberId);
+              if (!mem) return;
+              const p1 = form.elements.namedItem("password").value;
+              const p2 = form.elements.namedItem("confirmPassword").value;
+              if (!p1 || p1 !== p2) {
+                openModal("first-login", uiModal.meta, "비밀번호가 일치하지 않습니다.");
+                return renderApp();
+              }
+              await sb.from("club_members").update({ password: p1, is_first_login: false }).eq("id", mem.id);
+              await loadMembers();
+              await refreshFromDb();
+              subscribeRealtime();
+              closeModal();
+              return renderApp();
+            }
+            if (form.id === "form-admin-book-auth") {
+              const pw = form.elements.namedItem("password").value;
+              if (pw !== ADMIN_PASSWORD) {
+                openModal("admin-book-auth", {}, "관리자 비밀번호가 올바르지 않습니다.");
+                return renderApp();
+              }
+              isAdminMode = true;
+              sessionStorage.setItem("isAdminMode", "true");
+              openModal("book-settings", { bookId: currentBookId || "b1" });
+              return renderApp();
+            }
+            if (form.id === "form-book-settings") {
+              if (!isAdminMode) return;
+              const pick = (form.elements.namedItem("bookPick").value || "").trim();
+              const newId = (form.elements.namedItem("bookId").value || "").trim();
+              const targetId = (newId || pick || "").trim();
+              if (!/^b\d+$/i.test(targetId)) return alert("책 ID는 b1, b2 형식으로 입력해주세요.");
+              const book = ensureBook(targetId.toLowerCase());
+              book.title = (form.elements.namedItem("title").value || "").trim() || book.title;
+              book.author = (form.elements.namedItem("author").value || "").trim();
+              book.guideId = form.elements.namedItem("guideId").value;
+              const nextTotal = Math.max(1, parseInt(form.elements.namedItem("totalChapters").value, 10) || 1);
+              book.totalChapters = nextTotal;
+              book.chapters = alignChaptersToTotal(book.chapters, nextTotal);
+              const coverInput = (form.elements.namedItem("coverUrl").value || "").trim();
+              if (coverInput) book.coverUrl = coverInput;
+              const coverFileInput = form.elements.namedItem("coverFile");
+              if (coverFileInput && coverFileInput.files && coverFileInput.files[0]) {
+                book.coverUrl = await fileToDataUrl(coverFileInput.files[0]);
+              }
+              await persistBook(book);
+              await refreshFromDb();
+              currentBookId = book.id;
+              openModal("book-settings", { bookId: book.id });
+              showToast("책 정보가 성공적으로 업데이트되었습니다!");
+              return renderApp();
+            }
+            if (form.id === "form-secure-confirm") {
+              const me = currentMember();
+              const pw = form.elements.namedItem("password").value;
+              if (!me || (me.password || "") !== pw) {
+                openModal("secure-confirm", uiModal.meta, "길잡이의 비밀번호가 일치하지 않습니다.");
+                return renderApp();
+              }
+              await executeSecureAction();
+              closeModal();
+              return renderApp();
+            }
+            if (!isGatePassed || !currentMemberId) return;
+            if (form.id === "form-reading-input") {
+              const bookId = form.elements.namedItem("bookId").value;
+              const chapter = parseInt(form.elements.namedItem("chapter").value, 10);
+              const memberId = form.elements.namedItem("member").value;
+              const sentence = form.elements.namedItem("sentence").value.trim();
+              const b = cache.books.find((x) => x.id === bookId);
+              if (!b || !chapter || !memberId || !sentence) return;
+              if (!b.chapters[chapter]) b.chapters[chapter] = emptyChapterRecord();
+              b.chapters[chapter][memberId] = sentence;
+              currentBookId = bookId;
+              form.reset();
+              await persistBook(b);
+              await refreshFromDb();
+              return renderApp();
+            }
+            if (form.id === "form-book-edit") {
+              const bookId = form.getAttribute("data-book");
+              const b = cache.books.find((x) => x.id === bookId);
+              if (!b || (!isGuideFor(b) && !isAdminMode)) return alert("해당 책의 길잡이만 수정 가능합니다.");
+              askSecure(
+                {
+                  type: "book-edit",
+                  payload: {
+                    bookId,
+                    payload: {
+                      title: form.elements.namedItem("title").value.trim(),
+                      author: form.elements.namedItem("author").value.trim(),
+                      coverUrl: form.elements.namedItem("coverUrl").value.trim(),
+                      guideId: form.elements.namedItem("guideId").value,
+                      totalChapters: form.elements.namedItem("totalChapters").value,
+                    },
+                  },
+                },
+                "책 정보 수정 전 본인 비밀번호를 다시 입력하세요."
+              );
+              return renderApp();
+            }
+            if (form.id === "form-change-password") {
+              const me = currentMember();
+              if (!me) return;
+              const cur = form.elements.namedItem("currentPassword").value;
+              const next = form.elements.namedItem("newPassword").value;
+              const conf = form.elements.namedItem("confirmPassword").value;
+              if ((me.password || "") !== cur) return alert("현재 비밀번호가 일치하지 않습니다.");
+              if (!next || next !== conf) return alert("새 비밀번호 확인이 일치하지 않습니다.");
+              await sb.from("club_members").update({ password: next, is_first_login: false }).eq("id", me.id);
+              await loadMembers();
+              form.reset();
+              return alert("비밀번호가 변경되었습니다.");
+            }
+            const resetId = form.getAttribute("data-member-reset");
+            if (resetId) {
+              if (!isAdminMode) return;
+              const temp = form.elements.namedItem("newPassword").value.trim();
+              const patch = temp ? { password: temp, is_first_login: false } : { password: null, is_first_login: true };
+              await sb.from("club_members").update(patch).eq("id", resetId);
+              await loadMembers();
+              renderApp();
+              return alert("멤버 상태가 업데이트되었습니다.");
+            }
+          } catch (err) {
+            alert(err.message || String(err));
+          }
+        });
+      }
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        try {
+          await loadMembers();
+          if (!isGatePassed) openModal("master");
+          else if (!currentMemberId) openModal("member-login");
+          if (isGatePassed && currentMemberId) {
+            await refreshFromDb();
+            subscribeRealtime();
+          }
+        } catch (err) {
+          loadError = err.message || String(err);
+          openModal("master");
+        }
+        bindEvents();
+        renderApp();
+      });
+    </script>
+  </body>
+</html>
