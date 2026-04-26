@@ -677,6 +677,52 @@
           deleteBook(bookId);
         }
       };
+      
+      window.setBookOfTheMonthDirect = async function(bookId, bookTitle) {
+        const isAdmin = currentMemberId === 'chloe';
+        if (!isAdmin) {
+          showToast("관리자 기능에 접근할 수 없습니다.", 'error');
+          return;
+        }
+        
+        // Prevent multiple clicks
+        const button = document.getElementById(`btn-set-book-month-${bookId}`);
+        if (!button || button.disabled) return;
+        
+        try {
+          // Add loading state
+          const originalText = button.textContent;
+          button.disabled = true;
+          button.textContent = '설정 중...';
+          button.classList.add('opacity-70');
+          
+          // Step 1: Clear all Book of the Month flags in database
+          const { error: clearError } = await sb.from("books").update({ is_book_of_the_month: false }).neq('id', 'nonexistent');
+          if (clearError) throw clearError;
+          
+          // Step 2: Set selected book as Book of the Month
+          const { error: setError } = await sb.from("books").update({ is_book_of_the_month: true }).eq("id", bookId);
+          if (setError) throw setError;
+          
+          // Step 3: Update local state
+          currentBookId = bookId;
+          
+          // Step 4: Refresh cache and re-render
+          await refreshFromDb();
+          renderApp();
+          
+          showToast(`"${bookTitle}"이(가) 이달의 책으로 설정되었습니다.`);
+          
+        } catch (error) {
+          console.error('Error setting Book of the Month:', error);
+          showToast('이달의 책 설정에 실패했습니다.', 'error');
+          
+          // Restore button state on error
+          button.disabled = false;
+          button.textContent = originalText;
+          button.classList.remove('opacity-70');
+        }
+      };
       function renderBookshelfTab() {
         return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><section class="wood-touch relative overflow-hidden rounded-2xl p-4"><div class="relative z-10"><h2 class="font-serif text-xl text-[#f4e6c2]">2026 북쉘프</h2><div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">${cache.books.map((b) => `<button type="button" class="group text-left" data-open-book="${b.id}"><div class="book-container bg-white/90 backdrop-blur rounded-xl p-4 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300 hover:bg-white/95"><div class="flex gap-4"><div class="flex-shrink-0 w-24 h-36 sm:w-28 sm:h-42"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy"/>` : `<div class="book-card-placeholder h-full"><div class="book-title text-xs">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><h3 class="font-semibold text-deep text-base sm:text-lg mb-1 truncate">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/70 mb-2 truncate">${escapeHtml(b.author || "저자 미입력")}</p><div class="flex items-center gap-2"><span class="guide-badge text-xs">🚩 길잡이: ${escapeHtml(memberNameById(b.guideId))}</span></div></div></div></div></button>`).join("")}</div></div></section></main>`;
       }
@@ -832,9 +878,17 @@
                           <p class="text-xs text-deep/60">${escapeHtml(book.author || "저자 미입력")} | ${book.totalChapters}챕터</p>
                           <p class="text-xs text-deep/45">길잡이: ${escapeHtml(memberNameById(book.guideId))}</p>
                         </div>
-                        <div class="flex gap-2">
-                          <button class="btn-ghost !px-3 !py-2 !text-xs" onclick="editBookSettings('${book.id}')">수정</button>
-                          <button class="btn-ghost !px-3 !py-2 !text-xs text-red-600" onclick="confirmDeleteBook('${book.id}', '${escapeHtml(book.title)}')">삭제</button>
+                        <div class="flex flex-col gap-2">
+                          <div class="flex gap-2">
+                            <button class="btn-ghost !px-3 !py-2 !text-xs" onclick="editBookSettings('${book.id}')">수정</button>
+                            <button class="btn-ghost !px-3 !py-2 !text-xs text-red-600" onclick="confirmDeleteBook('${book.id}', '${escapeHtml(book.title)}')">삭제</button>
+                          </div>
+                          <button id="btn-set-book-month-${book.id}" 
+                                  class="btn-primary !px-3 !py-2 !text-xs w-full ${book.id === currentBookId ? '!bg-gold !cursor-not-allowed' : ''}" 
+                                  onclick="setBookOfTheMonthDirect('${book.id}', '${escapeHtml(book.title)}')"
+                                  ${book.id === currentBookId ? 'disabled' : ''}>
+                            ${book.id === currentBookId ? '현재 이달의 책' : '이달의 책으로 설정'}
+                          </button>
                         </div>
                       </div>
                     `).join("")}
