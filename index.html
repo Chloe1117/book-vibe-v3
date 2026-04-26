@@ -300,48 +300,7 @@
         }
         return { chapters, total, guideIdInMeta: typeof meta.guideId === "string" ? meta.guideId : "" };
       }
-      function normalizeFinalSentence(v) {
-        // Extremely resilient - always return valid object with .text property
-        if (v && typeof v === 'object' && !Array.isArray(v) && 'text' in v) {
-          return {
-            text: typeof v.text === 'string' ? v.text : String(v.text || ''),
-            memberId: typeof v.memberId === 'string' ? v.memberId : '',
-            chapter: Number.isFinite(parseInt(v.chapter, 10)) ? parseInt(v.chapter, 10) : null,
-          };
-        }
-        
-        // If it's a string, try to parse it, but always return an object
-        if (typeof v === 'string') {
-          let parsed = v;
-          
-          // Try to parse if it looks like JSON
-          if (v.trim().startsWith('{')) {
-            try {
-              parsed = JSON.parse(v);
-              if (parsed && typeof parsed === 'object' && 'text' in parsed) {
-                return {
-                  text: typeof parsed.text === 'string' ? parsed.text : String(parsed.text || ''),
-                  memberId: typeof parsed.memberId === 'string' ? parsed.memberId : '',
-                  chapter: Number.isFinite(parseInt(parsed.chapter, 10)) ? parseInt(parsed.chapter, 10) : null,
-                };
-              }
-            } catch (e) {
-              // If parsing fails, treat the string itself as text
-            }
-          }
-          
-          // Return the string as text
-          return {
-            text: v,
-            memberId: '',
-            chapter: null,
-          };
-        }
-        
-        // Default fallback
-        return { text: '', memberId: '', chapter: null };
-      }
-      function normalizeBook(row, index) {
+            function normalizeBook(row, index) {
         const norm = normalizeMilestones(row.milestones);
         const rawGuide = row.guide_id || row.guide_name || norm.guideIdInMeta || "";
         const guideId = memberList().find((m) => m.id === rawGuide || m.display_name === rawGuide)?.id || memberList()[0]?.id || "jeongeun";
@@ -817,16 +776,19 @@
           // Emergency debugging
           console.log("Critical - Book ID:", b.id, "Final Text:", b.final_sentence_text, "Selector ID:", b.final_sentence_member_id, "Guide ID:", b.guide_id);
           
-          // Check if we have valid sentence text using new DB schema
+          // Only render the Hall of Fame card if final_sentence_text is not null or empty
           if (!b.final_sentence_text || b.final_sentence_text.trim() === '') {
             // Display placeholder for missing data
             html += `<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow duration-300"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 sm:w-40 sm:h-60 mx-auto sm:mx-0"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>` : `<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><div class="mb-4"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(b.author || "저자 미입력")}</p></div><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><div class="text-center py-10 text-deep/30 italic">${escapeHtml(b.title)}은(는) 최종 문장을 기다리고 있습니다.</div></div></div></article>`;
             return;
           }
           
-          // Find names from cache.members as specified
-          const selectorName = cache.members?.find(m => m.id === b.final_sentence_member_id)?.display_name || "멤버";
-          const guideName = cache.members?.find(m => m.id === b.guide_id)?.display_name || "길잡이";
+          // Identify two distinct roles as specified
+          const selector = cache.members?.find(m => m.id === b.final_sentence_member_id);
+          const guide = cache.members?.find(m => m.id === b.guide_id);
+          
+          const selectorName = selector ? selector.display_name : "멤버";
+          const guideName = guide ? guide.display_name : "길잡이";
           
           // Format the final sentence text using new column
           const formattedSentence = `"${b.final_sentence_text.trim()}"`;
