@@ -134,9 +134,11 @@
         align-items: center;
         justify-content: center;
         background: rgba(0,0,0,0.5);
+        pointer-events: none;
       }
       #modal-overlay:not(.hidden) {
         display: flex;
+        pointer-events: auto;
       }
       #modal-content {
         pointer-events: auto;
@@ -250,8 +252,19 @@
         
         if (modalOverlay && modalContent) {
           if (type) {
+            // Close any existing modal first
+            if (modalOverlay.style.display !== 'none') {
+              modalOverlay.style.display = 'none';
+              modalOverlay.classList.add("hidden");
+              modalContent.innerHTML = "";
+            }
+            
             // Show modal
+            modalOverlay.style.display = 'flex';
             modalOverlay.classList.remove("hidden");
+            
+            // Disable scrolling
+            document.body.style.overflow = 'hidden';
             
             // Inject modal content based on type
             if (type === "edit-book" || type === "book-settings") {
@@ -277,9 +290,13 @@
         const modalOverlay = document.getElementById("modal-overlay");
         const modalContent = document.getElementById("modal-content");
         if (modalOverlay && modalContent) {
+          modalOverlay.style.display = 'none';
           modalOverlay.classList.add("hidden");
           modalContent.innerHTML = "";
         }
+        
+        // Re-enable scrolling
+        document.body.style.overflow = 'auto';
       }
       function showToast(msg) {
         toastMessage = msg;
