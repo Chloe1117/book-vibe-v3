@@ -628,6 +628,43 @@
           alert('문장 삭제에 실패했습니다.');
         }
       };
+      
+      window.editBookSettings = function(bookId) {
+        const isAdmin = currentMemberId === 'chloe';
+        if (!isAdmin) {
+          alert("관리자 기능에 접근할 수 없습니다.");
+          return;
+        }
+        openModal("book-settings", { bookId });
+      };
+      
+      window.deleteBook = async function(bookId) {
+        const isAdmin = currentMemberId === 'chloe';
+        if (!isAdmin) {
+          alert("관리자 기능에 접근할 수 없습니다.");
+          return;
+        }
+        
+        const book = cache.books.find(b => b.id === bookId);
+        if (!book) return;
+        
+        if (!confirm(`"${book.title}" 책을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
+          return;
+        }
+        
+        try {
+          // Delete from Supabase
+          const { error } = await sb.from("books").delete().eq("id", bookId);
+          if (error) throw error;
+          
+          await refreshFromDb();
+          renderApp();
+          alert(`"${book.title}" 책이 삭제되었습니다.`);
+        } catch (error) {
+          console.error('Error deleting book:', error);
+          alert('책 삭제에 실패했습니다.');
+        }
+      };
       function renderBookshelfTab() {
         return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><section class="wood-touch relative overflow-hidden rounded-2xl p-4"><div class="relative z-10"><h2 class="font-serif text-xl text-[#f4e6c2]">2026 북쉘프</h2><div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">${cache.books.map((b) => `<button type="button" class="group text-left" data-open-book="${b.id}"><div class="book-container bg-white/90 backdrop-blur rounded-xl p-4 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300 hover:bg-white/95"><div class="flex gap-4"><div class="flex-shrink-0 w-24 h-36 sm:w-28 sm:h-42"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy"/>` : `<div class="book-card-placeholder h-full"><div class="book-title text-xs">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><h3 class="font-semibold text-deep text-base sm:text-lg mb-1 truncate">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/70 mb-2 truncate">${escapeHtml(b.author || "저자 미입력")}</p><div class="flex items-center gap-2"><span class="guide-badge text-xs">🚩 길잡이: ${escapeHtml(memberNameById(b.guideId))}</span></div></div></div></div></button>`).join("")}</div></div></section></main>`;
       }
@@ -707,7 +744,74 @@
           const accountSettingsSection = `<section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep mb-4">🔐 계정 설정</h3><form id="form-change-password" class="mt-3 grid gap-2"><input class="input-field" type="password" name="currentPassword" placeholder="현재 비밀번호" required /><input class="input-field" type="password" name="newPassword" placeholder="새 비밀번호" required /><input class="input-field" type="password" name="confirmPassword" placeholder="새 비밀번호 확인" required /><button class="btn-primary">변경하기</button></form></section>`;
           
           const siteManagementSection = isAdmin
-            ? `<section class="paper-panel mt-4 rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep mb-4">📚 사이트 관리</h3><div class="space-y-3"><button id="btn-book-settings" class="btn-primary w-full">책 정보 설정</button><p class="text-xs text-deep/60 mt-2">책 추가, 수정 및 이달의 책 지정</p></div></section>`
+            ? `<section class="paper-panel mt-4 rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep mb-4">📚 사이트 관리</h3>
+                
+                <!-- Add New Book Form -->
+                <div class="mb-6">
+                  <h4 class="text-sm font-semibold text-deep mb-3">새 책 추가</h4>
+                  <form id="form-add-book" class="grid gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <input class="input-field" name="title" placeholder="책 제목" required />
+                      <input class="input-field" name="author" placeholder="저자" />
+                    </div>
+                    <input class="input-field" name="coverUrl" placeholder="표지 이미지 URL (선택)" />
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <input class="input-field" name="totalChapters" type="number" min="1" max="150" placeholder="총 챕터 수" required />
+                      <select class="input-field" name="guideId">
+                        ${memberList().map((m) => `<option value="${m.id}">${escapeHtml(m.display_name)}</option>`).join("")}
+                      </select>
+                    </div>
+                    <button class="btn-primary">책 추가하기</button>
+                  </form>
+                </div>
+                
+                <!-- Book of the Month Selection -->
+                <div class="mb-6">
+                  <h4 class="text-sm font-semibold text-deep mb-3">이달의 책 선택</h4>
+                  <div class="space-y-2">
+                    ${(cache.books || []).map((book) => `
+                      <label class="flex items-center gap-3 p-3 rounded-lg border border-deep/10 bg-white/70 hover:bg-white/90 cursor-pointer transition-colors">
+                        <input type="radio" name="bookOfTheMonth" value="${book.id}" 
+                               ${book.id === currentBookId ? "checked" : ""} 
+                               class="rounded text-deep focus:ring-deep/20" />
+                        <div class="flex-1">
+                          <p class="font-medium text-deep">${escapeHtml(book.title)}</p>
+                          <p class="text-xs text-deep/60">${escapeHtml(book.author || "저자 미입력")}</p>
+                        </div>
+                        ${book.id === currentBookId ? '<span class="text-xs bg-gold text-white px-2 py-1 rounded-full">현재 선택</span>' : ''}
+                      </label>
+                    `).join("")}
+                  </div>
+                </div>
+                
+                <!-- Existing Books List -->
+                <div>
+                  <h4 class="text-sm font-semibold text-deep mb-3">기존 책 관리</h4>
+                  <div class="space-y-3">
+                    ${(cache.books || []).map((book) => `
+                      <div class="flex items-center gap-4 p-3 rounded-lg border border-deep/10 bg-white/70">
+                        <div class="flex-shrink-0 w-12 h-16">
+                          ${book.coverUrl ? 
+                            `<img src="${escapeHtml(book.coverUrl)}" alt="${escapeHtml(book.title)}" class="w-full h-full object-cover rounded" />` :
+                            `<div class="w-full h-full bg-gradient-to-br from-deep/10 to-deep/20 rounded flex items-center justify-center">
+                              <span class="text-xs text-deep/60 font-semibold">No Cover</span>
+                            </div>`
+                          }
+                        </div>
+                        <div class="flex-1">
+                          <p class="font-medium text-deep">${escapeHtml(book.title)}</p>
+                          <p class="text-xs text-deep/60">${escapeHtml(book.author || "저자 미입력")} | ${book.totalChapters}챕터</p>
+                          <p class="text-xs text-deep/45">길잡이: ${escapeHtml(memberNameById(book.guideId))}</p>
+                        </div>
+                        <div class="flex gap-2">
+                          <button class="btn-ghost !px-3 !py-2 !text-xs" onclick="editBookSettings('${book.id}')">수정</button>
+                          <button class="btn-ghost !px-3 !py-2 !text-xs text-red-600" onclick="deleteBook('${book.id}')">삭제</button>
+                        </div>
+                      </div>
+                    `).join("")}
+                  </div>
+                </div>
+              </section>`
             : "";
           
           const memberManagementSection = isAdmin
@@ -919,6 +1023,75 @@
               closeModal();
               return renderApp();
             }
+            if (form.id === "form-add-book") {
+              // Check if user is chloe before allowing admin access
+              const isAdmin = currentMemberId === 'chloe';
+              
+              if (!isAdmin) {
+                alert("관리자 기능에 접근할 수 없습니다.");
+                return renderApp();
+              }
+              
+              const title = (form.elements.namedItem("title").value || "").trim();
+              const author = (form.elements.namedItem("author").value || "").trim();
+              const coverUrl = (form.elements.namedItem("coverUrl").value || "").trim();
+              const totalChapters = Math.max(1, parseInt(form.elements.namedItem("totalChapters").value, 10) || 1);
+              const guideId = form.elements.namedItem("guideId").value;
+              
+              if (!title) {
+                alert("책 제목을 입력해주세요.");
+                return;
+              }
+              
+              // Generate new book ID
+              const newBookId = `b${Math.max(...(cache.books || []).map(b => parseInt(b.id.replace('b', '')) || 0), 0) + 1}`;
+              
+              const newBook = {
+                id: newBookId,
+                title,
+                author,
+                coverUrl,
+                totalChapters,
+                guideId,
+                chapters: Array.from({ length: totalChapters }, (_, i) => ({}))
+              };
+              
+              try {
+                await persistBook(newBook);
+                await refreshFromDb();
+                form.reset();
+                renderApp();
+                alert(`"${title}" 책이 추가되었습니다.`);
+              } catch (error) {
+                console.error('Error adding book:', error);
+                alert('책 추가에 실패했습니다.');
+              }
+              return;
+            }
+            
+            // Book of the Month selection handler
+            const bookOfTheMonthRadio = form.elements.namedItem("bookOfTheMonth");
+            if (bookOfTheMonthRadio && bookOfTheMonthRadio.checked) {
+              const isAdmin = currentMemberId === 'chloe';
+              
+              if (!isAdmin) {
+                alert("관리자 기능에 접근할 수 없습니다.");
+                return renderApp();
+              }
+              
+              const selectedBookId = bookOfTheMonthRadio.value;
+              
+              try {
+                await setBookOfTheMonth(selectedBookId);
+                renderApp();
+                alert("이달의 책이 변경되었습니다.");
+              } catch (error) {
+                console.error('Error setting Book of the Month:', error);
+                alert('이달의 책 변경에 실패했습니다.');
+              }
+              return;
+            }
+            
             if (form.id === "form-book-settings") {
               // Check if user is chloe before allowing admin access
               const isAdmin = currentMemberId === 'chloe';
