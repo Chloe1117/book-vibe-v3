@@ -469,6 +469,15 @@
       function formatFinalSentence(rawData) {
         let data = safeParse(rawData);
         
+        // Final Guard Logic: Check for empty states before processing
+        if (typeof data === 'object' && data !== null && (!data.text || data.text.trim() === "")) {
+          return '<div class="text-center py-10 text-deep/30 italic">올해의 문장을 기다리고 있습니다.</div>';
+        }
+        
+        if (typeof data === 'string' && data.trim().startsWith('{"')) {
+          return '<div class="text-center py-10 text-deep/30 italic">올해의 문장을 기다리고 있습니다.</div>';
+        }
+        
         // IMPORTANT: Even after safeParse, if data is still a string that looks like JSON, try to parse it one more time
         if (typeof data === 'string' && data.trim().startsWith('{')) {
           try {
@@ -493,8 +502,13 @@
         
         console.log("Final Output Text:", sentenceText);
         
-        // Final validation: If sentenceText is null, undefined, or empty string/object (after trimming)
+        // Final validation: If sentenceText is null, undefined, empty string, or ONLY contains whitespace, return placeholder
         if (sentenceText === null || sentenceText === undefined || (typeof sentenceText === 'string' && sentenceText.trim() === '')) {
+          return '<div class="text-center py-10 text-deep/30 italic">올해의 문장을 기다리고 있습니다.</div>';
+        }
+        
+        // Do not let any raw JSON string fall through - one final check
+        if (typeof sentenceText === 'string' && (sentenceText.trim().startsWith('{"') || sentenceText.trim() === '{"text":"","memberId":"","chapter":null}')) {
           return '<div class="text-center py-10 text-deep/30 italic">올해의 문장을 기다리고 있습니다.</div>';
         }
         
