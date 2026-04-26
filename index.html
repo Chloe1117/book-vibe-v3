@@ -574,25 +574,60 @@
         if (!selected) return `<main class="mx-auto max-w-content px-4 py-6 pb-28 text-sm text-deep/55">불러오는 중...</main>`;
         const progress = chapterProgress(selected);
         const chapterOpts = Array.from({ length: selected.totalChapters }, (_, i) => i + 1).map((n) => `<option value="${n}">Chapter ${n}</option>`).join("");
+        
+        // Advanced progress bar with status-based coloring
+        const progressBarSegments = Array.from({ length: selected.totalChapters }, (_, i) => {
+          const chapterNum = i + 1;
+          const submittedCount = memberList().filter((m) => (selected.chapters[chapterNum]?.[m.id] || "").trim()).length;
+          let segmentClass = "w-2 h-2 rounded-full ";
+          
+          if (submittedCount === 0) {
+            segmentClass += "bg-gray-300"; // GREY: 0 submissions
+          } else if (submittedCount < memberList().length) {
+            segmentClass += "bg-yellow-400"; // YELLOW: 1-2 submissions (In Progress)
+          } else {
+            segmentClass += "bg-green-500"; // GREEN: All submissions (Completed)
+          }
+          
+          return `<div class="${segmentClass}" title="Chapter ${chapterNum}: ${submittedCount}/${memberList().length} 작성"></div>`;
+        }).join("");
+        
         const rows = Array.from({ length: selected.totalChapters }, (_, i) => i + 1)
-          .map((c) => `<section class="mt-3 rounded-xl border border-deep/10 bg-white/65 p-3"><div class="mb-2 flex items-center justify-between"><h4 class="font-semibold text-deep">Chapter ${c}</h4><span class="text-xs text-deep/45">${memberList().filter((m) => (selected.chapters[c]?.[m.id] || "").trim()).length}/${memberList().length} 작성</span></div><ul class="space-y-2">${memberList().map((m) => {
-            const sentence = (selected.chapters[c]?.[m.id] || "").trim();
-            const isOwner = m.id === currentMemberId;
-            const hasSentence = sentence !== "";
+          .map((c) => {
+            const submittedCount = memberList().filter((m) => (selected.chapters[c]?.[m.id] || "").trim()).length;
+            const isBlindEntry = submittedCount < 3; // Hide others if less than 3 submissions
             
-            return `<li class="rounded-lg border border-deep/10 bg-white/70 px-3 py-2" data-chapter="${c}" data-member="${m.id}"><p class="text-[11px] font-semibold text-deep/60">${escapeHtml(m.display_name)}</p><div class="mt-1">
-              ${hasSentence ? 
-                (isOwner ? 
-                  `<div class="sentence-view"><p class="text-sm text-deep/85">${escapeHtml(sentence)}</p><div class="mt-2 flex gap-2"><button class="btn-ghost !px-2 !py-1 !text-xs" onclick="editSentence(${c}, '${m.id}', '${escapeHtml(sentence)}')">수정</button><button class="btn-ghost !px-2 !py-1 !text-xs text-red-600" onclick="deleteSentence(${c}, '${m.id}')">삭제</button></div></div>` :
-                  `<p class="text-sm text-deep/85">${escapeHtml(sentence)}</p>`
-                ) : 
-                `<span class="text-deep/35">아직 기록 없음</span>`
+            return `<section class="mt-3 rounded-xl border border-deep/10 bg-white/65 p-3"><div class="mb-2 flex items-center justify-between"><h4 class="font-semibold text-deep">Chapter ${c}</h4><span class="text-xs text-deep/45">${submittedCount}/${memberList().length} 작성</span></div><ul class="space-y-2">${memberList().map((m) => {
+              const sentence = (selected.chapters[c]?.[m.id] || "").trim();
+              const isOwner = m.id === currentMemberId;
+              const hasSentence = sentence !== "";
+              
+              // Blind entry system logic
+              let displayContent = "";
+              if (hasSentence) {
+                if (isOwner) {
+                  // User can always see their own entry
+                  displayContent = `<div class="sentence-view"><p class="text-sm text-deep/85">${escapeHtml(sentence)}</p><div class="mt-2 flex gap-2"><button class="btn-ghost !px-2 !py-1 !text-xs" onclick="editSentence(${c}, '${m.id}', '${escapeHtml(sentence)}')">수정</button><button class="btn-ghost !px-2 !py-1 !text-xs text-red-600" onclick="deleteSentence(${c}, '${m.id}')">삭제</button></div></div>`;
+                } else {
+                  // For other members, check if blind entry applies
+                  if (isBlindEntry) {
+                    displayContent = `<p class="text-sm text-deep/35 italic">??? (대기 중...)</p>`;
+                  } else {
+                    displayContent = `<p class="text-sm text-deep/85">${escapeHtml(sentence)}</p>`;
+                  }
+                }
+              } else {
+                displayContent = `<span class="text-deep/35">아직 기록 없음</span>`;
               }
-              <div class="sentence-edit hidden mt-1"><textarea class="input-field text-sm" rows="2" id="edit-${c}-${m.id}">${escapeHtml(sentence)}</textarea><div class="mt-2 flex gap-2"><button class="btn-primary !px-2 !py-1 !text-xs" onclick="saveSentence(${c}, '${m.id}')">저장</button><button class="btn-ghost !px-2 !py-1 !text-xs" onclick="cancelEdit(${c}, '${m.id}')">취소</button></div></div>
-            </div></li>`;
-          }).join("")}</ul></section>`)
-          .join("");
-        return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm"><div class="flex items-center justify-between gap-3"><div><p class="text-[11px] uppercase tracking-[0.18em] text-gold">이달의 책</p><h2 class="font-serif text-xl">${escapeHtml(selected.title)}</h2><p class="mt-1"><span class="guide-badge">⭐ 길잡이: ${escapeHtml(memberNameById(selected.guideId))}</span></p></div><span class="text-xs text-deep/50">${progress.done}/${progress.total} 완료</span></div><div class="mt-3 h-2 overflow-hidden rounded-full bg-mist"><div class="h-full rounded-full bg-deep-soft" style="width:${progress.pct}%"></div></div><div class="mt-4 p-3 bg-deep/5 rounded-lg border border-deep/10"><p class="text-sm text-deep/60 mb-1">기록 정보</p><p class="text-xs text-deep/80">${escapeHtml(currentMemberName)} | ${escapeHtml(selected.title)}</p></div><form id="form-reading-input" class="mt-4 grid gap-2"><select class="input-field" name="chapter">${chapterOpts}</select><textarea class="input-field" rows="3" name="sentence" placeholder="기억에 남는 문장을 입력하세요" required></textarea><button class="btn-primary">문장 기록</button></form></section><section class="mt-4">${rows}</section></main>`;
+              
+              return `<li class="rounded-lg border border-deep/10 bg-white/70 px-3 py-2" data-chapter="${c}" data-member="${m.id}"><p class="text-[11px] font-semibold text-deep/60">${escapeHtml(m.display_name)}</p><div class="mt-1">
+                ${displayContent}
+                <div class="sentence-edit hidden mt-1"><textarea class="input-field text-sm" rows="2" id="edit-${c}-${m.id}">${escapeHtml(sentence)}</textarea><div class="mt-2 flex gap-2"><button class="btn-primary !px-2 !py-1 !text-xs" onclick="saveSentence(${c}, '${m.id}')">저장</button><button class="btn-ghost !px-2 !py-1 !text-xs" onclick="cancelEdit(${c}, '${m.id}')">취소</button></div></div>
+              </div></li>`;
+            }).join("")}</ul></section>`;
+          }).join("");
+        
+        return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm"><div class="flex items-center justify-between gap-3"><div><p class="text-[11px] uppercase tracking-[0.18em] text-gold">이달의 책</p><h2 class="font-serif text-xl">${escapeHtml(selected.title)}</h2><p class="mt-1"><span class="guide-badge">⭐ 길잡이: ${escapeHtml(memberNameById(selected.guideId))}</span></p></div><span class="text-xs text-deep/50">${progress.done}/${progress.total} 완료</span></div><div class="mt-3 h-2 overflow-hidden rounded-full bg-mist"><div class="h-full rounded-full bg-deep-soft" style="width:${progress.pct}%"></div></div><div class="mt-3 flex gap-1 justify-center">${progressBarSegments}</div><div class="mt-4 p-3 bg-deep/5 rounded-lg border border-deep/10"><p class="text-sm text-deep/60 mb-1">기록 정보</p><p class="text-xs text-deep/80">${escapeHtml(currentMemberName)} | ${escapeHtml(selected.title)}</p></div><form id="form-reading-input" class="mt-4 grid gap-2"><select class="input-field" name="chapter">${chapterOpts}</select><textarea class="input-field" rows="3" name="sentence" placeholder="기억에 남는 문장을 입력하세요" required></textarea><button class="btn-primary">문장 기록</button></form></section><section class="mt-4">${rows}</section></main>`;
       }
       // Edit/Delete functions for sentences
       window.editSentence = function(chapter, memberId, currentSentence) {
