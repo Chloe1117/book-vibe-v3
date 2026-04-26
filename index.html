@@ -126,17 +126,21 @@
         background: rgba(0, 0, 0, 0.5);
         backdrop-filter: blur(5px);
       }
-      #modal-container {
+      #modal-overlay {
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
+        inset: 0;
         z-index: 9999;
-        pointer-events: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
-      #modal-container > * {
+      #modal-overlay.hidden {
+        display: none;
+      }
+      #modal-content {
         pointer-events: auto;
+        position: relative;
+        z-index: 10000;
       }
       .toast {
         position: fixed;
@@ -167,7 +171,13 @@
   </head>
   <body class="app-bg min-h-screen antialiased">
     <div id="app-root"></div>
-    <div id="modal-container"></div>
+    
+    <!-- Global Modal Structure - Shared Component -->
+    <div id="modal-overlay" class="hidden" style="position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center;">
+      <div class="modal-bg" style="position: absolute; inset: 0;"></div>
+      <div id="modal-content" class="relative" style="pointer-events: auto;"></div>
+    </div>
+    
     <script type="module">
       import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
@@ -232,9 +242,43 @@
       }
       function openModal(type, meta = {}, error = "") {
         uiModal = { type, meta, error };
+        
+        // Handle global modal overlay
+        const modalOverlay = document.getElementById("modal-overlay");
+        const modalContent = document.getElementById("modal-content");
+        
+        if (modalOverlay && modalContent) {
+          if (type) {
+            // Show modal
+            modalOverlay.classList.remove("hidden");
+            
+            // Inject modal content based on type
+            if (type === "book-settings") {
+              const selectedId = meta.bookId || "";
+              const selectedBook = bookById(selectedId);
+              const selectOptions = cache.books.map((b) => `<option value="${b.id}" ${selectedId === b.id ? "selected" : ""}>${b.id} · ${escapeHtml(b.title)}</option>`).join("");
+              modalContent.innerHTML = `<div class="paper-panel max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-2xl border border-deep/12 p-5 shadow-2xl sm:rounded-2xl"><div class="sticky top-0 z-10 -mx-5 -mt-5 mb-4 flex items-center justify-between border-b border-deep/10 bg-[#f7f1e5]/95 px-5 py-3 backdrop-blur"><h2 class="font-serif text-xl">책 정보 설정(관리자)</h2><button type="button" class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><form id="form-book-settings" class="grid gap-3"><div><label class="text-xs text-deep/60">책 선택</label><select class="input-field mt-1" name="bookPick"><option value="">새 ID 사용</option>${selectOptions}</select></div><div><label class="text-xs text-deep/60">새 ID (예: b11, 선택 입력)</label><input class="input-field mt-1" name="bookId" value="${selectedBook ? "" : escapeHtml(selectedId)}" placeholder="b1" /></div><div><label class="text-xs text-deep/60">책 제목</label><input class="input-field mt-1" name="title" value="${escapeHtml(selectedBook?.title || "")}" required /></div><div><label class="text-xs text-deep/60">저자</label><input class="input-field mt-1" name="author" value="${escapeHtml(selectedBook?.author || "")}" /></div><div><label class="text-xs text-deep/60">총 챕터 수</label><input class="input-field mt-1" type="number" min="1" max="150" name="totalChapters" value="${selectedBook?.totalChapters || 4}" required /></div><div><label class="text-xs text-deep/60">길잡이 지정</label><select class="input-field mt-1" name="guideId">${memberList().map((m) => `<option value="${m.id}" ${selectedBook?.guideId === m.id ? "selected" : ""}>${escapeHtml(m.display_name)}</option>`).join("")}</select></div><div><label class="text-xs text-deep/60">표지 이미지 URL</label><input class="input-field mt-1" name="coverUrl" value="${escapeHtml(selectedBook?.coverUrl || "")}" placeholder="https://..." /></div><button class="btn-primary w-full">저장</button></form></div>`;
+            } else {
+              // Use existing modal rendering for other types
+              modalContent.innerHTML = renderAuthModal();
+            }
+          } else {
+            // Hide modal
+            modalOverlay.classList.add("hidden");
+            modalContent.innerHTML = "";
+          }
+        }
       }
       function closeModal() {
         uiModal = { type: null, meta: {}, error: "" };
+        
+        // Hide global modal overlay
+        const modalOverlay = document.getElementById("modal-overlay");
+        const modalContent = document.getElementById("modal-content");
+        if (modalOverlay && modalContent) {
+          modalOverlay.classList.add("hidden");
+          modalContent.innerHTML = "";
+        }
       }
       function showToast(msg) {
         toastMessage = msg;
@@ -613,12 +657,19 @@
         }
       };
       
-      window.editBookSettings = function(bookId) {
+      window.editBookSettings = function(bookId, event) {
+        // Prevent event propagation to avoid parent click handlers
+        if (event) {
+          event.stopPropagation();
+        }
+        
         const isAdmin = currentMemberId === 'chloe';
         if (!isAdmin) {
           alert("관리자 기능에 접근할 수 없습니다.");
           return;
         }
+        
+        // Use global modal - do NOT trigger any tab switching
         openModal("book-settings", { bookId });
       };
       
@@ -856,7 +907,7 @@
                         </div>
                         <div class="flex flex-col gap-2">
                           <div class="flex gap-2">
-                            <button class="btn-ghost !px-3 !py-2 !text-xs" onclick="editBookSettings('${book.id}')">수정</button>
+                            <button class="btn-ghost !px-3 !py-2 !text-xs" onclick="editBookSettings('${book.id}', event)">수정</button>
                             <button class="btn-ghost !px-3 !py-2 !text-xs text-red-600" onclick="confirmDeleteBook('${book.id}', '${escapeHtml(book.title)}')">삭제</button>
                           </div>
                           <button id="btn-set-book-month-${book.id}" 
@@ -916,7 +967,6 @@
 
       function renderApp() {
         const root = document.getElementById("app-root");
-        const modalContainer = document.getElementById("modal-container");
         if (!root) return;
         const main =
           isGatePassed && currentMemberId
@@ -930,13 +980,8 @@
             : `<main class="min-h-screen"></main>`;
         const toast = toastMessage ? `<div class="toast">${escapeHtml(toastMessage)}</div>` : "";
         
-        // Render main app content in app-root
+        // Render main app content in app-root (modals are handled separately)
         root.innerHTML = `${isGatePassed && currentMemberId ? renderHeader() : ""}${main}${isGatePassed && currentMemberId ? renderBottomTabs() : ""}${toast}`;
-        
-        // Render modals in dedicated modal-container (outside tab switching)
-        if (modalContainer) {
-          modalContainer.innerHTML = `${detailBookId && currentMemberId ? renderBookDetailModal(detailBookId) : ""}${renderAuthModal()}`;
-        }
       }
 
       function askSecure(action, message) {
