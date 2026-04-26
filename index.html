@@ -176,7 +176,14 @@
       let currentMemberId = sessionStorage.getItem("currentMemberId") || "";
       let currentMemberName = sessionStorage.getItem("currentMemberName") || "";
       let isGatePassed = sessionStorage.getItem("isGatePassed") === "true";
-      let isAdminMode = sessionStorage.getItem("isAdminMode") === "true";
+      function currentMember() {
+        return cache.members.find(m => m.id === currentMemberId);
+      }
+      
+      function isAdmin() {
+        const member = currentMember();
+        return member && member.display_name === 'chloe';
+      }
       let detailBookId = null;
       let uiModal = { type: null, error: "", meta: {} };
       let pendingSecureAction = null;
@@ -488,18 +495,16 @@
       function clearMemberSession() {
         currentMemberId = "";
         currentMemberName = "";
-        isAdminMode = false;
         sessionStorage.removeItem("currentMemberId");
         sessionStorage.removeItem("currentMemberName");
-        sessionStorage.removeItem("isAdminMode");
       }
 
       function renderHeader() {
         return `<header class="sticky top-0 z-20 border-b border-deep/10 bg-beige/95 backdrop-blur"><div class="mx-auto flex max-w-content items-center justify-between px-4 py-4"><div><p class="text-[10px] uppercase tracking-[0.2em] text-deep/45">Stair</p><h1 class="font-serif text-xl text-deep">2026 Book Club</h1></div><div class="flex items-center gap-2"><span class="rounded-full bg-deep-soft px-2.5 py-1 text-[10px] font-semibold text-beige">${escapeHtml(currentMemberName)}</span><button id="btn-logout" class="btn-ghost !px-3 !py-2 !text-xs">로그아웃</button></div></div></header>`;
       }
       function renderGuideEditForm(book) {
-        const canEdit = isGuideFor(book) || isAdminMode;
-        return `<section class="paper-panel mt-4 rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep">책 정보 설정</h3><p class="mt-1 text-xs text-deep/55">${canEdit ? "저장 시 길잡이 본인 인증이 필요합니다." : "해당 책의 길잡이만 수정 가능합니다."}</p><form id="form-book-edit" class="mt-3 grid gap-3" data-book="${book.id}"><input class="input-field" name="title" value="${escapeHtml(book.title)}" ${canEdit ? "" : "disabled"} /><input class="input-field" name="author" value="${escapeHtml(book.author)}" ${canEdit ? "" : "disabled"} /><input class="input-field" name="coverUrl" value="${escapeHtml(book.coverUrl)}" ${canEdit ? "" : "disabled"} /><select class="input-field" name="guideId" ${isAdminMode ? "" : "disabled"}>${memberList().map((m) => `<option value="${m.id}" ${book.guideId === m.id ? "selected" : ""}>길잡이: ${escapeHtml(m.display_name)}</option>`).join("")}</select><input class="input-field" type="number" min="1" max="50" name="totalChapters" value="${book.totalChapters}" ${canEdit ? "" : "disabled"} /><button class="btn-primary ${canEdit ? "" : "opacity-40"}" ${canEdit ? "" : "disabled"}>저장</button></form></section>`;
+        const canEdit = isGuideFor(book) || isAdmin();
+        return `<section class="paper-panel mt-4 rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep">책 정보 설정</h3><p class="mt-1 text-xs text-deep/55">${canEdit ? "저장 시 길잡이 본인 인증이 필요합니다." : "해당 책의 길잡이만 수정 가능합니다."}</p><form id="form-book-edit" class="mt-3 grid gap-3" data-book="${book.id}"><input class="input-field" name="title" value="${escapeHtml(book.title)}" ${canEdit ? "" : "disabled"} /><input class="input-field" name="author" value="${escapeHtml(book.author)}" ${canEdit ? "" : "disabled"} /><input class="input-field" name="coverUrl" value="${escapeHtml(book.coverUrl)}" ${canEdit ? "" : "disabled"} /><select class="input-field" name="guideId" ${isAdmin() ? "" : "disabled"}>${memberList().map((m) => `<option value="${m.id}" ${book.guideId === m.id ? "selected" : ""}>길잡이: ${escapeHtml(m.display_name)}</option>`).join("")}</select><input class="input-field" type="number" min="1" max="50" name="totalChapters" value="${book.totalChapters}" ${canEdit ? "" : "disabled"} /><button class="btn-primary ${canEdit ? "" : "opacity-40"}" ${canEdit ? "" : "disabled"}>저장</button></form></section>`;
       }
       function renderReadingTab() {
         const selected = cache.books.find((b) => b.id === currentBookId) || cache.books[0];
@@ -699,17 +704,20 @@
         return html;
       }
       function renderSettingsTab() {
-        const isChloe = currentMemberName === 'chloe';
+        const currentMemberObj = currentMember();
+        const isChloe = currentMemberObj && currentMemberObj.display_name === 'chloe';
         
-        const bookManagementPart = isChloe
+        const accountSettingsSection = `<section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep mb-4">🔐 계정 설정</h3><form id="form-change-password" class="mt-3 grid gap-2"><input class="input-field" type="password" name="currentPassword" placeholder="현재 비밀번호" required /><input class="input-field" type="password" name="newPassword" placeholder="새 비밀번호" required /><input class="input-field" type="password" name="confirmPassword" placeholder="새 비밀번호 확인" required /><button class="btn-primary">변경하기</button></form></section>`;
+        
+        const siteManagementSection = isChloe
           ? `<section class="paper-panel mt-4 rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep mb-4">📚 사이트 관리</h3><div class="space-y-3"><button id="btn-book-settings" class="btn-primary w-full">책 정보 설정</button><p class="text-xs text-deep/60 mt-2">책 추가, 수정 및 이달의 책 지정</p></div></section>`
           : "";
         
-        const memberManagementPart = isChloe
+        const memberManagementSection = isChloe
           ? `<section class="paper-panel mt-4 rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep mb-4">👥 멤버 관리</h3><div class="space-y-3">${memberList().map((m) => `<div class="rounded-lg border border-deep/10 bg-white/80 p-3"><p class="text-sm font-semibold">${escapeHtml(m.display_name)}</p><p class="mt-1 text-xs text-deep/55">is_first_login: ${m.is_first_login ? "true" : "false"}</p><form class="mt-2 grid gap-2 sm:grid-cols-2" data-member-reset="${m.id}"><button class="btn-ghost !text-xs">최초 로그인 초기화</button><input class="input-field" type="password" name="newPassword" placeholder="임시 비밀번호(선택)" /></form></div>`).join("")}</div></section>`
           : "";
         
-        return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep mb-4">🔐 내 계정</h3><form id="form-change-password" class="mt-3 grid gap-2"><input class="input-field" type="password" name="currentPassword" placeholder="현재 비밀번호" required /><input class="input-field" type="password" name="newPassword" placeholder="새 비밀번호" required /><input class="input-field" type="password" name="confirmPassword" placeholder="새 비밀번호 확인" required /><button class="btn-primary">변경하기</button></form></section>${bookManagementPart}${memberManagementPart}</main>`;
+        return `<main class="mx-auto max-w-content px-4 py-5 pb-28">${accountSettingsSection}${siteManagementSection}${memberManagementSection}</main>`;
       }
       function renderBookDetailModal(bookId) {
         const b = cache.books.find((x) => x.id === bookId);
@@ -782,7 +790,7 @@
           b.title = payload.title || b.title;
           b.author = payload.author || "";
           b.coverUrl = payload.coverUrl || "";
-          if (isAdminMode && payload.guideId) b.guideId = payload.guideId;
+          if (isAdmin() && payload.guideId) b.guideId = payload.guideId;
           const nextTotal = Math.max(1, parseInt(payload.totalChapters, 10) || 1);
           if (nextTotal > b.totalChapters) for (let c = b.totalChapters + 1; c <= nextTotal; c++) b.chapters[c] = emptyChapterRecord();
           if (nextTotal < b.totalChapters) for (let c = b.totalChapters; c > nextTotal; c--) delete b.chapters[c];
@@ -980,7 +988,7 @@
             if (form.id === "form-book-edit") {
               const bookId = form.getAttribute("data-book");
               const b = cache.books.find((x) => x.id === bookId);
-              if (!b || (!isGuideFor(b) && !isAdminMode)) return alert("해당 책의 길잡이만 수정 가능합니다.");
+              if (!b || (!isGuideFor(b) && !isAdmin())) return alert("해당 책의 길잡이만 수정 가능합니다.");
               askSecure(
                 {
                   type: "book-edit",
@@ -1014,7 +1022,7 @@
             }
             const resetId = form.getAttribute("data-member-reset");
             if (resetId) {
-              if (!isAdminMode) return;
+              if (!isAdmin()) return;
               const temp = form.elements.namedItem("newPassword").value.trim();
               const patch = temp ? { password: temp, is_first_login: false } : { password: null, is_first_login: true };
               await sb.from("club_members").update(patch).eq("id", resetId);
