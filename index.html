@@ -155,6 +155,7 @@
   </head>
   <body class="app-bg min-h-screen antialiased">
     <div id="app-root"></div>
+    <div id="modal-container"></div>
     <script type="module">
       import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
@@ -903,6 +904,7 @@
 
       function renderApp() {
         const root = document.getElementById("app-root");
+        const modalContainer = document.getElementById("modal-container");
         if (!root) return;
         const main =
           isGatePassed && currentMemberId
@@ -915,7 +917,14 @@
               : renderReadingTab()
             : `<main class="min-h-screen"></main>`;
         const toast = toastMessage ? `<div class="toast">${escapeHtml(toastMessage)}</div>` : "";
-        root.innerHTML = `${isGatePassed && currentMemberId ? renderHeader() : ""}${main}${isGatePassed && currentMemberId ? renderBottomTabs() : ""}${detailBookId && currentMemberId ? renderBookDetailModal(detailBookId) : ""}${renderAuthModal()}${toast}`;
+        
+        // Render main app content in app-root
+        root.innerHTML = `${isGatePassed && currentMemberId ? renderHeader() : ""}${main}${isGatePassed && currentMemberId ? renderBottomTabs() : ""}${toast}`;
+        
+        // Render modals in dedicated modal-container (outside tab switching)
+        if (modalContainer) {
+          modalContainer.innerHTML = `${detailBookId && currentMemberId ? renderBookDetailModal(detailBookId) : ""}${renderAuthModal()}`;
+        }
       }
 
       function askSecure(action, message) {
