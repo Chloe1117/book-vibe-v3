@@ -761,6 +761,11 @@
         return null;
       }
       function renderHallTab() {
+        // Add data safety guards to prevent race conditions
+        if (!cache.members || cache.members.length === 0) {
+          return '<div class="p-8 text-center">데이터를 불러오는 중입니다...</div>';
+        }
+        
         // Debugging logs
         console.log("Hall Tab Data:", cache.books);
         
@@ -779,15 +784,15 @@
             return;
           }
           
-          // Map names from cache.members as specified
-          const selector = cache.members.find(m => m.id === b.final_sentence_member_id);
-          const guide = cache.members.find(m => m.id === b.guide_id);
+          // Use optional chaining and robust fallbacks to find names
+          const selector = (cache.members || []).find(m => m.id === b.final_sentence_member_id);
+          const guide = (cache.members || []).find(m => m.id === b.guide_id);
           
           const selectorName = selector ? selector.display_name : "멤버";
           const guideName = guide ? guide.display_name : "길잡이";
           
-          // Render format as specified
-          const quote = `" ${b.final_sentence_text} " by ${selectorName}`;
+          // UI formatting as specified
+          const quote = `"${b.final_sentence_text}" by ${selectorName}`;
           const caption = `길잡이 ${guideName}가 선정한 최종 문장입니다`;
           
           // VALID sentence exists - display sentence WITH proper attribution
@@ -927,7 +932,7 @@
           if (!b.chapters[chapter]) b.chapters[chapter] = emptyChapterRecord();
           b.chapters[chapter][memberId] = txt;
           
-          // Additionally, update the flattened columns for instant Hall of Fame access
+          // Update all three columns plus milestones JSON
           b.final_sentence_text = txt;
           b.final_sentence_member_id = memberId;
           b.final_sentence_chapter = chapter;
@@ -1211,6 +1216,7 @@
           openModal("master");
         }
         bindEvents();
+        // Ensure renderApp is only called after loadMembers and refreshFromDb are successfully completed
         renderApp();
       });
     </script>
