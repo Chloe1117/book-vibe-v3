@@ -267,7 +267,22 @@
             document.body.style.overflow = 'hidden';
             
             // Inject modal content based on type
-            if (type === "edit-book" || type === "book-settings") {
+            if (type === "book-detail") {
+              const bookId = meta.bookId || "";
+              const book = cache.books.find((b) => b.id === bookId);
+              if (!book) {
+                modalContent.innerHTML = `<div class="paper-panel p-6">책을 찾을 수 없습니다.</div>`;
+              } else {
+                const canSelect = isGuideFor(book);
+                const rows = Array.from({ length: book.totalChapters }, (_, i) => i + 1)
+                  .map((c) => `<section class="mt-3 rounded-lg border border-deep/10 bg-white/70 p-3"><h4 class="font-semibold text-sm text-deep">Chapter ${c}</h4><ul class="mt-2 space-y-2">${memberList().map((m) => {
+                      const txt = (book.chapters[c]?.[m.id] || "").trim();
+                      return `<li class="rounded-md border border-deep/10 px-2 py-2"><span class="text-[11px] font-semibold text-deep/55">${escapeHtml(m.display_name)}</span><p class="text-sm text-deep/85">${txt ? escapeHtml(txt) : `<span class="text-deep/35">기록 없음</span>`}</p>${txt ? `<div class="mt-1.5 text-right"><button type="button" class="btn-ghost !px-2.5 !py-1 !text-[11px] ${canSelect ? "" : "opacity-40"}" data-select-final="1" data-book="${book.id}" data-member="${m.id}" data-chapter="${c}" ${canSelect ? "" : "disabled"}>최종 선택</button></div>` : ""}</li>`;
+                    }).join("")}</ul></section>`)
+                  .join("");
+                modalContent.innerHTML = `<div class="paper-panel max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-deep/12 p-5 shadow-2xl"><div class="mb-3 flex items-start justify-between gap-3"><div><h3 class="font-serif text-xl text-deep">${escapeHtml(book.title)}</h3><p class="text-sm text-deep/55">${escapeHtml(book.author || "저자 미입력")}</p><p class="mt-1"><span class="guide-badge">🚩 이번 책의 길잡이: ${escapeHtml(memberNameById(book.guideId))}</span></p></div><button class="btn-ghost !py-1.5 !text-xs" data-close-modal="1">닫기</button></div><p class="text-xs text-deep/60">${canSelect ? "최종 선택 전 길잡이 비밀번호를 재확인합니다." : "길잡이의 비밀번호가 일치하지 않습니다."}</p>${rows}</div>`;
+              }
+            } else if (type === "edit-book" || type === "book-settings") {
               const selectedId = meta.bookId || "";
               const selectedBook = bookById(selectedId);
               const selectOptions = cache.books.map((b) => `<option value="${b.id}" ${selectedId === b.id ? "selected" : ""}>${b.id} · ${escapeHtml(b.title)}</option>`).join("");
@@ -1071,8 +1086,9 @@
 // ... (rest of the code remains the same)
           const openBook = t.closest && t.closest("[data-open-book]");
           if (openBook) {
-            detailBookId = openBook.getAttribute("data-open-book");
-            return renderApp();
+            const bookId = openBook.getAttribute("data-open-book");
+            openModal("book-detail", { bookId });
+            return;
           }
           const closeDetail = t.closest && t.closest("[data-close-detail]");
           if (closeDetail || (t.classList && t.classList.contains("modal-bg") && !uiModal.type)) {
