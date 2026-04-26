@@ -176,7 +176,7 @@
     <div id="app-root"></div>
     
     <!-- Global Modal Structure - Shared Component -->
-    <div id="modal-overlay" class="hidden" style="position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center;">
+    <div id="modal-overlay" class="hidden" style="position: fixed; inset: 0; z-index: 9999; display: none; align-items: center; justify-content: center;">
       <div class="modal-bg" style="position: absolute; inset: 0;"></div>
       <div id="modal-content" class="relative" style="pointer-events: auto;"></div>
     </div>
@@ -1301,9 +1301,15 @@
       document.addEventListener("DOMContentLoaded", async () => {
         try {
           await loadMembers();
-          if (!isGatePassed) openModal("master");
-          else if (!currentMemberId) openModal("member-login");
-          if (isGatePassed && currentMemberId) {
+          
+          // Only open modals if user is not already logged in
+          if (!isGatePassed) {
+            openModal("master");
+          } else if (!currentMemberId) {
+            openModal("member-login");
+          } else {
+            // User is already logged in - ensure no modals are open
+            closeModal();
             await refreshFromDb();
             subscribeRealtime();
           }
@@ -1312,6 +1318,12 @@
           openModal("master");
         }
         bindEvents();
+        
+        // Safety check: ensure all modals are closed if user is logged in
+        if (isGatePassed && currentMemberId) {
+          closeModal();
+        }
+        
         // Ensure renderApp is only called after loadMembers and refreshFromDb are successfully completed
         renderApp();
       });
