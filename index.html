@@ -468,31 +468,27 @@
       }
       function formatFinalSentence(rawData) {
         const data = safeParse(rawData);
+        let extractedText = "";
         
-        // A sentence is VALID only if:
-        // 1. data is an object with a non-empty text field, OR
-        // 2. data is a non-empty string (and not JSON)
-        let isValid = false;
-        let sentenceText = "";
-        
+        // Extract the text accurately
         if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
-          if (data.text && data.text.trim() !== "") {
-            isValid = true;
-            sentenceText = data.text.trim();
+          // If data is an object and has a text property, use data.text
+          if (data.text && typeof data.text === 'string') {
+            extractedText = data.text;
           }
-        } else if (typeof data === 'string' && data.trim() !== "") {
-          // Ensure it's not a JSON string
-          if (!data.trim().startsWith('{') && data.trim() !== '{"text":"","memberId":"","chapter":null}') {
-            isValid = true;
-            sentenceText = data.trim();
+        } else if (typeof data === 'string') {
+          // If data is a string (and not a JSON string like '{"text":...}'), use the string itself
+          if (!data.trim().startsWith('{')) {
+            extractedText = data;
           }
         }
         
-        // If VALID: Return formatted sentence string
-        // If INVALID: Return null
-        if (isValid) {
-          return `"${sentenceText}"`;
+        // A sentence is VALID if the extracted text is not empty and not the specific empty JSON string
+        if (extractedText && extractedText.trim() !== "" && extractedText.trim() !== '{"text":"","memberId":"","chapter":null}') {
+          // Return the text if valid
+          return `"${extractedText.trim()}"`;
         } else {
+          // Return null if invalid
           return null;
         }
       }
