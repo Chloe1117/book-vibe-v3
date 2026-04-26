@@ -130,12 +130,13 @@
         position: fixed;
         inset: 0;
         z-index: 9999;
-        display: flex;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: none; /* Controlled by openModal */
         align-items: center;
         justify-content: center;
       }
-      #modal-overlay.hidden {
-        display: none;
+      #modal-overlay:not(.hidden) {
+        display: flex;
       }
       #modal-content {
         pointer-events: auto;
