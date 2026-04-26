@@ -773,28 +773,25 @@
         }
         
         cache.books.forEach((b) => {
-          // Emergency debugging
-          console.log("Critical - Book ID:", b.id, "Final Text:", b.final_sentence_text, "Selector ID:", b.final_sentence_member_id, "Guide ID:", b.guide_id);
-          
-          // Only render the Hall of Fame card if final_sentence_text is not null or empty
+          // Strictly use explicit columns to avoid parsing errors
           if (!b.final_sentence_text || b.final_sentence_text.trim() === '') {
-            // Display placeholder for missing data
-            html += `<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow duration-300"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 sm:w-40 sm:h-60 mx-auto sm:mx-0"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>` : `<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><div class="mb-4"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(b.author || "저자 미입력")}</p></div><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><div class="text-center py-10 text-deep/30 italic">${escapeHtml(b.title)}은(는) 최종 문장을 기다리고 있습니다.</div></div></div></article>`;
+            // Only render the card if final_sentence_text is present
             return;
           }
           
-          // Identify two distinct roles as specified
-          const selector = cache.members?.find(m => m.id === b.final_sentence_member_id);
-          const guide = cache.members?.find(m => m.id === b.guide_id);
+          // Map names from cache.members as specified
+          const selector = cache.members.find(m => m.id === b.final_sentence_member_id);
+          const guide = cache.members.find(m => m.id === b.guide_id);
           
           const selectorName = selector ? selector.display_name : "멤버";
           const guideName = guide ? guide.display_name : "길잡이";
           
-          // Format the final sentence text using new column
-          const formattedSentence = `"${b.final_sentence_text.trim()}"`;
+          // Render format as specified
+          const quote = `" ${b.final_sentence_text} " by ${selectorName}`;
+          const caption = `길잡이 ${guideName}가 선정한 최종 문장입니다`;
           
           // VALID sentence exists - display sentence WITH proper attribution
-          html += `<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow duration-300"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 sm:w-40 sm:h-60 mx-auto sm:mx-0"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>` : `<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><div class="mb-4"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(b.author || "저자 미입력")}</p></div><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><p class="text-lg font-serif text-deep leading-relaxed italic">${formattedSentence}</p><p class="mt-4 text-sm text-gray-500 italic">by ${escapeHtml(selectorName)}</p><p class="mt-2 text-xs text-deep/60">길잡이 ${escapeHtml(guideName)}가 선정한 최종 문장입니다</p></div></div></div></article>`;
+          html += `<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow duration-300"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 sm:w-40 sm:h-60 mx-auto sm:mx-0"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>` : `<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><div class="mb-4"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(b.author || "저자 미입력")}</p></div><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><p class="text-lg font-serif text-deep leading-relaxed italic">${escapeHtml(quote)}</p><p class="mt-4 text-xs text-deep/60">${escapeHtml(caption)}</p></div></div></div></article>`;
         });
         
         html += `</main>`;
@@ -925,11 +922,17 @@
           if (!b) return;
           const txt = (b.chapters[chapter]?.[memberId] || "").trim();
           if (!txt) return;
-          // Update individual columns instead of JSON
+          
+          // Keep updating the milestones JSON as usual to preserve history
+          if (!b.chapters[chapter]) b.chapters[chapter] = emptyChapterRecord();
+          b.chapters[chapter][memberId] = txt;
+          
+          // Additionally, update the flattened columns for instant Hall of Fame access
           b.final_sentence_text = txt;
           b.final_sentence_member_id = memberId;
           b.final_sentence_chapter = chapter;
           b.finalAt = new Date().toISOString();
+          
           await persistBook(b);
           await refreshFromDb();
         } else if (pendingSecureAction.type === "book-edit") {
