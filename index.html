@@ -299,31 +299,55 @@
         return { chapters, total, guideIdInMeta: typeof meta.guideId === "string" ? meta.guideId : "" };
       }
       function normalizeFinalSentence(v) {
-        // Use safeParse to handle nested JSON strings
-        if (v && typeof v === "object" && !Array.isArray(v) && "text" in v) {
+        // Extremely resilient - always return valid object with .text property
+        if (v && typeof v === 'object' && !Array.isArray(v) && 'text' in v) {
           return {
-            text: typeof v.text === "string" ? v.text : "",
-            memberId: typeof v.memberId === "string" ? v.memberId : "",
+            text: typeof v.text === 'string' ? v.text : String(v.text || ''),
+            memberId: typeof v.memberId === 'string' ? v.memberId : '',
             chapter: Number.isFinite(parseInt(v.chapter, 10)) ? parseInt(v.chapter, 10) : null,
           };
         }
         
-        // Handle string values that might be JSON
-        if (typeof v === "string") {
-          const parsed = safeParse(v);
-          if (parsed.text) {
-            return parsed;
+        // If it's a string, try to parse it, but always return an object
+        if (typeof v === 'string') {
+          let parsed = v;
+          
+          // Try to parse if it looks like JSON
+          if (v.trim().startsWith('{')) {
+            try {
+              parsed = JSON.parse(v);
+              if (parsed && typeof parsed === 'object' && 'text' in parsed) {
+                return {
+                  text: typeof parsed.text === 'string' ? parsed.text : String(parsed.text || ''),
+                  memberId: typeof parsed.memberId === 'string' ? parsed.memberId : '',
+                  chapter: Number.isFinite(parseInt(parsed.chapter, 10)) ? parseInt(parsed.chapter, 10) : null,
+                };
+              }
+            } catch (e) {
+              // If parsing fails, treat the string itself as text
+            }
           }
-          return { text: v, memberId: "", chapter: null };
+          
+          // Return the string as text
+          return {
+            text: v,
+            memberId: '',
+            chapter: null,
+          };
         }
         
-        return { text: "", memberId: "", chapter: null };
+        // Default fallback
+        return { text: '', memberId: '', chapter: null };
       }
       function normalizeBook(row, index) {
         const norm = normalizeMilestones(row.milestones);
         const rawGuide = row.guide_id || row.guide_name || norm.guideIdInMeta || "";
         const guideId = memberList().find((m) => m.id === rawGuide || m.display_name === rawGuide)?.id || memberList()[0]?.id || "jeongeun";
         const totalChapters = Math.max(1, parseInt(row.total_chapters ?? norm.total, 10) || norm.total || 4);
+        
+        // Unify data normalization - keep both formats
+        const finalSentence = normalizeFinalSentence(row.final_sentence);
+        
         return {
           id: row.id || `b${index + 1}`,
           title: row.title || `2026 독서 ${index + 1}`,
@@ -332,7 +356,8 @@
           guideId,
           chapters: alignChaptersToTotal(norm.chapters, totalChapters),
           totalChapters,
-          finalSentence: normalizeFinalSentence(row.final_sentence),
+          finalSentence: finalSentence, // camelCase for internal use
+          final_sentence: row.final_sentence, // snake_case as fallback
           finalAt: row.final_at || null,
         };
       }
@@ -351,7 +376,7 @@
           guide_name: memberNameById(book.guideId),
           total_chapters: book.totalChapters,
           milestones: serializeMilestones(book),
-          final_sentence: book.finalSentence,
+          final_sentence: book.finalSentence, // Use the normalized object
           final_at: book.finalAt,
           updated_at: new Date().toISOString(),
         };
@@ -467,21 +492,28 @@
         return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><section class="wood-touch relative overflow-hidden rounded-2xl p-4"><div class="relative z-10"><h2 class="font-serif text-xl text-[#f4e6c2]">2026 북쉘프</h2><div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">${cache.books.map((b) => `<button type="button" class="group text-left" data-open-book="${b.id}"><div class="book-container bg-white/90 backdrop-blur rounded-xl p-4 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300 hover:bg-white/95"><div class="flex gap-4"><div class="flex-shrink-0 w-24 h-36 sm:w-28 sm:h-42"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy"/>` : `<div class="book-card-placeholder h-full"><div class="book-title text-xs">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><h3 class="font-semibold text-deep text-base sm:text-lg mb-1 truncate">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/70 mb-2 truncate">${escapeHtml(b.author || "저자 미입력")}</p><div class="flex items-center gap-2"><span class="guide-badge text-xs">🚩 길잡이: ${escapeHtml(memberNameById(b.guideId))}</span></div></div></div></div></button>`).join("")}</div></div></section></main>`;
       }
       function formatFinalSentence(rawData) {
-        // Flexible parsing - extract text regardless of format
+        // Extremely flexible - extract text regardless of format
         if (!rawData) return null;
         
         try {
+          // If input is already an object with text field, return immediately
+          if (typeof rawData === 'object' && rawData !== null && !Array.isArray(rawData) && 'text' in rawData) {
+            const text = rawData.text;
+            if (text && typeof text === 'string' && text.trim() !== '') {
+              return `"${text.trim()}"`;
+            }
+          }
+          
+          // Try to parse if it's a string
           const data = safeParse(rawData);
           let extractedText = "";
           
           // Extract text from object or string
           if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
-            // Object format: { "text": "..." }
             if (data.text && typeof data.text === 'string' && data.text.trim() !== '') {
               extractedText = data.text.trim();
             }
           } else if (typeof data === 'string' && data.trim() !== '') {
-            // Plain string format
             extractedText = data.trim();
           }
           
@@ -508,7 +540,11 @@
         }
         
         cache.books.forEach((b) => {
-          const sentence = formatFinalSentence(b.final_sentence);
+          // Emergency debugging
+          console.log("Critical - Book ID:", b.id, "Raw Final:", b.final_sentence, "Parsed Final:", b.finalSentence);
+          
+          // Fix detection logic - check both formats
+          const sentence = formatFinalSentence(b.final_sentence) || formatFinalSentence(b.finalSentence);
           const guideName = memberNameById(b.guideId);
           
           if (sentence !== null) {
