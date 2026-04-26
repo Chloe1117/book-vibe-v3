@@ -461,7 +461,7 @@
         const rows = Array.from({ length: selected.totalChapters }, (_, i) => i + 1)
           .map((c) => `<section class="mt-3 rounded-xl border border-deep/10 bg-white/65 p-3"><div class="mb-2 flex items-center justify-between"><h4 class="font-semibold text-deep">Chapter ${c}</h4><span class="text-xs text-deep/45">${memberList().filter((m) => (selected.chapters[c]?.[m.id] || "").trim()).length}/${memberList().length} 작성</span></div><ul class="space-y-2">${memberList().map((m) => `<li class="rounded-lg border border-deep/10 bg-white/70 px-3 py-2"><p class="text-[11px] font-semibold text-deep/60">${escapeHtml(m.display_name)}</p><p class="mt-1 text-sm text-deep/85">${(selected.chapters[c]?.[m.id] || "").trim() ? escapeHtml(selected.chapters[c][m.id]) : `<span class="text-deep/35">아직 기록 없음</span>`}</p></li>`).join("")}</ul></section>`)
           .join("");
-        return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm"><div class="flex items-center justify-between gap-3"><div><p class="text-[11px] uppercase tracking-[0.18em] text-gold">이달의 책</p><h2 class="font-serif text-xl">${escapeHtml(selected.title)}</h2><p class="mt-1"><span class="guide-badge">⭐ 길잡이: ${escapeHtml(memberNameById(selected.guideId))}</span></p></div><span class="text-xs text-deep/50">${progress.done}/${progress.total} 완료</span></div><div class="mt-3 h-2 overflow-hidden rounded-full bg-mist"><div class="h-full rounded-full bg-deep-soft" style="width:${progress.pct}%"></div></div><form id="form-reading-input" class="mt-4 grid gap-2 sm:grid-cols-4"><select class="input-field sm:col-span-2" name="bookId">${cache.books.map((b) => `<option value="${b.id}" ${b.id === selected.id ? "selected" : ""}>${escapeHtml(b.title)}</option>`).join("")}</select><select class="input-field" name="chapter">${chapterOpts}</select><select class="input-field" name="member">${memberList().map((m) => `<option value="${m.id}">${escapeHtml(m.display_name)}</option>`).join("")}</select><textarea class="input-field sm:col-span-4" rows="3" name="sentence" placeholder="기억에 남는 문장을 입력하세요" required></textarea><button class="btn-primary sm:col-span-4">문장 기록</button></form></section><section class="mt-4">${rows}</section></main>`;
+        return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm"><div class="flex items-center justify-between gap-3"><div><p class="text-[11px] uppercase tracking-[0.18em] text-gold">이달의 책</p><h2 class="font-serif text-xl">${escapeHtml(selected.title)}</h2><p class="mt-1"><span class="guide-badge">⭐ 길잡이: ${escapeHtml(memberNameById(selected.guideId))}</span></p></div><span class="text-xs text-deep/50">${progress.done}/${progress.total} 완료</span></div><div class="mt-3 h-2 overflow-hidden rounded-full bg-mist"><div class="h-full rounded-full bg-deep-soft" style="width:${progress.pct}%"></div></div><div class="mt-4 p-3 bg-deep/5 rounded-lg border border-deep/10"><p class="text-sm text-deep/60 mb-1">기록 정보</p><p class="text-xs text-deep/80">${escapeHtml(currentMemberName)} | ${escapeHtml(selected.title)}</p></div><form id="form-reading-input" class="mt-4 grid gap-2"><select class="input-field" name="chapter">${chapterOpts}</select><textarea class="input-field" rows="3" name="sentence" placeholder="기억에 남는 문장을 입력하세요" required></textarea><button class="btn-primary">문장 기록</button></form></section><section class="mt-4">${rows}</section></main>`;
       }
       function renderBookshelfTab() {
         return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><section class="wood-touch relative overflow-hidden rounded-2xl p-4"><div class="relative z-10"><h2 class="font-serif text-xl text-[#f4e6c2]">2026 북쉘프</h2><div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">${cache.books.map((b) => `<button type="button" class="group text-left" data-open-book="${b.id}"><div class="book-container bg-white/90 backdrop-blur rounded-xl p-4 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300 hover:bg-white/95"><div class="flex gap-4"><div class="flex-shrink-0 w-24 h-36 sm:w-28 sm:h-42"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy"/>` : `<div class="book-card-placeholder h-full"><div class="book-title text-xs">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><h3 class="font-semibold text-deep text-base sm:text-lg mb-1 truncate">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/70 mb-2 truncate">${escapeHtml(b.author || "저자 미입력")}</p><div class="flex items-center gap-2"><span class="guide-badge text-xs">🚩 길잡이: ${escapeHtml(memberNameById(b.guideId))}</span></div></div></div></div></button>`).join("")}</div></div></section></main>`;
@@ -517,7 +517,41 @@
         return memberName ? `"${sentenceText}" by ${memberName}` : `"${sentenceText}"`;
       }
       function renderHallTab() {
-        return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><h2 class="font-serif text-xl text-deep mb-6">올해의 문장</h2>${cache.books.map((b) => `<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow duration-300"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 sm:w-40 sm:h-60 mx-auto sm:mx-0"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>` : `<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><div class="mb-4"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(b.author || "저자 미입력")}</p><div class="flex items-center gap-2 mb-4"><span class="guide-badge text-xs">⭐ 길잡이: ${escapeHtml(memberNameById(b.guideId))}</span></div></div><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><p class="text-lg font-serif text-deep leading-relaxed italic">${formatFinalSentence(b.finalSentence)}</p>${b.finalSentence.text ? `<p class="mt-3 text-sm text-deep/60">길잡이 ${escapeHtml(memberNameById(b.guideId))}이(가) 선정한 문장입니다</p>` : ""}</div></div></div></article>`).join("")}</main>`;
+        return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><h2 class="font-serif text-xl text-deep mb-6">올해의 문장</h2>${cache.books.map((b) => {
+          // Logic Check: Determine if valid sentence exists
+          const parsedData = safeParse(b.final_sentence);
+          let hasValidSentence = false;
+          let sentenceText = "";
+          let memberId = "";
+          
+          if (typeof parsedData === 'object' && parsedData !== null && !Array.isArray(parsedData)) {
+            // If parsedData is an object
+            if (parsedData.text && parsedData.text.trim() !== "") {
+              hasValidSentence = true;
+              sentenceText = parsedData.text.trim();
+              memberId = parsedData.memberId || "";
+            }
+          } else if (typeof parsedData === 'string' && parsedData.trim() !== "") {
+            // If parsedData is a string (and not empty JSON)
+            if (!parsedData.trim().startsWith('{"') && parsedData.trim() !== '{"text":"","memberId":"","chapter":null}') {
+              hasValidSentence = true;
+              sentenceText = parsedData.trim();
+            }
+          }
+          
+          // Conditional Rendering
+          if (hasValidSentence) {
+            // VALID sentence exists - show formatted sentence + attribution
+            const memberName = memberId ? memberNameById(memberId) : "";
+            const formattedSentence = memberName ? `"${sentenceText}" by ${memberName}` : `"${sentenceText}"`;
+            const guideName = memberNameById(b.guideId);
+            
+            return `<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow duration-300"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 sm:w-40 sm:h-60 mx-auto sm:mx-0"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>` : `<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><div class="mb-4"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(b.author || "저자 미입력")}</p><div class="flex items-center gap-2 mb-4"><span class="guide-badge text-xs">⭐ 길잡이: ${escapeHtml(guideName)}</span></div></div><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><p class="text-lg font-serif text-deep leading-relaxed italic">${formattedSentence}</p><p class="mt-3 text-sm text-deep/60">🚩 길잡이 ${escapeHtml(guideName)}가 선정한 최종 문장입니다</p></div></div></div></article>`;
+          } else {
+            // NO valid sentence - show ONLY placeholder, no attribution
+            return `<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow duration-300"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 sm:w-40 sm:h-60 mx-auto sm:mx-0"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>` : `<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><div class="mb-4"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(b.author || "저자 미입력")}</p><div class="flex items-center gap-2 mb-4"><span class="guide-badge text-xs">⭐ 길잡이: ${escapeHtml(memberNameById(b.guideId))}</span></div></div><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><div class="text-center py-10 text-deep/30 italic">올해의 문장을 기다리고 있습니다.</div></div></div></div></article>`;
+          }
+        }).join("")}</main>`;
       }
       function renderSettingsTab() {
         const adminPart = isAdminMode
@@ -768,15 +802,12 @@
             }
             if (!isGatePassed || !currentMemberId) return;
             if (form.id === "form-reading-input") {
-              const bookId = form.elements.namedItem("bookId").value;
               const chapter = parseInt(form.elements.namedItem("chapter").value, 10);
-              const memberId = form.elements.namedItem("member").value;
               const sentence = form.elements.namedItem("sentence").value.trim();
-              const b = cache.books.find((x) => x.id === bookId);
-              if (!b || !chapter || !memberId || !sentence) return;
+              const b = cache.books.find((x) => x.id === currentBookId);
+              if (!b || !chapter || !currentMemberId || !sentence) return;
               if (!b.chapters[chapter]) b.chapters[chapter] = emptyChapterRecord();
-              b.chapters[chapter][memberId] = sentence;
-              currentBookId = bookId;
+              b.chapters[chapter][currentMemberId] = sentence;
               form.reset();
               await persistBook(b);
               await refreshFromDb();
