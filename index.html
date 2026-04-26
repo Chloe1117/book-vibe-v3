@@ -189,23 +189,40 @@
 
       // Safe parse function for nested JSON strings
       function safeParse(jsonString) {
-        if (!jsonString || typeof jsonString !== 'string') {
+        if (!jsonString) {
           return { text: "", memberId: "", chapter: null };
         }
         
-        try {
-          // Try to parse as JSON first
-          const parsed = JSON.parse(jsonString);
-          if (parsed && typeof parsed === 'object' && 'text' in parsed) {
-            return {
-              text: typeof parsed.text === 'string' ? parsed.text : "",
-              memberId: typeof parsed.memberId === 'string' ? parsed.memberId : "",
-              chapter: Number.isFinite(parseInt(parsed.chapter, 10)) ? parseInt(parsed.chapter, 10) : null
-            };
+        // If already an object with expected structure, return it
+        if (typeof jsonString === 'object' && jsonString !== null && !Array.isArray(jsonString)) {
+          return jsonString;
+        }
+        
+        // If it's a string, try to parse it
+        if (typeof jsonString === 'string') {
+          let parsed = jsonString;
+          let attempts = 0;
+          
+          // Try to parse multiple times to handle nested stringification
+          while (typeof parsed === 'string' && attempts < 3) {
+            try {
+              parsed = JSON.parse(parsed);
+              attempts++;
+            } catch (e) {
+              // If parsing fails, break the loop
+              break;
+            }
           }
-        } catch (e) {
-          // If JSON parsing fails, treat as plain text
-          return { text: jsonString, memberId: "", chapter: null };
+          
+          // If we ended up with an object, return it
+          if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+            return parsed;
+          }
+          
+          // If we still have a string, treat it as plain text
+          if (typeof parsed === 'string') {
+            return { text: parsed, memberId: "", chapter: null };
+          }
         }
         
         return { text: "", memberId: "", chapter: null };
@@ -479,12 +496,31 @@
       function formatFinalSentence(rawData) {
         const data = safeParse(rawData);
         
-        if (!data || !data.text || data.text.trim() === '') {
+        console.log("Debug Final Sentence Data:", data);
+        
+        // Check for content more carefully
+        let sentenceText = "";
+        let memberId = "";
+        
+        if (typeof data === 'string' && data.trim() !== '') {
+          // Data is a string and not empty - this is our sentence
+          sentenceText = data.trim();
+        } else if (typeof data === 'object' && data !== null) {
+          // Data is an object - check if text exists and is not empty
+          if (data.text && data.text.trim() !== '') {
+            sentenceText = data.text.trim();
+            memberId = data.memberId || "";
+          }
+        }
+        
+        // Only if both are truly empty/null, show the placeholder
+        if (!sentenceText) {
           return '<div class="text-center py-10 text-deep/30 italic">올해의 문장을 기다리고 있습니다.</div>';
         }
         
-        const memberName = data.memberId ? memberNameById(data.memberId) : "";
-        return memberName ? `"${data.text}" by ${memberName}` : `"${data.text}"`;
+        // Format with "by Name" attribution
+        const memberName = memberId ? memberNameById(memberId) : "";
+        return memberName ? `"${sentenceText}" by ${memberName}` : `"${sentenceText}"`;
       }
       function renderHallTab() {
         return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><h2 class="font-serif text-xl text-deep mb-6">올해의 문장</h2>${cache.books.map((b) => `<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow duration-300"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 sm:w-40 sm:h-60 mx-auto sm:mx-0"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>` : `<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><div class="mb-4"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(b.author || "저자 미입력")}</p><div class="flex items-center gap-2 mb-4"><span class="guide-badge text-xs">⭐ 길잡이: ${escapeHtml(memberNameById(b.guideId))}</span></div></div><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><p class="text-lg font-serif text-deep leading-relaxed italic">${formatFinalSentence(b.finalSentence)}</p>${b.finalSentence.text ? `<p class="mt-3 text-sm text-deep/60">길잡이 ${escapeHtml(memberNameById(b.guideId))}이(가) 선정한 문장입니다</p>` : ""}</div></div></div></article>`).join("")}</main>`;
