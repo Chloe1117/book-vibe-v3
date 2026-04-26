@@ -126,6 +126,18 @@
         background: rgba(12, 31, 24, 0.56);
         backdrop-filter: blur(5px);
       }
+      #modal-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 9999;
+        pointer-events: none;
+      }
+      #modal-container > * {
+        pointer-events: auto;
+      }
       .toast {
         position: fixed;
         left: 50%;
