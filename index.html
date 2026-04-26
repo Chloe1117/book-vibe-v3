@@ -358,6 +358,7 @@
           finalSentence: finalSentence, // camelCase for internal use
           final_sentence: row.final_sentence, // snake_case as fallback
           finalAt: row.final_at || null,
+          is_book_of_the_month: !!row.is_book_of_the_month, // Include DB field
         };
       }
       function serializeMilestones(book) {
@@ -377,6 +378,7 @@
           milestones: serializeMilestones(book),
           final_sentence: book.finalSentence, // Use the normalized object
           final_at: book.finalAt,
+          is_book_of_the_month: !!book.is_book_of_the_month, // Include DB field
           updated_at: new Date().toISOString(),
         };
       }
@@ -424,7 +426,13 @@
           return refreshFromDb();
         }
         cache.books = sorted.map((row, i) => normalizeBook(row, i));
-        if (!cache.books.find((b) => b.id === currentBookId)) currentBookId = cache.books[0]?.id || "b1";
+        // Find the book marked as Book of the Month in the database
+        const bookOfTheMonth = cache.books.find(b => b.is_book_of_the_month === true);
+        if (bookOfTheMonth) {
+          currentBookId = bookOfTheMonth.id;
+        } else if (!cache.books.find((b) => b.id === currentBookId)) {
+          currentBookId = cache.books[0]?.id || "b1";
+        }
       }
       async function persistBook(book) {
         const row = bookToRow(book);
@@ -852,7 +860,7 @@
                 <!-- Book of the Month Selection -->
                 <div class="mb-6">
                   <h4 class="text-sm font-semibold text-deep mb-3">이달의 책 선정</h4>
-                  <div class="text-xs text-deep/60 mb-3">현재 선택: <span class="font-medium text-gold">${cache.books?.find(b => b.id === currentBookId)?.title || '없음'}</span></div>
+                  <div class="text-xs text-deep/60 mb-3">현재 선택: <span class="font-medium text-gold">${cache.books?.find(b => b.is_book_of_the_month === true)?.title || '없음'}</span></div>
                 </div>
                 
                 <!-- Existing Books List -->
@@ -880,10 +888,10 @@
                             <button class="btn-ghost !px-3 !py-2 !text-xs text-red-600" onclick="confirmDeleteBook('${book.id}', '${escapeHtml(book.title)}')">삭제</button>
                           </div>
                           <button id="btn-set-book-month-${book.id}" 
-                                  class="btn-primary !px-3 !py-2 !text-xs w-full ${book.id === currentBookId ? '!bg-gold !border-gold !cursor-not-allowed' : ''}" 
+                                  class="btn-primary !px-3 !py-2 !text-xs w-full ${book.is_book_of_the_month ? '!bg-gold !border-gold !cursor-not-allowed' : ''}" 
                                   onclick="setBookOfTheMonthDirect('${book.id}', '${escapeHtml(book.title)}')"
-                                  ${book.id === currentBookId ? 'disabled' : ''}>
-                            ${book.id === currentBookId ? '현재 이달의 책 ✓' : '이달의 책으로 선정'}
+                                  ${book.is_book_of_the_month ? 'disabled' : ''}>
+                            ${book.is_book_of_the_month ? '현재 이달의 책 ✓' : '이달의 책으로 선정'}
                           </button>
                         </div>
                       </div>
