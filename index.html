@@ -498,8 +498,7 @@
         return `<header class="sticky top-0 z-20 border-b border-deep/10 bg-beige/95 backdrop-blur"><div class="mx-auto flex max-w-content items-center justify-between px-4 py-4"><div><p class="text-[10px] uppercase tracking-[0.2em] text-deep/45">Stair</p><h1 class="font-serif text-xl text-deep">2026 Book Club</h1></div><div class="flex items-center gap-2"><span class="rounded-full bg-deep-soft px-2.5 py-1 text-[10px] font-semibold text-beige">${escapeHtml(currentMemberName)}</span><button id="btn-logout" class="btn-ghost !px-3 !py-2 !text-xs">로그아웃</button></div></div></header>`;
       }
       function renderGuideEditForm(book) {
-        const me = cache.members?.find(m => m.id === currentMemberId);
-        const isAdmin = me && me.display_name === 'chloe';
+        const isAdmin = currentMemberId === 'chloe';
         const canEdit = isGuideFor(book) || isAdmin;
         return `<section class="paper-panel mt-4 rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep">책 정보 설정</h3><p class="mt-1 text-xs text-deep/55">${canEdit ? "저장 시 길잡이 본인 인증이 필요합니다." : "해당 책의 길잡이만 수정 가능합니다."}</p><form id="form-book-edit" class="mt-3 grid gap-3" data-book="${book.id}"><input class="input-field" name="title" value="${escapeHtml(book.title)}" ${canEdit ? "" : "disabled"} /><input class="input-field" name="author" value="${escapeHtml(book.author)}" ${canEdit ? "" : "disabled"} /><input class="input-field" name="coverUrl" value="${escapeHtml(book.coverUrl)}" ${canEdit ? "" : "disabled"} /><select class="input-field" name="guideId" ${isAdmin ? "" : "disabled"}>${memberList().map((m) => `<option value="${m.id}" ${book.guideId === m.id ? "selected" : ""}>길잡이: ${escapeHtml(m.display_name)}</option>`).join("")}</select><input class="input-field" type="number" min="1" max="50" name="totalChapters" value="${book.totalChapters}" ${canEdit ? "" : "disabled"} /><button class="btn-primary ${canEdit ? "" : "opacity-40"}" ${canEdit ? "" : "disabled"}>저장</button></form></section>`;
       }
@@ -702,8 +701,8 @@
       }
       function renderSettingsTab() {
         try {
-          const me = cache.members?.find(m => m.id === currentMemberId);
-          const isAdmin = me && me.display_name === 'chloe';
+          const isAdmin = currentMemberId === 'chloe';
+          console.log("Login Check - ID:", currentMemberId, "Is Admin:", isAdmin);
           
           const accountSettingsSection = `<section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep mb-4">🔐 계정 설정</h3><form id="form-change-password" class="mt-3 grid gap-2"><input class="input-field" type="password" name="currentPassword" placeholder="현재 비밀번호" required /><input class="input-field" type="password" name="newPassword" placeholder="새 비밀번호" required /><input class="input-field" type="password" name="confirmPassword" placeholder="새 비밀번호 확인" required /><button class="btn-primary">변경하기</button></form></section>`;
           
@@ -819,8 +818,7 @@
           }
           if (t.id === "btn-book-settings") {
             // Check if user is chloe before allowing admin access
-            const me = cache.members?.find(m => m.id === currentMemberId);
-            const isAdmin = me && me.display_name === 'chloe';
+            const isAdmin = currentMemberId === 'chloe';
             
             if (isAdmin) {
               openModal("book-settings", { bookId: currentBookId || "b1" });
@@ -834,6 +832,7 @@
             closeModal();
             return renderApp();
           }
+// ... (rest of the code remains the same)
           const openBook = t.closest && t.closest("[data-open-book]");
           if (openBook) {
             detailBookId = openBook.getAttribute("data-open-book");
@@ -922,8 +921,7 @@
             }
             if (form.id === "form-book-settings") {
               // Check if user is chloe before allowing admin access
-              const me = cache.members?.find(m => m.id === currentMemberId);
-              const isAdmin = me && me.display_name === 'chloe';
+              const isAdmin = currentMemberId === 'chloe';
               
               if (!isAdmin) {
                 alert("관리자 기능에 접근할 수 없습니다.");
