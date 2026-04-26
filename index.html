@@ -761,13 +761,16 @@
         return null;
       }
       function renderHallTab() {
-        // Add data safety guards to prevent race conditions
-        if (!cache.members || cache.members.length === 0) {
-          return '<div class="p-8 text-center">데이터를 불러오는 중입니다...</div>';
-        }
-        
-        // Debugging logs
-        console.log("Hall Tab Data:", cache.books);
+        // Flexible data access for cache.members (Array or Object)
+        const getMemberName = (id) => {
+          if (!cache.members) return "멤버";
+          // If it's an Array
+          if (Array.isArray(cache.members)) {
+            return cache.members.find(m => m.id === id)?.display_name || "멤버";
+          }
+          // If it's an Object (Key-Value)
+          return cache.members[id]?.display_name || "멤버";
+        };
         
         // Return HTML string like other tab functions
         let html = `<main class="mx-auto max-w-content px-4 py-5 pb-28"><h2 class="font-serif text-xl text-deep mb-6">올해의 문장</h2>`;
@@ -777,26 +780,26 @@
           return html;
         }
         
-        cache.books.forEach((b) => {
-          // Strictly use explicit columns to avoid parsing errors
-          if (!b.final_sentence_text || b.final_sentence_text.trim() === '') {
-            // Only render the card if final_sentence_text is present
-            return;
-          }
+        // Filter books by final_sentence_text presence
+        const hallBooks = cache.books.filter(b => b.final_sentence_text);
+        
+        // Add friendly message for empty Hall of Fame
+        if (hallBooks.length === 0) {
+          html += `<div class="text-center py-10 text-deep/30 italic">아직 선정된 올해의 문장이 없습니다.</div></main>`;
+          return html;
+        }
+        
+        hallBooks.forEach((book) => {
+          // Use the getMemberName helper for both roles
+          const selectorName = getMemberName(book.final_sentence_member_id);
+          const guideName = getMemberName(book.guide_id);
           
-          // Use optional chaining and robust fallbacks to find names
-          const selector = (cache.members || []).find(m => m.id === b.final_sentence_member_id);
-          const guide = (cache.members || []).find(m => m.id === b.guide_id);
-          
-          const selectorName = selector ? selector.display_name : "멤버";
-          const guideName = guide ? guide.display_name : "길잡이";
-          
-          // UI formatting as specified
-          const quote = `"${b.final_sentence_text}" by ${selectorName}`;
+          // UI strings as specified
+          const quote = `"${book.final_sentence_text}" by ${selectorName}`;
           const caption = `길잡이 ${guideName}가 선정한 최종 문장입니다`;
           
-          // VALID sentence exists - display sentence WITH proper attribution
-          html += `<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow duration-300"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 sm:w-40 sm:h-60 mx-auto sm:mx-0"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>` : `<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><div class="mb-4"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(b.author || "저자 미입력")}</p></div><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><p class="text-lg font-serif text-deep leading-relaxed italic">${escapeHtml(quote)}</p><p class="mt-4 text-xs text-deep/60">${escapeHtml(caption)}</p></div></div></div></article>`;
+          // Display sentence WITH proper attribution
+          html += `<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow duration-300"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 sm:w-40 sm:h-60 mx-auto sm:mx-0"><div class="book-card h-full">${book.coverUrl ? `<img src="${escapeHtml(book.coverUrl)}" alt="${escapeHtml(book.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>` : `<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(book.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><div class="mb-4"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(book.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(book.author || "저자 미입력")}</p></div><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><p class="text-lg font-serif text-deep leading-relaxed italic">${escapeHtml(quote)}</p><p class="mt-4 text-xs text-deep/60">${escapeHtml(caption)}</p></div></div></div></article>`;
         });
         
         html += `</main>`;
