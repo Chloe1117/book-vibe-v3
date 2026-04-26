@@ -736,12 +736,29 @@
           const sentence = formatFinalSentence(b.final_sentence) || formatFinalSentence(b.finalSentence);
           const guideName = memberNameById(b.guideId);
           
+          // Extract author information from final sentence data
+          let authorName = "Member";
+          try {
+            const finalData = b.final_sentence || b.finalSentence;
+            if (finalData) {
+              const parsed = typeof finalData === 'string' ? safeParse(finalData) : finalData;
+              if (parsed && parsed.memberId) {
+                const author = cache.members?.find(m => m.id === parsed.memberId);
+                if (author && author.display_name) {
+                  authorName = author.display_name;
+                }
+              }
+            }
+          } catch (error) {
+            console.log('Error extracting author info:', error);
+          }
+          
           if (sentence !== null) {
-            // VALID sentence exists - display sentence AND attribution
-            html += `<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow duration-300"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 sm:w-40 sm:h-60 mx-auto sm:mx-0"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>` : `<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><div class="mb-4"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(b.author || "저자 미입력")}</p><div class="flex items-center gap-2 mb-4"><span class="guide-badge text-xs">⭐ 길잡이: ${escapeHtml(guideName)}</span></div></div><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><p class="text-lg font-serif text-deep leading-relaxed italic">${sentence}</p><p class="mt-3 text-sm text-deep/60">🚩 길잡이 ${escapeHtml(guideName)}가 선정한 최종 문장입니다</p></div></div></div></article>`;
+            // VALID sentence exists - display sentence WITH author attribution
+            html += `<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow duration-300"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 sm:w-40 sm:h-60 mx-auto sm:mx-0"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>` : `<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><div class="mb-4"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(b.author || "저자 미입력")}</p></div><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><p class="text-lg font-serif text-deep leading-relaxed italic">${sentence}</p><p class="mt-4 text-sm text-deep/60 italic">길잡이 ${escapeHtml(authorName)}가 선정한 최종 문장입니다</p></div></div></div></article>`;
           } else {
             // Display placeholder for missing data
-            html += `<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow duration-300"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 sm:w-40 sm:h-60 mx-auto sm:mx-0"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>` : `<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><div class="mb-4"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(b.author || "저자 미입력")}</p><div class="flex items-center gap-2 mb-4"><span class="guide-badge text-xs">⭐ 길잡이: ${escapeHtml(guideName)}</span></div></div><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><div class="text-center py-10 text-deep/30 italic">${escapeHtml(b.title)}은(는) 최종 문장을 기다리고 있습니다.</div></div></div></div></article>`;
+            html += `<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow duration-300"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 sm:w-40 sm:h-60 mx-auto sm:mx-0"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>` : `<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><div class="mb-4"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(b.author || "저자 미입력")}</p></div><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><div class="text-center py-10 text-deep/30 italic">${escapeHtml(b.title)}은(는) 최종 문장을 기다리고 있습니다.</div></div></div></div></article>`;
           }
         });
         
