@@ -188,44 +188,17 @@
       let debounceTimer = null;
 
       // Safe parse function for nested JSON strings
-      function safeParse(jsonString) {
-        if (!jsonString) {
-          return { text: "", memberId: "", chapter: null };
-        }
+      function safeParse(data) {
+        if (typeof data !== 'string') return data;
         
-        // If already an object with expected structure, return it
-        if (typeof jsonString === 'object' && jsonString !== null && !Array.isArray(jsonString)) {
-          return jsonString;
+        try {
+          const parsed = JSON.parse(data);
+          // Recursively parse until we get a non-string object or primitive
+          return safeParse(parsed);
+        } catch (e) {
+          // If parsing fails, return the original string
+          return data;
         }
-        
-        // If it's a string, try to parse it
-        if (typeof jsonString === 'string') {
-          let parsed = jsonString;
-          let attempts = 0;
-          
-          // Try to parse multiple times to handle nested stringification
-          while (typeof parsed === 'string' && attempts < 3) {
-            try {
-              parsed = JSON.parse(parsed);
-              attempts++;
-            } catch (e) {
-              // If parsing fails, break the loop
-              break;
-            }
-          }
-          
-          // If we ended up with an object, return it
-          if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-            return parsed;
-          }
-          
-          // If we still have a string, treat it as plain text
-          if (typeof parsed === 'string') {
-            return { text: parsed, memberId: "", chapter: null };
-          }
-        }
-        
-        return { text: "", memberId: "", chapter: null };
       }
 
       function memberList() {
@@ -494,31 +467,38 @@
         return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><section class="wood-touch relative overflow-hidden rounded-2xl p-4"><div class="relative z-10"><h2 class="font-serif text-xl text-[#f4e6c2]">2026 북쉘프</h2><div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">${cache.books.map((b) => `<button type="button" class="group text-left" data-open-book="${b.id}"><div class="book-container bg-white/90 backdrop-blur rounded-xl p-4 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300 hover:bg-white/95"><div class="flex gap-4"><div class="flex-shrink-0 w-24 h-36 sm:w-28 sm:h-42"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy"/>` : `<div class="book-card-placeholder h-full"><div class="book-title text-xs">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><h3 class="font-semibold text-deep text-base sm:text-lg mb-1 truncate">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/70 mb-2 truncate">${escapeHtml(b.author || "저자 미입력")}</p><div class="flex items-center gap-2"><span class="guide-badge text-xs">🚩 길잡이: ${escapeHtml(memberNameById(b.guideId))}</span></div></div></div></div></button>`).join("")}</div></div></section></main>`;
       }
       function formatFinalSentence(rawData) {
-        const data = safeParse(rawData);
+        let data = safeParse(rawData);
         
-        console.log("Debug Final Sentence Data:", data);
-        
-        // Check for content more carefully
-        let sentenceText = "";
-        let memberId = "";
-        
-        if (typeof data === 'string' && data.trim() !== '') {
-          // Data is a string and not empty - this is our sentence
-          sentenceText = data.trim();
-        } else if (typeof data === 'object' && data !== null) {
-          // Data is an object - check if text exists and is not empty
-          if (data.text && data.text.trim() !== '') {
-            sentenceText = data.text.trim();
-            memberId = data.memberId || "";
+        // IMPORTANT: Even after safeParse, if data is still a string that looks like JSON, try to parse it one more time
+        if (typeof data === 'string' && data.trim().startsWith('{')) {
+          try {
+            data = JSON.parse(data);
+          } catch (e) {
+            // Keep original string if parsing fails
           }
         }
         
-        // Only if both are truly empty/null, show the placeholder
-        if (!sentenceText) {
+        // Extract the sentence
+        let sentenceText = "";
+        let memberId = "";
+        
+        if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
+          // If data is an object: sentenceText = data.text
+          sentenceText = data.text || "";
+          memberId = data.memberId || "";
+        } else if (typeof data === 'string') {
+          // If data is a string: sentenceText = data
+          sentenceText = data;
+        }
+        
+        console.log("Final Output Text:", sentenceText);
+        
+        // Final validation: If sentenceText is null, undefined, or empty string/object (after trimming)
+        if (sentenceText === null || sentenceText === undefined || (typeof sentenceText === 'string' && sentenceText.trim() === '')) {
           return '<div class="text-center py-10 text-deep/30 italic">올해의 문장을 기다리고 있습니다.</div>';
         }
         
-        // Format with "by Name" attribution
+        // Otherwise, return the formatted sentence
         const memberName = memberId ? memberNameById(memberId) : "";
         return memberName ? `"${sentenceText}" by ${memberName}` : `"${sentenceText}"`;
       }
