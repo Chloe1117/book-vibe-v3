@@ -813,20 +813,35 @@
           // Emergency debugging
           console.log("Critical - Book ID:", b.id, "Raw Final:", b.final_sentence, "Parsed Final:", b.finalSentence);
           
-          // Fix detection logic - check both formats
-          const sentence = formatFinalSentence(b.final_sentence) || formatFinalSentence(b.finalSentence);
+          // Parse JSON final_sentence with fallback for older string-based data
+          let sentenceData = { text: b.final_sentence, memberId: b.guide_id };
+          try {
+            const parsed = JSON.parse(b.final_sentence);
+            if (parsed && parsed.text) {
+              sentenceData = parsed;
+            }
+          } catch (e) {
+            // Handle case where final_sentence is still a plain string
+            console.log('Using fallback for non-JSON final_sentence:', b.id);
+          }
           
-          // Dynamic member identification using guide_id
-          const guide = cache.members?.find(m => m.id === b.guide_id);
-          const guideName = guide?.display_name || guide?.name || "알 수 없는 길잡이";
-          
-          if (sentence !== null) {
-            // VALID sentence exists - display sentence WITH proper attribution
-            html += `<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow duration-300"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 sm:w-40 sm:h-60 mx-auto sm:mx-0"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>` : `<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><div class="mb-4"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(b.author || "저자 미입력")}</p></div><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><p class="text-lg font-serif text-deep leading-relaxed italic">${sentence}</p><p class="mt-4 text-sm text-gray-500 italic">by ${escapeHtml(guideName)}</p><p class="mt-2 text-xs text-deep/60">길잡이 ${escapeHtml(guideName)}가 선정한 최종 문장입니다</p></div></div></div></article>`;
-          } else {
+          // Check if we have valid sentence text
+          if (!sentenceData.text || sentenceData.text.trim() === '') {
             // Display placeholder for missing data
             html += `<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow duration-300"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 sm:w-40 sm:h-60 mx-auto sm:mx-0"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>` : `<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><div class="mb-4"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(b.author || "저자 미입력")}</p></div><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><div class="text-center py-10 text-deep/30 italic">${escapeHtml(b.title)}은(는) 최종 문장을 기다리고 있습니다.</div></div></div></article>`;
+            return;
           }
+          
+          // Identify author dynamically using memberId from JSON or fallback to guide_id
+          const authorId = sentenceData.memberId || b.guide_id;
+          const author = cache.members?.find(m => m.id === authorId);
+          const authorName = author ? author.display_name : "알 수 없는 길잡이";
+          
+          // Format the final sentence text
+          const formattedSentence = `"${sentenceData.text.trim()}"`;
+          
+          // VALID sentence exists - display sentence WITH proper attribution
+          html += `<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow duration-300"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 sm:w-40 sm:h-60 mx-auto sm:mx-0"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>` : `<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><div class="mb-4"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(b.author || "저자 미입력")}</p></div><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><p class="text-lg font-serif text-deep leading-relaxed italic">${formattedSentence}</p><p class="mt-4 text-sm text-gray-500 italic">by ${escapeHtml(authorName)}</p><p class="mt-2 text-xs text-deep/60">길잡이 ${escapeHtml(authorName)}가 선정한 최종 문장입니다</p></div></div></div></article>`;
         });
         
         html += `</main>`;
