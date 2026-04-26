@@ -690,37 +690,53 @@
         if (!button || button.disabled) return;
         
         try {
-          // Add loading state
+          // Add loading state with visual feedback
           const originalText = button.textContent;
           button.disabled = true;
           button.textContent = '선정 중...';
-          button.classList.add('opacity-70', 'cursor-wait');
+          button.classList.add('opacity-70', 'cursor-wait', 'border-gold');
           
-          // Atomic update: Clear all flags first, then set new one
-          console.log('Starting atomic Book of the Month update...');
+          console.log('Starting atomic Book of the Month update for:', bookId);
           
-          // Step 1: Clear all Book of the Month flags in database
+          // CRITICAL: Atomic database operations
+          // Step 1: Clear ALL Book of the Month flags first
           const { error: clearError } = await sb.from("books").update({ is_book_of_the_month: false }).neq('id', 'nonexistent');
-          if (clearError) throw clearError;
+          if (clearError) {
+            console.error('Error clearing Book of the Month flags:', clearError);
+            throw clearError;
+          }
+          console.log('Cleared all Book of the Month flags');
           
           // Step 2: Set selected book as Book of the Month
           const { error: setError } = await sb.from("books").update({ is_book_of_the_month: true }).eq("id", bookId);
-          if (setError) throw setError;
+          if (setError) {
+            console.error('Error setting new Book of the Month:', setError);
+            throw setError;
+          }
+          console.log('Set new Book of the Month:', bookId);
           
-          // Step 3: Update local state immediately
+          // CRITICAL: Immediate refresh sequence
+          // Step 3: Update local state
           currentBookId = bookId;
           
-          // Step 4: Refresh cache to ensure data consistency
+          // Step 4: MUST refresh cache from database to ensure consistency
+          console.log('Refreshing cache from database...');
           await refreshFromDb();
           
-          // Step 5: Switch to Book of the Month tab and re-render
-          currentTab = "reading"; // Book of the Month is in the reading tab
+          // Step 5: MUST re-render entire application
+          console.log('Re-rendering application...');
           renderApp();
           
-          // Step 6: Close any open modals
+          // Step 6: Switch to reading tab to show Book of the Month
+          currentTab = "reading";
+          renderApp(); // Second render to ensure tab switch is reflected
+          
+          // Step 7: Close any open modals
           closeModal();
           
+          // Step 8: Success feedback
           showToast(`"${bookTitle}"이(가) 이달의 책으로 선정되었습니다.`);
+          console.log('Book of the Month update completed successfully');
           
         } catch (error) {
           console.error('Error setting Book of the Month:', error);
@@ -730,7 +746,7 @@
           if (button) {
             button.disabled = false;
             button.textContent = originalText;
-            button.classList.remove('opacity-70', 'cursor-wait');
+            button.classList.remove('opacity-70', 'cursor-wait', 'border-gold');
           }
         }
       };
@@ -832,25 +848,7 @@
           const siteManagementSection = isAdmin
             ? `<section class="paper-panel mt-4 rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep mb-4">📚 사이트 관리</h3>
                 
-                <!-- Add New Book Form -->
-                <div class="mb-6">
-                  <h4 class="text-sm font-semibold text-deep mb-3">새 책 추가</h4>
-                  <form id="form-add-book" class="grid gap-3">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <input class="input-field" name="title" placeholder="책 제목" required />
-                      <input class="input-field" name="author" placeholder="저자" />
-                    </div>
-                    <input class="input-field" name="coverUrl" placeholder="표지 이미지 URL (선택)" />
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <input class="input-field" name="totalChapters" type="number" min="1" max="150" placeholder="총 챕터 수" required />
-                      <select class="input-field" name="guideId">
-                        ${memberList().map((m) => `<option value="${m.id}">${escapeHtml(m.display_name)}</option>`).join("")}
-                      </select>
-                    </div>
-                    <button class="btn-primary">책 추가하기</button>
-                  </form>
-                </div>
-                
+                                
                 <!-- Book of the Month Selection -->
                 <div class="mb-6">
                   <h4 class="text-sm font-semibold text-deep mb-3">이달의 책 선정</h4>
@@ -1104,52 +1102,7 @@
               closeModal();
               return renderApp();
             }
-            if (form.id === "form-add-book") {
-              // Check if user is chloe before allowing admin access
-              const isAdmin = currentMemberId === 'chloe';
-              
-              if (!isAdmin) {
-                alert("관리자 기능에 접근할 수 없습니다.");
-                return renderApp();
-              }
-              
-              const title = (form.elements.namedItem("title").value || "").trim();
-              const author = (form.elements.namedItem("author").value || "").trim();
-              const coverUrl = (form.elements.namedItem("coverUrl").value || "").trim();
-              const totalChapters = Math.max(1, parseInt(form.elements.namedItem("totalChapters").value, 10) || 1);
-              const guideId = form.elements.namedItem("guideId").value;
-              
-              if (!title) {
-                alert("책 제목을 입력해주세요.");
-                return;
-              }
-              
-              // Generate new book ID
-              const newBookId = `b${Math.max(...(cache.books || []).map(b => parseInt(b.id.replace('b', '')) || 0), 0) + 1}`;
-              
-              const newBook = {
-                id: newBookId,
-                title,
-                author,
-                coverUrl,
-                totalChapters,
-                guideId,
-                chapters: Array.from({ length: totalChapters }, (_, i) => ({}))
-              };
-              
-              try {
-                await persistBook(newBook);
-                await refreshFromDb();
-                form.reset();
-                renderApp();
-                showToast(`"${title}" 책이 추가되었습니다.`);
-              } catch (error) {
-                console.error('Error adding book:', error);
-                showToast('책 추가에 실패했습니다.', 'error');
-              }
-              return;
-            }
-            
+                        
                         
             if (form.id === "form-book-settings") {
               // Check if user is chloe before allowing admin access
