@@ -130,10 +130,10 @@
         position: fixed;
         inset: 0;
         z-index: 9999;
-        background-color: rgba(0, 0, 0, 0.5);
-        display: none; /* Controlled by openModal */
+        display: none;
         align-items: center;
         justify-content: center;
+        background: rgba(0,0,0,0.5);
       }
       #modal-overlay:not(.hidden) {
         display: flex;
@@ -254,7 +254,7 @@
             modalOverlay.classList.remove("hidden");
             
             // Inject modal content based on type
-            if (type === "book-settings") {
+            if (type === "edit-book" || type === "book-settings") {
               const selectedId = meta.bookId || "";
               const selectedBook = bookById(selectedId);
               const selectOptions = cache.books.map((b) => `<option value="${b.id}" ${selectedId === b.id ? "selected" : ""}>${b.id} · ${escapeHtml(b.title)}</option>`).join("");
@@ -763,9 +763,8 @@
           console.log('Re-rendering application...');
           renderApp();
           
-          // Step 6: Switch to reading tab to show Book of the Month
-          currentTab = "reading";
-          renderApp(); // Second render to ensure tab switch is reflected
+          // Step 6: Do NOT switch tabs - keep current tab active
+          renderApp();
           
           // Step 7: Close any open modals
           closeModal();
@@ -908,7 +907,7 @@
                         </div>
                         <div class="flex flex-col gap-2">
                           <div class="flex gap-2">
-                            <button class="btn-ghost !px-3 !py-2 !text-xs" onclick="editBookSettings('${book.id}', event)">수정</button>
+                            <button class="btn-ghost !px-3 !py-2 !text-xs" onclick="event.stopPropagation(); openModal('edit-book', '${book.id}')">수정</button>
                             <button class="btn-ghost !px-3 !py-2 !text-xs text-red-600" onclick="confirmDeleteBook('${book.id}', '${escapeHtml(book.title)}')">삭제</button>
                           </div>
                           <button id="btn-set-book-month-${book.id}" 
@@ -956,12 +955,6 @@
         if (uiModal.type === "master") return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><h2 class="font-serif text-2xl">BookVibe 2026</h2><form id="form-master-auth" class="mt-4 space-y-3"><input type="password" name="password" class="input-field" placeholder="마스터 비밀번호" required /><button class="btn-primary w-full">확인</button></form>${uiModal.error ? `<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>` : ""}</div></div>`;
         if (uiModal.type === "member-login") return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><h2 class="font-serif text-2xl">누구신가요?</h2><form id="form-member-login" class="mt-4 space-y-3"><select name="memberId" class="input-field">${memberList().map((m) => `<option value="${m.id}">${escapeHtml(m.display_name)}</option>`).join("")}</select><input type="password" name="password" class="input-field" placeholder="개인 비밀번호" required /><button class="btn-primary w-full">로그인</button></form>${uiModal.error ? `<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>` : ""}</div></div>`;
         if (uiModal.type === "first-login") return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><h2 class="font-serif text-xl">처음 오셨네요!</h2><p class="mt-2 text-sm text-deep/60">앞으로 사용할 비밀번호를 설정해주세요.</p><form id="form-first-password" class="mt-4 space-y-3"><input type="password" name="password" class="input-field" placeholder="새 비밀번호" required /><input type="password" name="confirmPassword" class="input-field" placeholder="새 비밀번호 확인" required /><button class="btn-primary w-full">저장</button></form>${uiModal.error ? `<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>` : ""}</div></div>`;
-        if (uiModal.type === "book-settings") {
-          const selectedId = uiModal.meta.bookId || "";
-          const selectedBook = bookById(selectedId);
-          const selectOptions = cache.books.map((b) => `<option value="${b.id}" ${selectedId === b.id ? "selected" : ""}>${b.id} · ${escapeHtml(b.title)}</option>`).join("");
-          return `<div class="modal-bg fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-5"><div class="paper-panel max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-2xl border border-deep/12 p-5 shadow-2xl sm:rounded-2xl"><div class="sticky top-0 z-10 -mx-5 -mt-5 mb-4 flex items-center justify-between border-b border-deep/10 bg-[#f7f1e5]/95 px-5 py-3 backdrop-blur"><h2 class="font-serif text-xl">책 정보 설정(관리자)</h2><button type="button" class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><form id="form-book-settings" class="grid gap-3"><div><label class="text-xs text-deep/60">책 선택</label><select class="input-field mt-1" name="bookPick"><option value="">새 ID 사용</option>${selectOptions}</select></div><div><label class="text-xs text-deep/60">새 ID (예: b11, 선택 입력)</label><input class="input-field mt-1" name="bookId" value="${selectedBook ? "" : escapeHtml(selectedId)}" placeholder="b1" /></div><div><label class="text-xs text-deep/60">책 제목</label><input class="input-field mt-1" name="title" value="${escapeHtml(selectedBook?.title || "")}" required /></div><div><label class="text-xs text-deep/60">저자</label><input class="input-field mt-1" name="author" value="${escapeHtml(selectedBook?.author || "")}" /></div><div><label class="text-xs text-deep/60">총 챕터 수</label><input class="input-field mt-1" type="number" min="1" max="150" name="totalChapters" value="${selectedBook?.totalChapters || 4}" required /></div><div><label class="text-xs text-deep/60">길잡이 지정</label><select class="input-field mt-1" name="guideId">${memberList().map((m) => `<option value="${m.id}" ${selectedBook?.guideId === m.id ? "selected" : ""}>${escapeHtml(m.display_name)}</option>`).join("")}</select></div><div><label class="text-xs text-deep/60">표지 이미지 URL</label><input class="input-field mt-1" name="coverUrl" value="${escapeHtml(selectedBook?.coverUrl || "")}" placeholder="https://..." /></div><div><label class="text-xs text-deep/60">또는 파일 업로드</label><input class="input-field mt-1" type="file" name="coverFile" accept="image/*" /></div><div class="mt-4 p-3 bg-deep/5 rounded-lg border border-deep/10"><div class="flex items-center gap-2 mb-2"><input type="radio" id="bookOfTheMonth" name="bookOfTheMonth" ${selectedId === currentBookId ? "checked" : ""} class="rounded" /><label for="bookOfTheMonth" class="text-sm font-semibold text-deep">이달의 책으로 지정</label></div><p class="text-xs text-deep/60">한 번에 한 권의 책만 이달의 책으로 지정할 수 있습니다. 선택하면 현재 이달의 책이 자동으로 변경됩니다.</p></div><button class="btn-primary mt-2" type="submit">저장</button></form></div></div>`;
-        }
         if (uiModal.type === "secure-confirm") return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><h2 class="font-serif text-xl">본인 인증</h2><p class="mt-2 text-sm text-deep/60">${escapeHtml(uiModal.meta.message || "")}</p><form id="form-secure-confirm" class="mt-4 space-y-3"><input type="password" name="password" class="input-field" placeholder="개인 비밀번호" required /><button class="btn-primary w-full">확인</button></form>${uiModal.error ? `<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>` : ""}</div></div>`;
         return "";
       }
