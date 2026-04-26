@@ -509,10 +509,126 @@
         const progress = chapterProgress(selected);
         const chapterOpts = Array.from({ length: selected.totalChapters }, (_, i) => i + 1).map((n) => `<option value="${n}">Chapter ${n}</option>`).join("");
         const rows = Array.from({ length: selected.totalChapters }, (_, i) => i + 1)
-          .map((c) => `<section class="mt-3 rounded-xl border border-deep/10 bg-white/65 p-3"><div class="mb-2 flex items-center justify-between"><h4 class="font-semibold text-deep">Chapter ${c}</h4><span class="text-xs text-deep/45">${memberList().filter((m) => (selected.chapters[c]?.[m.id] || "").trim()).length}/${memberList().length} 작성</span></div><ul class="space-y-2">${memberList().map((m) => `<li class="rounded-lg border border-deep/10 bg-white/70 px-3 py-2"><p class="text-[11px] font-semibold text-deep/60">${escapeHtml(m.display_name)}</p><p class="mt-1 text-sm text-deep/85">${(selected.chapters[c]?.[m.id] || "").trim() ? escapeHtml(selected.chapters[c][m.id]) : `<span class="text-deep/35">아직 기록 없음</span>`}</p></li>`).join("")}</ul></section>`)
+          .map((c) => `<section class="mt-3 rounded-xl border border-deep/10 bg-white/65 p-3"><div class="mb-2 flex items-center justify-between"><h4 class="font-semibold text-deep">Chapter ${c}</h4><span class="text-xs text-deep/45">${memberList().filter((m) => (selected.chapters[c]?.[m.id] || "").trim()).length}/${memberList().length} 작성</span></div><ul class="space-y-2">${memberList().map((m) => {
+            const sentence = (selected.chapters[c]?.[m.id] || "").trim();
+            const isOwner = m.id === currentMemberId;
+            const hasSentence = sentence !== "";
+            
+            return `<li class="rounded-lg border border-deep/10 bg-white/70 px-3 py-2" data-chapter="${c}" data-member="${m.id}"><p class="text-[11px] font-semibold text-deep/60">${escapeHtml(m.display_name)}</p><div class="mt-1">
+              ${hasSentence ? 
+                (isOwner ? 
+                  `<div class="sentence-view"><p class="text-sm text-deep/85">${escapeHtml(sentence)}</p><div class="mt-2 flex gap-2"><button class="btn-ghost !px-2 !py-1 !text-xs" onclick="editSentence(${c}, '${m.id}', '${escapeHtml(sentence)}')">수정</button><button class="btn-ghost !px-2 !py-1 !text-xs text-red-600" onclick="deleteSentence(${c}, '${m.id}')">삭제</button></div></div>` :
+                  `<p class="text-sm text-deep/85">${escapeHtml(sentence)}</p>`
+                ) : 
+                `<span class="text-deep/35">아직 기록 없음</span>`
+              }
+              <div class="sentence-edit hidden mt-1"><textarea class="input-field text-sm" rows="2" id="edit-${c}-${m.id}">${escapeHtml(sentence)}</textarea><div class="mt-2 flex gap-2"><button class="btn-primary !px-2 !py-1 !text-xs" onclick="saveSentence(${c}, '${m.id}')">저장</button><button class="btn-ghost !px-2 !py-1 !text-xs" onclick="cancelEdit(${c}, '${m.id}')">취소</button></div></div>
+            </div></li>`;
+          }).join("")}</ul></section>`)
           .join("");
         return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm"><div class="flex items-center justify-between gap-3"><div><p class="text-[11px] uppercase tracking-[0.18em] text-gold">이달의 책</p><h2 class="font-serif text-xl">${escapeHtml(selected.title)}</h2><p class="mt-1"><span class="guide-badge">⭐ 길잡이: ${escapeHtml(memberNameById(selected.guideId))}</span></p></div><span class="text-xs text-deep/50">${progress.done}/${progress.total} 완료</span></div><div class="mt-3 h-2 overflow-hidden rounded-full bg-mist"><div class="h-full rounded-full bg-deep-soft" style="width:${progress.pct}%"></div></div><div class="mt-4 p-3 bg-deep/5 rounded-lg border border-deep/10"><p class="text-sm text-deep/60 mb-1">기록 정보</p><p class="text-xs text-deep/80">${escapeHtml(currentMemberName)} | ${escapeHtml(selected.title)}</p></div><form id="form-reading-input" class="mt-4 grid gap-2"><select class="input-field" name="chapter">${chapterOpts}</select><textarea class="input-field" rows="3" name="sentence" placeholder="기억에 남는 문장을 입력하세요" required></textarea><button class="btn-primary">문장 기록</button></form></section><section class="mt-4">${rows}</section></main>`;
       }
+      // Edit/Delete functions for sentences
+      window.editSentence = function(chapter, memberId, currentSentence) {
+        const li = document.querySelector(`[data-chapter="${chapter}"][data-member="${memberId}"]`);
+        if (!li) return;
+        
+        const viewDiv = li.querySelector('.sentence-view');
+        const editDiv = li.querySelector('.sentence-edit');
+        const textarea = li.querySelector(`#edit-${chapter}-${memberId}`);
+        
+        if (viewDiv && editDiv && textarea) {
+          viewDiv.classList.add('hidden');
+          editDiv.classList.remove('hidden');
+          textarea.value = currentSentence;
+          textarea.focus();
+        }
+      };
+      
+      window.cancelEdit = function(chapter, memberId) {
+        const li = document.querySelector(`[data-chapter="${chapter}"][data-member="${memberId}"]`);
+        if (!li) return;
+        
+        const viewDiv = li.querySelector('.sentence-view');
+        const editDiv = li.querySelector('.sentence-edit');
+        
+        if (viewDiv && editDiv) {
+          viewDiv.classList.remove('hidden');
+          editDiv.classList.add('hidden');
+        }
+      };
+      
+      window.saveSentence = async function(chapter, memberId) {
+        // Authorization check
+        if (memberId !== currentMemberId) {
+          alert('자신의 문장만 수정할 수 있습니다.');
+          return;
+        }
+        
+        const li = document.querySelector(`[data-chapter="${chapter}"][data-member="${memberId}"]`);
+        if (!li) return;
+        
+        const textarea = li.querySelector(`#edit-${chapter}-${memberId}`);
+        const newSentence = textarea.value.trim();
+        
+        if (!newSentence) {
+          alert('문장을 입력해주세요.');
+          return;
+        }
+        
+        try {
+          const selected = cache.books.find((b) => b.id === currentBookId);
+          if (!selected) return;
+          
+          // Update the sentence in cache
+          if (!selected.chapters[chapter]) selected.chapters[chapter] = emptyChapterRecord();
+          selected.chapters[chapter][memberId] = newSentence;
+          
+          // Update in Supabase
+          await persistBook(selected);
+          await refreshFromDb();
+          
+          // Re-render to show updated content
+          renderApp();
+          showToast('문장이 수정되었습니다.');
+        } catch (error) {
+          console.error('Error saving sentence:', error);
+          alert('문장 수정에 실패했습니다.');
+        }
+      };
+      
+      window.deleteSentence = async function(chapter, memberId) {
+        // Authorization check
+        if (memberId !== currentMemberId) {
+          alert('자신의 문장만 삭제할 수 있습니다.');
+          return;
+        }
+        
+        if (!confirm('이 문장을 삭제하시겠습니까?')) {
+          return;
+        }
+        
+        try {
+          const selected = cache.books.find((b) => b.id === currentBookId);
+          if (!selected) return;
+          
+          // Delete the sentence from cache
+          if (selected.chapters[chapter]) {
+            delete selected.chapters[chapter][memberId];
+          }
+          
+          // Update in Supabase
+          await persistBook(selected);
+          await refreshFromDb();
+          
+          // Re-render to show updated content
+          renderApp();
+          showToast('문장이 삭제되었습니다.');
+        } catch (error) {
+          console.error('Error deleting sentence:', error);
+          alert('문장 삭제에 실패했습니다.');
+        }
+      };
       function renderBookshelfTab() {
         return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><section class="wood-touch relative overflow-hidden rounded-2xl p-4"><div class="relative z-10"><h2 class="font-serif text-xl text-[#f4e6c2]">2026 북쉘프</h2><div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">${cache.books.map((b) => `<button type="button" class="group text-left" data-open-book="${b.id}"><div class="book-container bg-white/90 backdrop-blur rounded-xl p-4 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300 hover:bg-white/95"><div class="flex gap-4"><div class="flex-shrink-0 w-24 h-36 sm:w-28 sm:h-42"><div class="book-card h-full">${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy"/>` : `<div class="book-card-placeholder h-full"><div class="book-title text-xs">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><h3 class="font-semibold text-deep text-base sm:text-lg mb-1 truncate">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/70 mb-2 truncate">${escapeHtml(b.author || "저자 미입력")}</p><div class="flex items-center gap-2"><span class="guide-badge text-xs">🚩 길잡이: ${escapeHtml(memberNameById(b.guideId))}</span></div></div></div></div></button>`).join("")}</div></div></section></main>`;
       }
