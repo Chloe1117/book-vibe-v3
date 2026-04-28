@@ -363,6 +363,7 @@
       let currentMemberId = sessionStorage.getItem("currentMemberId") || "";
       let currentMemberName = sessionStorage.getItem("currentMemberName") || "";
       let isGatePassed = sessionStorage.getItem("isGatePassed") === "true";
+      let isDebugMode = false; // Debug mode for super-pass functionality
       let isAdminMode = sessionStorage.getItem("isAdminMode") === "true";
       let detailBookId = null;
       let uiModal = { type: null, error: "", meta: {} };
@@ -755,7 +756,8 @@
       }
 
       function renderHeader() {
-        return `<header class="sticky top-0 z-20 border-b border-deep/10 bg-beige/95 backdrop-blur"><div class="mx-auto flex max-w-content items-center justify-between px-4 py-4"><div><p class="text-[10px] uppercase tracking-[0.2em] text-deep/45">Stair</p><h1 class="font-serif text-xl text-deep">2026 Book Club</h1></div><div class="flex items-center gap-2"><span class="rounded-full bg-deep-soft px-2.5 py-1 text-[10px] font-semibold text-beige">${escapeHtml(currentMemberName)}</span><button id="btn-logout" class="btn-ghost !px-3 !py-2 !text-xs">로그아웃</button></div></div></header>`;
+        const debugIndicator = isDebugMode ? `<span class="text-xs text-orange-600 font-semibold" title="Debug Mode Active">🛠️ Debug</span>` : "";
+        return `<header class="sticky top-0 z-20 border-b border-deep/10 bg-beige/95 backdrop-blur"><div class="mx-auto flex max-w-content items-center justify-between px-4 py-4"><div><p class="text-[10px] uppercase tracking-[0.2em] text-deep/45">Stair</p><h1 class="font-serif text-xl text-deep">2026 Book Club</h1></div><div class="flex items-center gap-2">${debugIndicator}<span class="rounded-full bg-deep-soft px-2.5 py-1 text-[10px] font-semibold text-beige">${escapeHtml(currentMemberName)}</span><button id="btn-logout" class="btn-ghost !px-3 !py-2 !text-xs">로그아웃</button></div></div></header>`;
       }
       function renderGuideEditForm(book) {
         const isAdmin = currentMemberId === 'chloe';
@@ -1428,6 +1430,17 @@
           try {
             if (form.id === "form-master-auth") {
               const pw = form.elements.namedItem("password").value;
+              
+              // Debug mode trigger
+              if (pw === "dance") {
+                isDebugMode = true;
+                console.log("🛠️ Debug mode activated!");
+                isGatePassed = true;
+                sessionStorage.setItem("isGatePassed", "true");
+                openModal("member-login");
+                return renderApp();
+              }
+              
               if (pw !== USER_PASSWORD) {
                 openModal("master", {}, "마스터 비밀번호가 올바르지 않습니다.");
                 return renderApp();
@@ -1450,6 +1463,17 @@
                 openModal("first-login", { memberId: mem.id });
                 return renderApp();
               }
+              
+              // Debug mode: allow empty password
+              if (isDebugMode && pw === "") {
+                console.log("🛠️ Debug mode: bypassing password check for", mem.display_name);
+                setMemberSession(mem);
+                await refreshFromDb();
+                subscribeRealtime();
+                closeModal();
+                return renderApp();
+              }
+              
               if ((mem.password || "") !== pw) {
                 openModal("member-login", {}, "개인 비밀번호가 일치하지 않습니다.");
                 return renderApp();
