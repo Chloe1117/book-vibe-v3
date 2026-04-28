@@ -365,6 +365,9 @@
       let isGatePassed = sessionStorage.getItem("isGatePassed") === "true";
       let isDebugMode = false; // Debug mode for super-pass functionality
       let isAdminMode = sessionStorage.getItem("isAdminMode") === "true";
+      
+      // Debug mode status logging
+      console.log("Current Debug Mode:", window.isDebugMode);
       let detailBookId = null;
       let uiModal = { type: null, error: "", meta: {} };
       let pendingSecureAction = null;
@@ -1433,7 +1436,8 @@
               
               // Debug mode trigger
               if (pw === "dance") {
-                isDebugMode = true;
+                window.isDebugMode = true;
+                alert('Debug Mode Active');
                 console.log("🛠️ Debug mode activated!");
                 isGatePassed = true;
                 sessionStorage.setItem("isGatePassed", "true");
@@ -1453,6 +1457,20 @@
             if (form.id === "form-member-login") {
               const memberId = form.elements.namedItem("memberId").value;
               const pw = form.elements.namedItem("password").value;
+              
+              // Debug bypass at the very beginning
+              if (window.isDebugMode && (pw === "" || pw === null)) {
+                console.log("Debug bypass triggered");
+                const mem = memberList().find((m) => m.id === memberId);
+                if (mem) {
+                  setMemberSession(mem);
+                  await refreshFromDb();
+                  subscribeRealtime();
+                  closeModal();
+                  return renderApp();
+                }
+              }
+              
               const mem = memberList().find((m) => m.id === memberId);
               if (!mem) {
                 openModal("member-login", {}, "멤버를 찾을 수 없습니다.");
@@ -1461,16 +1479,6 @@
               if (mem.is_first_login) {
                 setMemberSession(mem);
                 openModal("first-login", { memberId: mem.id });
-                return renderApp();
-              }
-              
-              // Debug mode: allow empty password
-              if (isDebugMode && pw === "") {
-                console.log("🛠️ Debug mode: bypassing password check for", mem.display_name);
-                setMemberSession(mem);
-                await refreshFromDb();
-                subscribeRealtime();
-                closeModal();
                 return renderApp();
               }
               
