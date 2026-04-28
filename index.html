@@ -607,6 +607,7 @@
           final_sentence_chapter: row.final_sentence_chapter || null, // New DB column
           finalAt: row.final_at || null,
           is_book_of_the_month: !!row.is_book_of_the_month, // Include DB field
+          schedules: row.schedules || {}, // Include schedules field with default empty object
         };
       }
       function serializeMilestones(book) {
@@ -629,6 +630,7 @@
           final_sentence_chapter: book.final_sentence_chapter || null, // New DB column
           final_at: book.finalAt,
           is_book_of_the_month: !!book.is_book_of_the_month, // Include DB field
+          schedules: book.schedules || {}, // Include schedules field
           updated_at: new Date().toISOString(),
         };
       }
@@ -763,6 +765,10 @@
       function renderReadingTab() {
         const selected = cache.books.find((b) => b.id === currentBookId) || cache.books[0];
         if (!selected) return `<main class="mx-auto max-w-content px-4 py-6 pb-28 text-sm text-deep/55">불러오는 중...</main>`;
+        
+        // Debug: Log schedules data
+        console.log("Selected book schedules:", selected.schedules);
+        
         const progress = chapterProgress(selected);
         const chapterOpts = Array.from({ length: selected.totalChapters }, (_, i) => i + 1).map((n) => `<option value="${n}">Chapter ${n}</option>`).join("");
         const isAdmin = currentMemberId === 'chloe';
