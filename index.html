@@ -198,31 +198,35 @@
       
       .clover-leaf {
         position: absolute;
-        width: 12px;
-        height: 12px;
-        background: #86b841;
-        border-radius: 0 100% 0 100%;
-        transform-origin: bottom right;
+        width: 14px;
+        height: 14px;
+        background: #A7D489;
+        border-radius: 50% 50% 50% 0;
+        transform-origin: bottom center;
         opacity: 0;
         animation: sproutLeaf 0.6s ease-out forwards;
+        box-shadow: 0 2px 4px rgba(167, 212, 137, 0.3);
       }
       
       .clover-leaf:nth-child(1) {
-        top: 2px;
-        left: 2px;
-        transform: rotate(0deg);
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%) rotate(0deg);
+        background: #A7D489; /* Spring Green */
       }
       
       .clover-leaf:nth-child(2) {
-        top: 2px;
-        right: 2px;
-        transform: rotate(90deg);
+        top: 4px;
+        left: 2px;
+        transform: rotate(-120deg);
+        background: #8BC34A; /* Slightly darker green */
       }
       
       .clover-leaf:nth-child(3) {
-        bottom: 2px;
-        left: 8px;
-        transform: rotate(-45deg);
+        top: 4px;
+        right: 2px;
+        transform: rotate(120deg);
+        background: #7CB342; /* Darkest green */
       }
       
       .clover-stem {
@@ -252,12 +256,24 @@
         position: absolute;
         bottom: 0;
         left: 50%;
-        width: 20px;
-        height: 8px;
-        background: radial-gradient(ellipse at center, #4a5d3a 0%, #2d3a22 70%, #1a2318 100%);
-        border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+        width: 24px;
+        height: 10px;
+        background: radial-gradient(ellipse at center, rgba(205, 175, 149, 0.6) 0%, rgba(188, 143, 143, 0.4) 70%, rgba(160, 82, 45, 0.2) 100%);
+        border-radius: 50% 50% 50% 50% / 70% 70% 30% 30%;
         transform: translateX(-50%);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 2px 6px rgba(205, 175, 149, 0.3);
+      }
+      
+      .clover-stage-0 .sprout {
+        position: absolute;
+        top: -2px;
+        left: 50%;
+        width: 4px;
+        height: 4px;
+        background: #A7D489;
+        border-radius: 50%;
+        transform: translateX(-50%);
+        box-shadow: 0 1px 3px rgba(167, 212, 137, 0.4);
       }
       
       .clover-stage-1 .clover-leaf:nth-child(1) {
@@ -379,20 +395,21 @@
         }
       }
       
-      /* Schedule Display */
+      /* Schedule Display - Premium Card Style */
       .schedule-display {
-        background: rgba(196, 163, 90, 0.08);
-        border: 1px solid rgba(196, 163, 90, 0.2);
-        border-radius: 0.75rem;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid #eee;
+        border-radius: 1rem;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
       }
       
       .schedule-title {
-        font-size: 0.85rem;
+        font-size: 0.9rem;
         font-weight: 600;
         color: #0c1f18;
-        margin-bottom: 0.5rem;
+        margin-bottom: 1rem;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -400,17 +417,37 @@
       
       .schedule-dates {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-        gap: 0.5rem;
-        font-size: 0.7rem;
-        color: #666;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.75rem;
       }
       
       .schedule-date-item {
-        padding: 0.25rem 0.5rem;
-        background: rgba(255, 255, 255, 0.6);
-        border-radius: 0.25rem;
+        padding: 12px;
+        background: white;
+        border: 1px solid #eee;
+        border-radius: 12px;
         text-align: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        transition: all 0.2s ease;
+      }
+      
+      .schedule-date-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      }
+      
+      .schedule-date-item .chapter-label {
+        font-size: 0.7rem;
+        color: #888;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+      }
+      
+      .schedule-date-item .date-value {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #2d5a3d;
+        line-height: 1.2;
       }
     </style>
   </head>
@@ -871,15 +908,15 @@
                 const chapterNum = i + 1;
                 const scheduleDate = selected.schedules?.[chapterNum] || '';
                 return `<div class="schedule-date-item">
-                  <div>Ch ${chapterNum}</div>
-                  <div class="clover-date">${scheduleDate || '미정'}</div>
+                  <div class="chapter-label">Ch ${chapterNum}</div>
+                  <div class="date-value">${scheduleDate || '미정'}</div>
                 </div>`;
               }).join('')}
             </div>
           </div>
         `;
         
-        // Clover Progress Path with S-curve layout
+        // Clover Progress Path with S-curve layout and proper hierarchy
         const cloverPath = `
           <div class="clover-path">
             ${Array.from({ length: selected.totalChapters }, (_, i) => {
@@ -887,10 +924,10 @@
               const submittedCount = memberList().filter((m) => (selected.chapters[chapterNum]?.[m.id] || "").trim()).length;
               const scheduleDate = selected.schedules?.[chapterNum] || '';
               
-              // Calculate S-curve position
+              // Calculate S-curve position for clover at bottom
               const progress = i / (selected.totalChapters - 1);
               const x = 10 + progress * 80; // 10% to 90% width
-              const y = 50 + Math.sin(progress * Math.PI * 2) * 30; // S-curve using sine wave
+              const y = 60 + Math.sin(progress * Math.PI * 2) * 25; // S-curve using sine wave, positioned lower
               
               // Determine growth stage based on submission count
               const growthStage = Math.min(submittedCount, 3); // Cap at stage 3 (full clover)
@@ -899,8 +936,8 @@
               // Generate clover content based on growth stage
               let cloverContent = '';
               if (growthStage === 0) {
-                // Stage 0: Only mound of earth
-                cloverContent = `<div class="mound"></div>`;
+                // Stage 0: Mound with sprout
+                cloverContent = `<div class="mound"></div><div class="sprout"></div>`;
               } else {
                 // Stages 1-3: Show appropriate leaves and stem
                 const cloverLeaves = Array.from({ length: 3 }, (_, leafIndex) => {
@@ -913,15 +950,17 @@
               
               return `
                 <div class="clover-container ${stageClass}" style="left: ${x}%; top: ${y}%;">
+                  <!-- Text hierarchy above clover -->
+                  <div class="clover-label" style="bottom: 25px;">
+                    <div class="chapter-label">Ch ${chapterNum}</div>
+                    <div class="date-value">${scheduleDate || '미정'}</div>
+                  </div>
+                  <!-- Clover/Mound at bottom -->
                   <div class="clover">
                     ${cloverContent}
                   </div>
-                  <div class="clover-label">
-                    <div>Ch ${chapterNum}</div>
-                    <div class="clover-date">${scheduleDate || '미정'}</div>
-                  </div>
                 </div>
-                ${i % 2 === 0 ? `<div class="firefly" style="left: ${x + 5}%; top: ${y - 10}%; animation-delay: ${i * 0.5}s;"></div>` : ''}
+                ${i % 2 === 0 ? `<div class="firefly" style="left: ${x + 5}%; top: ${y - 15}%; animation-delay: ${i * 0.5}s;"></div>` : ''}
               `;
             }).join('')}
           </div>
