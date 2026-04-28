@@ -170,230 +170,56 @@
         border: 1px solid rgba(196, 163, 90, 0.5);
       }
       
-      /* Clover Path UI Styles */
-      .clover-path {
-        position: relative;
-        width: 100%;
-        height: 200px;
-        margin: 2rem 0;
-        overflow: hidden;
-        background: radial-gradient(ellipse at center, rgba(247, 241, 229, 0.3) 0%, rgba(247, 241, 229, 0.05) 70%);
+      /* Dynamic Chapter Cards - Premium Styling */
+      .chapter-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+        padding: 1rem;
+        background: rgba(248, 250, 252, 0.5);
         border-radius: 1rem;
+        border: 1px solid rgba(0, 0, 0, 0.03);
       }
       
-      .clover-container {
-        position: absolute;
-        width: 40px;
-        height: 40px;
-        transform: translate(-50%, -50%);
-        transition: all 0.3s ease;
-      }
-      
-      .clover {
-        width: 100%;
-        height: 100%;
-        position: relative;
-        filter: drop-shadow(0 4px 8px rgba(12, 31, 24, 0.2));
-      }
-      
-      .clover-leaf {
-        position: absolute;
-        width: 14px;
-        height: 14px;
-        background: #A7D489;
-        border-radius: 50% 50% 50% 0;
-        transform-origin: bottom center;
-        opacity: 0;
-        animation: sproutLeaf 0.6s ease-out forwards;
-        box-shadow: 0 2px 4px rgba(167, 212, 137, 0.3);
-      }
-      
-      .clover-leaf:nth-child(1) {
-        top: 0;
-        left: 50%;
-        transform: translateX(-50%) rotate(0deg);
-        background: #A7D489; /* Spring Green */
-      }
-      
-      .clover-leaf:nth-child(2) {
-        top: 4px;
-        left: 2px;
-        transform: rotate(-120deg);
-        background: #8BC34A; /* Slightly darker green */
-      }
-      
-      .clover-leaf:nth-child(3) {
-        top: 4px;
-        right: 2px;
-        transform: rotate(120deg);
-        background: #7CB342; /* Darkest green */
-      }
-      
-      .clover-stem {
-        position: absolute;
-        bottom: 0;
-        left: 50%;
-        width: 2px;
-        height: 8px;
-        background: #6b9e2f;
-        transform: translateX(-50%);
-        opacity: 0.3;
-        transition: all 0.6s ease-out;
-      }
-      
-      /* Growth Stages */
-      .clover-stage-0 .clover-leaf {
-        opacity: 0;
-        transform: scale(0);
-      }
-      
-      .clover-stage-0 .clover-stem {
-        opacity: 0;
-        height: 0;
-      }
-      
-      .clover-stage-0 .mound {
-        position: absolute;
-        bottom: 0;
-        left: 50%;
-        width: 24px;
-        height: 10px;
-        background: radial-gradient(ellipse at center, rgba(205, 175, 149, 0.6) 0%, rgba(188, 143, 143, 0.4) 70%, rgba(160, 82, 45, 0.2) 100%);
-        border-radius: 50% 50% 50% 50% / 70% 70% 30% 30%;
-        transform: translateX(-50%);
-        box-shadow: 0 2px 6px rgba(205, 175, 149, 0.3);
-      }
-      
-      .clover-stage-0 .sprout {
-        position: absolute;
-        top: -2px;
-        left: 50%;
-        width: 4px;
-        height: 4px;
-        background: #A7D489;
-        border-radius: 50%;
-        transform: translateX(-50%);
-        box-shadow: 0 1px 3px rgba(167, 212, 137, 0.4);
-      }
-      
-      .clover-stage-1 .clover-leaf:nth-child(1) {
-        opacity: 1;
-        transform: scale(1) rotate(0deg);
-        animation: sproutLeaf 0.6s ease-out forwards;
-      }
-      
-      .clover-stage-1 .clover-leaf:nth-child(2),
-      .clover-stage-1 .clover-leaf:nth-child(3) {
-        opacity: 0;
-        transform: scale(0);
-      }
-      
-      .clover-stage-1 .clover-stem {
-        opacity: 0.5;
-        height: 4px;
-      }
-      
-      .clover-stage-2 .clover-leaf:nth-child(1),
-      .clover-stage-2 .clover-leaf:nth-child(2) {
-        opacity: 1;
-        transform: scale(1) rotate(var(--rotation, 0deg));
-        animation: sproutLeaf 0.6s ease-out forwards;
-      }
-      
-      .clover-stage-2 .clover-leaf:nth-child(2) {
-        animation-delay: 0.2s;
-      }
-      
-      .clover-stage-2 .clover-leaf:nth-child(3) {
-        opacity: 0;
-        transform: scale(0);
-      }
-      
-      .clover-stage-2 .clover-stem {
-        opacity: 0.7;
-        height: 6px;
-      }
-      
-      .clover-stage-3 .clover-leaf {
-        opacity: 1;
-        transform: scale(1) rotate(var(--rotation, 0deg));
-        animation: sproutLeaf 0.6s ease-out forwards;
-      }
-      
-      .clover-stage-3 .clover-leaf:nth-child(2) {
-        animation-delay: 0.2s;
-      }
-      
-      .clover-stage-3 .clover-leaf:nth-child(3) {
-        animation-delay: 0.4s;
-      }
-      
-      .clover-stage-3 .clover-stem {
-        opacity: 1;
-        height: 8px;
-      }
-      
-      .clover-label {
-        position: absolute;
-        bottom: -20px;
-        left: 50%;
-        transform: translateX(-50%);
-        font-size: 0.7rem;
-        color: #0c1f18;
+      .chapter-card {
+        padding: 16px;
+        border-radius: 12px;
+        border: 1px solid rgba(0, 0, 0, 0.03);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        transition: all 0.2s ease;
         text-align: center;
-        white-space: nowrap;
-        opacity: 0.7;
       }
       
-      .clover-date {
-        font-size: 0.6rem;
-        color: #c4a35a;
-        margin-top: 2px;
+      .chapter-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
       }
       
-      /* Sprouting Animation */
-      @keyframes sproutLeaf {
-        0% {
-          opacity: 0;
-          transform: scale(0) rotate(var(--rotation, 0deg));
-        }
-        50% {
-          opacity: 0.8;
-          transform: scale(1.1) rotate(var(--rotation, 0deg));
-        }
-        100% {
-          opacity: 1;
-          transform: scale(1) rotate(var(--rotation, 0deg));
-        }
+      .chapter-card .chapter-label {
+        font-size: 0.75rem;
+        color: #666;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
       }
       
-      /* Firefly Particles */
-      .firefly {
-        position: absolute;
-        width: 3px;
-        height: 3px;
-        background: radial-gradient(circle, #ffeb3b 0%, transparent 70%);
-        border-radius: 50%;
-        opacity: 0;
-        animation: fireflyFloat 8s infinite ease-in-out;
+      .chapter-card .date-value {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #2C3E50;
+        line-height: 1.3;
       }
       
-      @keyframes fireflyFloat {
-        0%, 100% {
-          opacity: 0;
-          transform: translateY(0) translateX(0);
-        }
-        10% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.3;
-          transform: translateY(-20px) translateX(10px);
-        }
-        90% {
-          opacity: 1;
-        }
-      }
+      /* Color palette for date grouping */
+      .color-soft-blue { background: #E3F2FD; }
+      .color-pale-green { background: #F1F8E9; }
+      .color-light-peach { background: #FFF3E0; }
+      .color-lavender { background: #F3E5F5; }
+      .color-soft-coral { background: #FFEBEE; }
+      .color-mint-green { background: #E8F5E8; }
+      .color-sky-blue { background: #E1F5FE; }
+      .color-warm-yellow { background: #FFFDE7; }
       
       /* Schedule Display - Premium Card Style */
       .schedule-display {
@@ -896,71 +722,48 @@
         const chapterOpts = Array.from({ length: selected.totalChapters }, (_, i) => i + 1).map((n) => `<option value="${n}">Chapter ${n}</option>`).join("");
         const isAdmin = currentMemberId === 'chloe';
         
-        // Schedule Display
-        const scheduleDisplay = `
-          <div class="schedule-display">
-            <div class="schedule-title">
-              <span>📅 챕터별 목표 일정</span>
-              ${isAdmin ? `<button class="btn-ghost !px-2 !py-1 !text-xs" onclick="event.stopPropagation(); window.openModal('schedule-settings', { bookId: '${selected.id}' })">일정 설정</button>` : ''}
-            </div>
-            <div class="schedule-dates">
-              ${Array.from({ length: selected.totalChapters }, (_, i) => {
-                const chapterNum = i + 1;
-                const scheduleDate = selected.schedules?.[chapterNum] || '';
-                return `<div class="schedule-date-item">
-                  <div class="chapter-label">Ch ${chapterNum}</div>
-                  <div class="date-value">${scheduleDate || '미정'}</div>
-                </div>`;
-              }).join('')}
-            </div>
-          </div>
-        `;
+        // Dynamic Chapter Cards with color-coded date grouping
+        const colorPalette = [
+          'color-soft-blue',
+          'color-pale-green', 
+          'color-light-peach',
+          'color-lavender',
+          'color-soft-coral',
+          'color-mint-green',
+          'color-sky-blue',
+          'color-warm-yellow'
+        ];
         
-        // Clover Progress Path with S-curve layout and proper hierarchy
-        const cloverPath = `
-          <div class="clover-path">
+        // Pre-calculate colors for each chapter based on date grouping
+        const chapterColors = [];
+        let currentColorIndex = 0;
+        let lastDate = '';
+        
+        for (let i = 0; i < selected.totalChapters; i++) {
+          const chapterNum = i + 1;
+          const scheduleDate = selected.schedules?.[chapterNum] || '';
+          
+          if (scheduleDate && scheduleDate !== lastDate) {
+            // New date, move to next color
+            currentColorIndex = (currentColorIndex + 1) % colorPalette.length;
+            lastDate = scheduleDate;
+          }
+          
+          chapterColors.push(scheduleDate ? colorPalette[currentColorIndex] : colorPalette[0]);
+        }
+        
+        const chapterCards = `
+          <div class="chapter-cards-grid">
             ${Array.from({ length: selected.totalChapters }, (_, i) => {
               const chapterNum = i + 1;
-              const submittedCount = memberList().filter((m) => (selected.chapters[chapterNum]?.[m.id] || "").trim()).length;
               const scheduleDate = selected.schedules?.[chapterNum] || '';
-              
-              // Calculate S-curve position for clover at bottom
-              const progress = i / (selected.totalChapters - 1);
-              const x = 10 + progress * 80; // 10% to 90% width
-              const y = 60 + Math.sin(progress * Math.PI * 2) * 25; // S-curve using sine wave, positioned lower
-              
-              // Determine growth stage based on submission count
-              const growthStage = Math.min(submittedCount, 3); // Cap at stage 3 (full clover)
-              const stageClass = `clover-stage-${growthStage}`;
-              
-              // Generate clover content based on growth stage
-              let cloverContent = '';
-              if (growthStage === 0) {
-                // Stage 0: Mound with sprout
-                cloverContent = `<div class="mound"></div><div class="sprout"></div>`;
-              } else {
-                // Stages 1-3: Show appropriate leaves and stem
-                const cloverLeaves = Array.from({ length: 3 }, (_, leafIndex) => {
-                  const shouldShow = leafIndex < growthStage;
-                  const delay = leafIndex * 0.2;
-                  return `<div class="clover-leaf" style="--rotation: ${leafIndex * 120}deg; animation-delay: ${delay}s; opacity: ${shouldShow ? 1 : 0};"></div>`;
-                }).join('');
-                cloverContent = `${cloverLeaves}<div class="clover-stem"></div>`;
-              }
+              const colorClass = chapterColors[i];
               
               return `
-                <div class="clover-container ${stageClass}" style="left: ${x}%; top: ${y}%;">
-                  <!-- Text hierarchy above clover -->
-                  <div class="clover-label" style="bottom: 25px;">
-                    <div class="chapter-label">Ch ${chapterNum}</div>
-                    <div class="date-value">${scheduleDate || '미정'}</div>
-                  </div>
-                  <!-- Clover/Mound at bottom -->
-                  <div class="clover">
-                    ${cloverContent}
-                  </div>
+                <div class="chapter-card ${colorClass}" data-chapter="${chapterNum}">
+                  <div class="chapter-label">Chapter ${chapterNum}</div>
+                  <div class="date-value">${scheduleDate || '미정'}</div>
                 </div>
-                ${i % 2 === 0 ? `<div class="firefly" style="left: ${x + 5}%; top: ${y - 15}%; animation-delay: ${i * 0.5}s;"></div>` : ''}
               `;
             }).join('')}
           </div>
@@ -1002,7 +805,6 @@
           }).join("");
         
         return `<main class="mx-auto max-w-content px-4 py-5 pb-28">
-          ${scheduleDisplay}
           <section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm">
             <div class="flex items-center justify-between gap-3">
               <div>
@@ -1025,7 +827,16 @@
               <button class="btn-primary">문장 기록</button>
             </form>
           </section>
-          ${cloverPath}
+          
+          <!-- Chapter Target Schedule -->
+          <div class="schedule-display">
+            <div class="schedule-title">
+              <span>📅 챕터별 목표 일정</span>
+              ${isAdmin ? `<button class="btn-ghost !px-2 !py-1 !text-xs" onclick="event.stopPropagation(); window.openModal('schedule-settings', { bookId: '${selected.id}' })">일정 설정</button>` : ''}
+            </div>
+            ${chapterCards}
+          </div>
+          
           <section class="mt-4">${rows}</section>
         </main>`;
       }
