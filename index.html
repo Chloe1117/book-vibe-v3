@@ -869,6 +869,47 @@
         const canEdit = isGuideFor(book) || isAdmin;
         return `<section class="paper-panel mt-4 rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep">책 정보 설정</h3><p class="mt-1 text-xs text-deep/55">${canEdit ? "저장 시 길잡이 본인 인증이 필요합니다." : "해당 책의 길잡이만 수정 가능합니다."}</p><form id="form-book-edit" class="mt-3 grid gap-3" data-book="${book.id}"><input class="input-field" name="title" value="${escapeHtml(book.title)}" ${canEdit ? "" : "disabled"} /><input class="input-field" name="author" value="${escapeHtml(book.author)}" ${canEdit ? "" : "disabled"} /><input class="input-field" name="coverUrl" value="${escapeHtml(book.coverUrl)}" ${canEdit ? "" : "disabled"} /><select class="input-field" name="guideId" ${isAdmin ? "" : "disabled"}>${memberList().map((m) => `<option value="${m.id}" ${book.guideId === m.id ? "selected" : ""}>길잡이: ${escapeHtml(m.display_name)}</option>`).join("")}</select><input class="input-field" type="number" min="1" max="50" name="totalChapters" value="${book.totalChapters}" ${canEdit ? "" : "disabled"} /><button class="btn-primary ${canEdit ? "" : "opacity-40"}" ${canEdit ? "" : "disabled"}>저장</button></form></section>`;
       }
+      function renderMeetingTab() {
+        return `<main class="reading-tab-container mx-auto max-w-content pb-28">
+          <div class="book-info-section">
+            <section class="paper-panel rounded-2xl border border-deep/10 p-8 shadow-sm text-center">
+              <div class="mb-6">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-deep/10 rounded-full mb-4">
+                  <svg class="w-8 h-8 text-deep" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+                    <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 1 1 0 000 2H6a2 2 0 100 4h2a2 2 0 100-4h-.09A1.65 1.65 0 0013 5.5a1.65 1.65 0 00-.09-1.5H14a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
+                  </svg>
+                </div>
+                <h2 class="font-serif text-2xl text-deep mb-2">모임 기록</h2>
+                <p class="text-deep/60 text-lg">Meeting Records</p>
+              </div>
+              
+              <div class="max-w-md mx-auto">
+                <div class="bg-deep/5 rounded-lg p-6 border border-deep/10">
+                  <h3 class="font-semibold text-deep mb-3">📅 준비 중입니다</h3>
+                  <p class="text-deep/60 mb-4 leading-relaxed">
+                    모임 기록 기능이 곧 출시됩니다.<br>
+                    소모임의 소중한 순간들을 기록하고 공유할 수 있게 됩니다.
+                  </p>
+                  <div class="flex flex-wrap gap-2 justify-center">
+                    <span class="px-3 py-1 bg-deep/10 rounded-full text-xs text-deep/70">📝 회의록</span>
+                    <span class="px-3 py-1 bg-deep/10 rounded-full text-xs text-deep/70">📸 사진첩</span>
+                    <span class="px-3 py-1 bg-deep/10 rounded-full text-xs text-deep/70">🎯 목표 관리</span>
+                    <span class="px-3 py-1 bg-deep/10 rounded-full text-xs text-deep/70">💬 토론</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="mt-8 text-center">
+                <p class="text-xs text-deep/45">
+                  문의: Chloe (책 임원)
+                </p>
+              </div>
+            </section>
+          </div>
+        </main>`;
+      }
+      
       function renderReadingTab() {
         const selected = cache.books.find((b) => b.id === currentBookId) || cache.books[0];
         if (!selected) return `<main class="mx-auto max-w-content px-4 py-6 pb-28 text-sm text-deep/55">불러오는 중...</main>`;
@@ -1411,7 +1452,21 @@
       }
       function renderBottomTabs() {
         const tab = (id, label) => `<button type="button" class="flex-1 py-3 text-center text-[12px] font-semibold ${currentTab === id ? "text-deep" : "text-deep/45"}" data-tab="${id}">${label}</button>`;
-        return `<nav class="fixed bottom-0 left-0 right-0 z-30 border-t border-deep/10 bg-beige/95 backdrop-blur"><div class="mx-auto flex max-w-content">${tab("reading", "이달의 책")}${tab("shelf", "2026 북쉘프")}${tab("hall", "올해의 문장")}${tab("settings", "설정")}</div></nav>`;
+        
+        // Role-based navigation tabs
+        const tabs = [
+          tab("reading", "이달의 책"),
+          tab("shelf", "2026 북쉘프"), 
+          tab("hall", "올해의 문장"),
+          tab("meeting", "모임 기록")
+        ];
+        
+        // Add Settings tab only for Chloe (admin)
+        if (currentMemberId === 'chloe') {
+          tabs.push(tab("settings", "설정"));
+        }
+        
+        return `<nav class="fixed bottom-0 left-0 right-0 z-30 border-t border-deep/10 bg-beige/95 backdrop-blur"><div class="mx-auto flex max-w-content">${tabs.join('')}</div></nav>`;
       }
       function renderAuthModal() {
         if (!uiModal.type) return "";
@@ -1429,6 +1484,8 @@
               ? renderBookshelfTab()
               : currentTab === "hall"
               ? renderHallTab()
+              : currentTab === "meeting"
+              ? renderMeetingTab()
               : currentTab === "settings"
               ? renderSettingsTab()
               : renderReadingTab()
