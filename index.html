@@ -858,20 +858,7 @@
         if (rtChannel) sb.removeChannel(rtChannel);
         rtChannel = sb.channel("bookvibe-live").on("postgres_changes", { event: "*", schema: "public", table: "books" }, scheduleRefresh).subscribe();
       }
-      function setMemberSession(member) {
-        currentMemberId = member.id;
-        currentMemberName = member.display_name;
-        sessionStorage.setItem("currentMemberId", member.id);
-        sessionStorage.setItem("currentMemberName", member.display_name);
-      }
-      function clearMemberSession() {
-        currentMemberId = "";
-        currentMemberName = "";
-        isAdminMode = false;
-        sessionStorage.removeItem("currentMemberId");
-        sessionStorage.removeItem("currentMemberName");
-        sessionStorage.removeItem("isAdminMode");
-      }
+      // Old setMemberSession and clearMemberSession functions removed - using new localStorage versions above
 
       function renderHeader() {
         const debugIndicator = isDebugMode ? `<span class="text-xs text-orange-600 font-semibold" title="Debug Mode Active">🛠️ Debug</span>` : "";
