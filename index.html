@@ -319,9 +319,9 @@
       const USER_PASSWORD = "stair";
       const BOOK_TOTAL = 10;
       const DEFAULT_MEMBERS = [
-        { id: "mary", display_name: "Mary", sort_order: 3, password: "", is_first_login: true },
-        { id: "chad", display_name: "Chad", sort_order: 1, password: "", is_first_login: true },
-        { id: "chloe", display_name: "Chloe", sort_order: 2, password: "", is_first_login: true },
+        { id: "mary", display_name: "Mary", sort_order: 3, password: "", is_first_login: true, member_code: "mary2026" },
+        { id: "chad", display_name: "Chad", sort_order: 1, password: "", is_first_login: true, member_code: "chad2026" },
+        { id: "chloe", display_name: "Chloe", sort_order: 2, password: "", is_first_login: true, member_code: "chloe99" },
       ];
 
       const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -329,14 +329,144 @@
       let members = [];
       let currentTab = "reading";
       let currentBookId = "b3";
-      let currentMemberId = sessionStorage.getItem("currentMemberId") || "";
-      let currentMemberName = sessionStorage.getItem("currentMemberName") || "";
-      let isGatePassed = sessionStorage.getItem("isGatePassed") === "true";
+      let currentMemberId = localStorage.getItem("currentMemberId") || "";
+      let currentMemberName = localStorage.getItem("currentMemberName") || "";
+      let isGatePassed = localStorage.getItem("isGatePassed") === "true";
       let isDebugMode = false; // Debug mode for super-pass functionality
-      let isAdminMode = sessionStorage.getItem("isAdminMode") === "true";
+      let isAdminMode = localStorage.getItem("isAdminMode") === "true";
+      
+      // URL-based authentication
+      function checkUrlAuthentication() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const key = urlParams.get('key');
+        const mode = urlParams.get('mode');
+        
+        // Check for debug mode
+        if (mode === 'dance') {
+          window.isDebugMode = true;
+          console.log("🛠️ Debug mode activated via URL");
+        }
+        
+        // Check for magic link authentication
+        if (key) {
+          authenticateViaMagicLink(key);
+        } else if (!currentMemberId) {
+          // No key and no session - show access denied
+          showAccessDenied();
+        }
+      }
+      
+      function authenticateViaMagicLink(memberCode) {
+        const member = memberList().find(m => m.member_code === memberCode);
+        if (member) {
+          // Authentication successful
+          setMemberSession(member);
+          console.log(`✅ Magic link authentication successful for ${member.display_name}`);
+          
+          // Clean URL (remove parameters)
+          if (window.history.replaceState) {
+            const cleanUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
+          }
+          
+          // Continue to app
+          initializeApp();
+        } else {
+          // Invalid code
+          showAccessDenied();
+        }
+      }
+      
+      function showAccessDenied() {
+        const root = document.getElementById("app-root");
+        if (root) {
+          root.innerHTML = `
+            <div class="access-denied-container" style="
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              min-height: 100vh;
+              background: linear-gradient(135deg, #f7f1e5 0%, #e8dcc4 100%);
+              font-family: 'Georgia', serif;
+            ">
+              <div class="access-denied-card" style="
+                background: white;
+                padding: 3rem;
+                border-radius: 1rem;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+                text-align: center;
+                max-width: 400px;
+              ">
+                <h1 style="color: #0c1f18; margin-bottom: 1rem; font-size: 2rem;">📚 BookVibe 2026</h1>
+                <p style="color: #666; margin-bottom: 2rem; line-height: 1.6;">
+                  Private Reading Club<br>
+                  Access by invitation only
+                </p>
+                <div style="
+                  background: #f8f9fa;
+                  padding: 1.5rem;
+                  border-radius: 0.5rem;
+                  margin-bottom: 1.5rem;
+                  border-left: 4px solid #c4a35a;
+                ">
+                  <p style="color: #333; font-size: 0.9rem; margin: 0;">
+                    Please check your invitation email for your personal access link
+                  </p>
+                </div>
+                <p style="color: #999; font-size: 0.8rem;">
+                  Questions? Contact your book club administrator
+                </p>
+              </div>
+            </div>
+          `;
+        }
+      }
+      
+      function setMemberSession(member) {
+        currentMemberId = member.id;
+        currentMemberName = member.display_name;
+        isAdminMode = member.id === 'chloe';
+        isGatePassed = true;
+        
+        // Save to localStorage
+        localStorage.setItem("currentMemberId", currentMemberId);
+        localStorage.setItem("currentMemberName", currentMemberName);
+        localStorage.setItem("isAdminMode", isAdminMode);
+        localStorage.setItem("isGatePassed", "true");
+      }
+      
+      function clearMemberSession() {
+        currentMemberId = "";
+        currentMemberName = "";
+        isAdminMode = false;
+        isGatePassed = false;
+        
+        // Clear localStorage
+        localStorage.removeItem("currentMemberId");
+        localStorage.removeItem("currentMemberName");
+        localStorage.removeItem("isAdminMode");
+        localStorage.removeItem("isGatePassed");
+      }
+      
+      // Enhanced logout function
+      function logout() {
+        clearMemberSession();
+        showAccessDenied();
+      }
       
       // Debug mode status logging
       console.log("Current Debug Mode:", window.isDebugMode);
+      
+      function initializeApp() {
+        // Load data and start the app
+        loadMembers().then(() => {
+          refreshFromDb().then(() => {
+            subscribeRealtime();
+            renderApp();
+          });
+        });
+      }
+      
       let detailBookId = null;
       let uiModal = { type: null, error: "", meta: {} };
       let pendingSecureAction = null;
@@ -616,7 +746,7 @@
       }
 
       async function loadMembers() {
-        const { data, error } = await sb.from("club_members").select("id,display_name,sort_order,password,is_first_login").order("sort_order", { ascending: true });
+        const { data, error } = await sb.from("club_members").select("id,display_name,sort_order,password,is_first_login,member_code").order("sort_order", { ascending: true });
         if (error) throw error;
         members = (data || []).map((m) => ({
           id: m.id,
@@ -624,7 +754,23 @@
           sort_order: m.sort_order,
           password: m.password || "",
           is_first_login: !!m.is_first_login,
+          member_code: m.member_code || generateMemberCode(m.id),
         }));
+        if (!members.length) {
+          const seed = DEFAULT_MEMBERS.map((m) => ({ ...m, password: "", member_code: m.member_code }));
+          await sb.from("club_members").insert(seed);
+          return loadMembers();
+        }
+        return members;
+      }
+      
+      function generateMemberCode(memberId) {
+        const codes = {
+          'mary': 'mary2026',
+          'chad': 'chad2026', 
+          'chloe': 'chloe99'
+        };
+        return codes[memberId] || memberId + '2026';
       }
       async function refreshFromDb() {
         const { data, error } = await sb.from("books").select("*");
@@ -1282,8 +1428,6 @@
       }
       function renderAuthModal() {
         if (!uiModal.type) return "";
-        if (uiModal.type === "master") return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><h2 class="font-serif text-2xl">BookVibe 2026</h2><form id="form-master-auth" class="mt-4 space-y-3"><input type="password" name="password" class="input-field" placeholder="마스터 비밀번호" required /><button class="btn-primary w-full">확인</button></form>${uiModal.error ? `<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>` : ""}</div></div>`;
-        if (uiModal.type === "member-login") return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><h2 class="font-serif text-2xl">누구신가요?</h2><form id="form-member-login" class="mt-4 space-y-3"><select name="memberId" class="input-field">${memberList().map((m) => `<option value="${m.id}">${escapeHtml(m.display_name)}</option>`).join("")}</select><input type="password" name="password" class="input-field" placeholder="개인 비밀번호" ${window.isDebugMode ? "" : "required"} /><button class="btn-primary w-full">로그인</button></form>${uiModal.error ? `<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>` : ""}</div></div>`;
         if (uiModal.type === "first-login") return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><h2 class="font-serif text-xl">처음 오셨네요!</h2><p class="mt-2 text-sm text-deep/60">앞으로 사용할 비밀번호를 설정해주세요.</p><form id="form-first-password" class="mt-4 space-y-3"><input type="password" name="password" class="input-field" placeholder="새 비밀번호" required /><input type="password" name="confirmPassword" class="input-field" placeholder="새 비밀번호 확인" required /><button class="btn-primary w-full">저장</button></form>${uiModal.error ? `<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>` : ""}</div></div>`;
         if (uiModal.type === "secure-confirm") return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><h2 class="font-serif text-xl">본인 인증</h2><p class="mt-2 text-sm text-deep/60">${escapeHtml(uiModal.meta.message || "")}</p><form id="form-secure-confirm" class="mt-4 space-y-3"><input type="password" name="password" class="input-field" placeholder="개인 비밀번호" required /><button class="btn-primary w-full">확인</button></form>${uiModal.error ? `<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>` : ""}</div></div>`;
         return "";
@@ -1360,10 +1504,8 @@
             return renderApp();
           }
           if (t.id === "btn-logout") {
-            clearMemberSession();
-            detailBookId = null;
-            openModal("member-login");
-            return renderApp();
+            logout();
+            return;
           }
           if (t.id === "btn-book-settings") {
             // Check if user is chloe before allowing admin access
@@ -1419,67 +1561,8 @@
           if (form.tagName !== "FORM") return;
           e.preventDefault();
           try {
-            if (form.id === "form-master-auth") {
-              const pw = form.elements.namedItem("password").value;
-              
-              // Debug mode trigger
-              if (pw === "dance") {
-                window.isDebugMode = true;
-                alert('Debug Mode Active');
-                console.log("🛠️ Debug mode activated!");
-                isGatePassed = true;
-                sessionStorage.setItem("isGatePassed", "true");
-                openModal("member-login");
-                return renderApp();
-              }
-              
-              if (pw !== USER_PASSWORD) {
-                openModal("master", {}, "마스터 비밀번호가 올바르지 않습니다.");
-                return renderApp();
-              }
-              isGatePassed = true;
-              sessionStorage.setItem("isGatePassed", "true");
-              openModal("member-login");
-              return renderApp();
-            }
-            if (form.id === "form-member-login") {
-              const memberId = form.elements.namedItem("memberId").value;
-              const pw = form.elements.namedItem("password").value;
-              
-              // Debug bypass at the very beginning
-              if (window.isDebugMode && (pw === "" || pw === null)) {
-                console.log("Debug bypass triggered");
-                const mem = memberList().find((m) => m.id === memberId);
-                if (mem) {
-                  setMemberSession(mem);
-                  await refreshFromDb();
-                  subscribeRealtime();
-                  closeModal();
-                  return renderApp();
-                }
-              }
-              
-              const mem = memberList().find((m) => m.id === memberId);
-              if (!mem) {
-                openModal("member-login", {}, "멤버를 찾을 수 없습니다.");
-                return renderApp();
-              }
-              if (mem.is_first_login) {
-                setMemberSession(mem);
-                openModal("first-login", { memberId: mem.id });
-                return renderApp();
-              }
-              
-              if ((mem.password || "") !== pw) {
-                openModal("member-login", {}, "개인 비밀번호가 일치하지 않습니다.");
-                return renderApp();
-              }
-              setMemberSession(mem);
-              await refreshFromDb();
-              subscribeRealtime();
-              closeModal();
-              return renderApp();
-            }
+            // Master password authentication removed - using URL-based authentication
+            // Member login form removed - using URL-based authentication
             if (form.id === "form-first-password") {
               const mem = memberList().find((m) => m.id === uiModal.meta.memberId);
               if (!mem) return;
@@ -1690,31 +1773,19 @@
       document.addEventListener("DOMContentLoaded", async () => {
         try {
           await loadMembers();
+          bindEvents();
           
-          // Only open modals if user is not already logged in
-          if (!isGatePassed) {
-            openModal("master");
-          } else if (!currentMemberId) {
-            openModal("member-login");
-          } else {
-            // User is already logged in - ensure no modals are open
-            closeModal();
-            await refreshFromDb();
-            subscribeRealtime();
+          // Check URL-based authentication
+          checkUrlAuthentication();
+          
+          // If user has existing session (from localStorage), continue to app
+          if (isGatePassed && currentMemberId) {
+            initializeApp();
           }
         } catch (err) {
           loadError = err.message || String(err);
-          openModal("master");
+          showAccessDenied();
         }
-        bindEvents();
-        
-        // Safety check: ensure all modals are closed if user is logged in
-        if (isGatePassed && currentMemberId) {
-          closeModal();
-        }
-        
-        // Ensure renderApp is only called after loadMembers and refreshFromDb are successfully completed
-        renderApp();
       });
     </script>
   </body>
