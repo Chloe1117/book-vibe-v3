@@ -946,15 +946,32 @@
           console.log(`Incrementing ${emoji} to ${updatedReactions[emoji]}`);
           console.log('Updated reactions object:', updatedReactions);
           
-          // 3. Update the DB
-          const { error: updateError } = await sb
-            .from('daily_readings')
-            .update({ reactions: updatedReactions })
-            .eq('id', readingId);
+          // 3. Update the DB with verification
+          console.log('Attempting to update database with:', updatedReactions);
+          console.log('Reading ID:', readingId);
+          console.log('Type of updatedReactions:', typeof updatedReactions);
           
-          if (updateError) {
-            console.error('Update error:', updateError);
-            throw updateError;
+          const { data, error } = await sb
+            .from('daily_readings')
+            .update({ reactions: updatedReactions }) // Make sure 'updatedReactions' is a plain object
+            .eq('id', readingId)
+            .select(); // Add select() to verify what was actually saved
+
+          if (error) {
+            console.error('REAL DB UPDATE ERROR:', error);
+            console.error('Error details:', error.details);
+            console.error('Error hint:', error.hint);
+            alert('DB 업데이트 실패: ' + error.message);
+            return false;
+          } else {
+            console.log('DB CONFIRMED DATA:', data);
+            console.log('DB update successful, data returned:', data);
+            
+            if (data && data.length > 0) {
+              console.log('Verified saved reactions:', data[0].reactions);
+            } else {
+              console.warn('No data returned from update operation');
+            }
           }
           
           console.log(`Reaction ${emoji} added successfully to reading ${readingId}`);
@@ -1064,19 +1081,32 @@
           console.log('Optimistic UI update completed');
         }
         
-        // Then update database
-        const success = await addReaction(readingId, emoji);
-        if (success) {
-          // Reload to ensure sync with database
-          await loadDailyReadings();
-          renderDailyReadingComments();
+        try {
+          // Update database and wait for completion
+          const success = await addReaction(readingId, emoji);
+          console.log('Database update result:', success);
           
-          console.log('Reaction added and UI updated successfully');
-        } else {
-          // If failed, reload to revert optimistic update
+          if (success) {
+            // Wait a moment to ensure DB consistency, then reload
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Reload to ensure sync with database
+            await loadDailyReadings();
+            renderDailyReadingComments();
+            
+            console.log('Reaction added and UI updated successfully');
+          } else {
+            // If failed, reload to revert optimistic update
+            console.log('Database update failed, reloading to revert');
+            await loadDailyReadings();
+            renderDailyReadingComments();
+            console.log('Reaction failed, reverted UI');
+          }
+        } catch (error) {
+          console.error('Unexpected error in handleReactionClick:', error);
+          // Reload to ensure UI consistency
           await loadDailyReadings();
           renderDailyReadingComments();
-          console.log('Reaction failed, reverted UI');
         }
       }
       async function refreshFromDb() {
