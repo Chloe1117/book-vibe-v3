@@ -313,6 +313,7 @@
     
     <script type="module">
       import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+      import imageCompression from "https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js";
 
       const SUPABASE_URL = "https://gmhnnahtfjcgnbeyzctq.supabase.co";
       const SUPABASE_ANON_KEY = "sb_publishable_fQ0No6cq6837PG0xo3SaSA_0x7R1nJI";
@@ -773,6 +774,78 @@
         };
         return codes[memberId] || memberId + '2026';
       }
+      
+      // Image compression and upload functions
+      async function compressImage(file) {
+        const options = {
+          maxSizeMB: 0.5,
+          maxWidthOrHeight: 1200,
+          useWebWorker: true,
+          quality: 0.8
+        };
+        
+        try {
+          const compressedFile = await imageCompression(file, options);
+          console.log('Compressed image size:', compressedFile.size / 1024 / 1024, 'MB');
+          return compressedFile;
+        } catch (error) {
+          console.error('Error compressing image:', error);
+          throw error;
+        }
+      }
+      
+      async function uploadImageToSupabase(file, fileName) {
+        try {
+          const { data, error } = await sb.storage
+            .from('meeting-photos')
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: false
+            });
+          
+          if (error) throw error;
+          
+          // Get public URL
+          const { data: { publicUrl } } = sb.storage
+            .from('meeting-photos')
+            .getPublicUrl(fileName);
+          
+          return publicUrl;
+        } catch (error) {
+          console.error('Error uploading image:', error);
+          throw error;
+        }
+      }
+      
+      async function handleImageUpload(event, maxPhotos = 5) {
+        const files = Array.from(event.target.files);
+        if (files.length > maxPhotos) {
+          alert(`최대 ${maxPhotos}개의 사진만 업로드할 수 있습니다.`);
+          return [];
+        }
+        
+        const uploadedUrls = [];
+        
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          if (!file.type.startsWith('image/')) {
+            alert('이미지 파일만 업로드할 수 있습니다.');
+            continue;
+          }
+          
+          try {
+            const compressedFile = await compressImage(file);
+            const fileName = `${currentMemberId}_${Date.now()}_${i}.jpg`;
+            const publicUrl = await uploadImageToSupabase(compressedFile, fileName);
+            uploadedUrls.push(publicUrl);
+          } catch (error) {
+            console.error('Error processing image:', error);
+            alert(`이미지 ${i + 1} 업로드에 실패했습니다.`);
+          }
+        }
+        
+        return uploadedUrls;
+      }
       async function refreshFromDb() {
         const { data, error } = await sb.from("books").select("*");
         if (error) throw error;
@@ -873,7 +946,136 @@
       function renderMeetingTab() {
         return `<main class="reading-tab-container mx-auto max-w-content pb-28">
           <div class="book-info-section">
-            <section class="paper-panel rounded-2xl border border-deep/10 p-8 shadow-sm text-center">
+            <!-- Create Meeting Log Button -->
+            <section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm mb-4">
+              <div class="flex items-center justify-between">
+                <h2 class="font-serif text-xl text-deep">📸 모임 기록</h2>
+                <button id="create-meeting-btn" class="btn-primary text-sm">+ 새 모임 기록</button>
+              </div>
+            </section>
+
+            <!-- Meeting Logs Feed -->
+            <div class="space-y-4" id="meeting-logs-feed">
+              <!-- Sample Meeting Log 1 -->
+              <article class="paper-panel rounded-2xl border border-deep/10 p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <div class="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 class="font-serif text-lg text-deep mb-1">5월 모임</h3>
+                    <div class="flex items-center gap-3 text-sm text-deep/60">
+                      <span class="flex items-center gap-1">📍 <span>가로수길 카페 '북바이브'</span></span>
+                      <span class="flex items-center gap-1">📅 <span>2026-05-15 19:00</span></span>
+                    </div>
+                  </div>
+                  <span class="text-xs text-deep/45 bg-deep/5 px-2 py-1 rounded-full">참여자 4명</span>
+                </div>
+                
+                <!-- Photo Gallery -->
+                <div class="mb-4">
+                  <h4 class="text-sm font-semibold text-deep mb-2">📸 사진</h4>
+                  <div class="flex gap-2 overflow-x-auto pb-2">
+                    <div class="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
+                      <img src="https://picsum.photos/seed/meeting1-1/200/200.jpg" alt="모임 사진 1" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
+                    </div>
+                    <div class="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
+                      <img src="https://picsum.photos/seed/meeting1-2/200/200.jpg" alt="모임 사진 2" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
+                    </div>
+                    <div class="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
+                      <img src="https://picsum.photos/seed/meeting1-3/200/200.jpg" alt="모임 사진 3" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
+                    </div>
+                    <div class="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
+                      <img src="https://picsum.photos/seed/meeting1-4/200/200.jpg" alt="모임 사진 4" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Summary -->
+                <div class="bg-deep/5 rounded-lg p-3">
+                  <h4 class="text-sm font-semibold text-deep mb-2">📝 모임 요약</h4>
+                  <p class="text-sm text-deep/85 leading-relaxed">
+                    이번 모임에서는 '어린 왕자'를 함께 읽고 각자의 인상 깊었던 구절에 대해 이야기 나눴습니다. 
+                    특히 여우와 어린 왕자의 관계에 대한 토론이 활발했으며, 다음 모임까지 3장까지 읽기로 했습니다.
+                    다과는 Mary가 준비한 수제 쿠키와 차가 큰 사랑을 받았습니다.
+                  </p>
+                </div>
+                
+                <!-- Participants -->
+                <div class="mt-3 flex items-center gap-2">
+                  <span class="text-xs text-deep/60">참여자:</span>
+                  <div class="flex -space-x-2">
+                    <div class="w-6 h-6 bg-deep/20 rounded-full border-2 border-white flex items-center justify-center">
+                      <span class="text-xs font-semibold text-deep">M</span>
+                    </div>
+                    <div class="w-6 h-6 bg-deep/20 rounded-full border-2 border-white flex items-center justify-center">
+                      <span class="text-xs font-semibold text-deep">C</span>
+                    </div>
+                    <div class="w-6 h-6 bg-deep/20 rounded-full border-2 border-white flex items-center justify-center">
+                      <span class="text-xs font-semibold text-deep">C</span>
+                    </div>
+                    <div class="w-6 h-6 bg-deep/20 rounded-full border-2 border-white flex items-center justify-center">
+                      <span class="text-xs font-semibold text-deep">J</span>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <!-- Sample Meeting Log 2 -->
+              <article class="paper-panel rounded-2xl border border-deep/10 p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
+                <div class="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 class="font-serif text-lg text-deep mb-1">4월 모임</h3>
+                    <div class="flex items-center gap-3 text-sm text-deep/60">
+                      <span class="flex items-center gap-1">📍 <span>성수동 서점</span></span>
+                      <span class="flex items-center gap-1">📅 <span>2026-04-17 19:00</span></span>
+                    </div>
+                  </div>
+                  <span class="text-xs text-deep/45 bg-deep/5 px-2 py-1 rounded-full">참여자 3명</span>
+                </div>
+                
+                <!-- Photo Gallery -->
+                <div class="mb-4">
+                  <h4 class="text-sm font-semibold text-deep mb-2">📸 사진</h4>
+                  <div class="flex gap-2 overflow-x-auto pb-2">
+                    <div class="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
+                      <img src="https://picsum.photos/seed/meeting2-1/200/200.jpg" alt="모임 사진 1" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
+                    </div>
+                    <div class="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
+                      <img src="https://picsum.photos/seed/meeting2-2/200/200.jpg" alt="모임 사진 2" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
+                    </div>
+                    <div class="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
+                      <img src="https://picsum.photos/seed/meeting2-3/200/200.jpg" alt="모임 사진 3" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Summary -->
+                <div class="bg-deep/5 rounded-lg p-3">
+                  <h4 class="text-sm font-semibold text-deep mb-2">� 모임 요약</h4>
+                  <p class="text-sm text-deep/85 leading-relaxed">
+                    '데미안'에 대한 깊이 있는 토론을 진행했습니다. 싱어와 데미안의 관계성에 대해 각자의 해석을 공유하며
+                    성장과 자기 찾기에 대한 의미 있는 대화를 나누었습니다. 책을 통해 얻은 영감과 개인적인 경험을 연결하는 시간이었습니다.
+                  </p>
+                </div>
+                
+                <!-- Participants -->
+                <div class="mt-3 flex items-center gap-2">
+                  <span class="text-xs text-deep/60">참여자:</span>
+                  <div class="flex -space-x-2">
+                    <div class="w-6 h-6 bg-deep/20 rounded-full border-2 border-white flex items-center justify-center">
+                      <span class="text-xs font-semibold text-deep">C</span>
+                    </div>
+                    <div class="w-6 h-6 bg-deep/20 rounded-full border-2 border-white flex items-center justify-center">
+                      <span class="text-xs font-semibold text-deep">M</span>
+                    </div>
+                    <div class="w-6 h-6 bg-deep/20 rounded-full border-2 border-white flex items-center justify-center">
+                      <span class="text-xs font-semibold text-deep">C</span>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <!-- Empty State (hidden when data exists) -->
+            <div id="empty-meeting-state" class="paper-panel rounded-2xl border border-deep/10 p-8 shadow-sm text-center hidden">
               <div class="mb-6">
                 <div class="inline-flex items-center justify-center w-16 h-16 bg-deep/10 rounded-full mb-4">
                   <svg class="w-8 h-8 text-deep" fill="currentColor" viewBox="0 0 20 20">
@@ -881,32 +1083,11 @@
                     <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 1 1 0 000 2H6a2 2 0 100 4h2a2 2 0 100-4h-.09A1.65 1.65 0 0013 5.5a1.65 1.65 0 00-.09-1.5H14a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
                   </svg>
                 </div>
-                <h2 class="font-serif text-2xl text-deep mb-2">모임 기록</h2>
-                <p class="text-deep/60 text-lg">Meeting Records</p>
+                <h3 class="font-serif text-xl text-deep mb-2">첫 모임 기록을 남겨보세요!</h3>
+                <p class="text-deep/60">소모임의 소중한 순간들을 기록하고 공유할 수 있습니다.</p>
               </div>
-              
-              <div class="max-w-md mx-auto">
-                <div class="bg-deep/5 rounded-lg p-6 border border-deep/10">
-                  <h3 class="font-semibold text-deep mb-3">📅 준비 중입니다</h3>
-                  <p class="text-deep/60 mb-4 leading-relaxed">
-                    모임 기록 기능이 곧 출시됩니다.<br>
-                    소모임의 소중한 순간들을 기록하고 공유할 수 있게 됩니다.
-                  </p>
-                  <div class="flex flex-wrap gap-2 justify-center">
-                    <span class="px-3 py-1 bg-deep/10 rounded-full text-xs text-deep/70">📝 회의록</span>
-                    <span class="px-3 py-1 bg-deep/10 rounded-full text-xs text-deep/70">📸 사진첩</span>
-                    <span class="px-3 py-1 bg-deep/10 rounded-full text-xs text-deep/70">🎯 목표 관리</span>
-                    <span class="px-3 py-1 bg-deep/10 rounded-full text-xs text-deep/70">💬 토론</span>
-                  </div>
-                </div>
-              </div>
-              
-              <div class="mt-8 text-center">
-                <p class="text-xs text-deep/45">
-                  문의: Chloe (책 임원)
-                </p>
-              </div>
-            </section>
+              <button id="create-first-meeting-btn" class="btn-primary">+ 첫 모임 기록하기</button>
+            </div>
           </div>
         </main>`;
       }
@@ -1020,6 +1201,62 @@
           }).join("");
         
         return `<main class="reading-tab-container mx-auto max-w-content pb-28">
+          <!-- Daily Reading Section -->
+          <section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm mb-4">
+            <h3 class="font-serif text-lg text-deep mb-3">📖 오늘의 읽기</h3>
+            
+            <!-- Input Area -->
+            <div class="mb-4">
+              <div class="flex gap-2">
+                <input type="text" id="daily-reading-input" class="input-field flex-1 text-sm" placeholder="오늘의 독서 생각을 나눠보세요..." maxlength="50">
+                <button id="daily-reading-post" class="btn-primary px-3 py-2 text-sm">게시</button>
+              </div>
+              <p class="mt-1 text-xs text-deep/45">${currentMemberName}님으로 게시됩니다</p>
+            </div>
+            
+            <!-- Quick Reactions -->
+            <div class="flex gap-2 mb-4">
+              <button class="quick-emoji px-3 py-1 bg-deep/5 rounded-full hover:bg-deep/10 transition-colors text-sm" data-emoji="👏">👏</button>
+              <button class="quick-emoji px-3 py-1 bg-deep/5 rounded-full hover:bg-deep/10 transition-colors text-sm" data-emoji="❤️">❤️</button>
+              <button class="quick-emoji px-3 py-1 bg-deep/5 rounded-full hover:bg-deep/10 transition-colors text-sm" data-emoji="😮">😮</button>
+              <button class="quick-emoji px-3 py-1 bg-deep/5 rounded-full hover:bg-deep/10 transition-colors text-sm" data-emoji="🔥">🔥</button>
+            </div>
+            
+            <!-- Recent Comments -->
+            <div class="space-y-2" id="daily-reading-comments">
+              <div class="flex items-center gap-2 p-2 bg-deep/5 rounded-lg">
+                <span class="text-xs font-semibold text-deep">M</span>
+                <div class="flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-deep">Mary</span>
+                    <span class="text-xs text-deep/45">방금</span>
+                  </div>
+                  <p class="text-sm text-deep/85">오늘 읽은 부분이 정말 감동적이었어요 👏</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 p-2 bg-deep/5 rounded-lg">
+                <span class="text-xs font-semibold text-deep">C</span>
+                <div class="flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-deep">Chad</span>
+                    <span class="text-xs text-deep/45">5분 전</span>
+                  </div>
+                  <p class="text-sm text-deep/85">주인공의 선택에 대해 많이 생각하게 되었습니다 ❤️</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2 p-2 bg-deep/5 rounded-lg">
+                <span class="text-xs font-semibold text-deep">C</span>
+                <div class="flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-deep">Chloe</span>
+                    <span class="text-xs text-deep/45">10분 전</span>
+                  </div>
+                  <p class="text-sm text-deep/85">이번 장의 묘사가 정말 생생하네요 😮</p>
+                </div>
+              </div>
+            </div>
+          </section>
+          
           <!-- Book Info Section -->
           <div class="book-info-section">
             <section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm">
