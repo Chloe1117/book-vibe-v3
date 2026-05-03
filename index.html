@@ -925,7 +925,7 @@
         try {
           console.log(`Adding reaction ${emoji} to reading ${readingId}`);
           
-          // 1. Fetch current reactions
+          // 1. Fetch current reactions for the specific reading
           const { data: reading, error: fetchError } = await sb
             .from('daily_readings')
             .select('reactions')
@@ -937,29 +937,19 @@
             throw fetchError;
           }
           
-          console.log('Current reading data:', reading);
+          console.log('Current reactions:', reading.reactions);
           
-          // 2. Initialize reactions if null or create default object
-          let currentReactions = reading.reactions;
-          if (!currentReactions || currentReactions === null) {
-            currentReactions = {
-              '❤️': 0, '👍': 0, '🔥': 0, '👏': 0,
-              '😄': 0, '😢': 0, '😡': 0
-            };
-            console.log('Initialized default reactions object');
-          }
+          // 2. Increment the value safely
+          const updatedReactions = { ...reading.reactions };
+          updatedReactions[emoji] = (updatedReactions[emoji] || 0) + 1;
           
-          // 3. Increment the specific emoji
-          const currentCount = currentReactions[emoji] || 0;
-          currentReactions[emoji] = currentCount + 1;
+          console.log(`Incrementing ${emoji} to ${updatedReactions[emoji]}`);
+          console.log('Updated reactions object:', updatedReactions);
           
-          console.log(`Incrementing ${emoji} from ${currentCount} to ${currentReactions[emoji]}`);
-          console.log('Updated reactions object:', currentReactions);
-          
-          // 4. Update back to DB
+          // 3. Update the DB
           const { error: updateError } = await sb
             .from('daily_readings')
-            .update({ reactions: currentReactions })
+            .update({ reactions: updatedReactions })
             .eq('id', readingId);
           
           if (updateError) {
@@ -968,7 +958,7 @@
           }
           
           console.log(`Reaction ${emoji} added successfully to reading ${readingId}`);
-          console.log('Final reactions saved:', currentReactions);
+          console.log('Final reactions saved:', updatedReactions);
           return true;
         } catch (error) {
           console.error('Error adding reaction:', error);
@@ -1066,13 +1056,7 @@
         
         // Optimistic UI update - increment count locally immediately
         const reading = dailyReadingsCache.find(r => r.id === readingId);
-        if (reading) {
-          if (!reading.reactions) {
-            reading.reactions = {
-              '❤️': 0, '👍': 0, '🔥': 0, '👏': 0,
-              '😄': 0, '😢': 0, '😡': 0
-            };
-          }
+        if (reading && reading.reactions) {
           reading.reactions[emoji] = (reading.reactions[emoji] || 0) + 1;
           
           // Update UI immediately
