@@ -702,6 +702,7 @@
           author: row.author || "",
           coverUrl: row.cover_url || "",
           guideId,
+          guide_id: guideId, // Include guide_id for Hall of Fame display
           chapters: alignChaptersToTotal(norm.chapters, totalChapters),
           totalChapters,
           finalSentence: { text: "", memberId: "", chapter: null }, // Default empty object
@@ -1329,15 +1330,11 @@
         return null;
       }
       function renderHallTab() {
-        // Flexible data access for cache.members (Array or Object)
+        // Get member name using the correct member data source
         const getMemberName = (id) => {
-          if (!cache.members) return "멤버";
-          // If it's an Array
-          if (Array.isArray(cache.members)) {
-            return cache.members.find(m => m.id === id)?.display_name || "멤버";
-          }
-          // If it's an Object (Key-Value)
-          return cache.members[id]?.display_name || "멤버";
+          if (!id) return "알 수 없음";
+          const member = memberList().find(m => m.id === id);
+          return member ? member.display_name : "알 수 없음";
         };
         
         // Return HTML string like other tab functions
@@ -1362,9 +1359,14 @@
           const selectorName = getMemberName(book.final_sentence_member_id);
           const guideName = getMemberName(book.guide_id);
           
-          // UI strings as specified
-          const quote = `"${book.final_sentence_text}" by ${selectorName}`;
-          const caption = `길잡이 ${guideName}가 선정한 최종 문장입니다`;
+          // UI strings with proper member name handling
+          const quote = book.final_sentence_member_id 
+            ? `"${book.final_sentence_text}" by ${selectorName}`
+            : `"${book.final_sentence_text}"`;
+            
+          const caption = book.guide_id
+            ? `길잡이 ${guideName}가 선정한 최종 문장입니다`
+            : `길잡이가 선정한 최종 문장입니다`;
           
           // Display sentence WITH proper attribution
           html += `<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow duration-300"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 sm:w-40 sm:h-60 mx-auto sm:mx-0"><div class="book-card h-full">${book.coverUrl ? `<img src="${escapeHtml(book.coverUrl)}" alt="${escapeHtml(book.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>` : `<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(book.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><div class="mb-4"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(book.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(book.author || "저자 미입력")}</p></div><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><p class="text-lg font-serif text-deep leading-relaxed italic">${escapeHtml(quote)}</p><p class="mt-4 text-xs text-deep/60">${escapeHtml(caption)}</p></div></div></div></article>`;
