@@ -6,6 +6,8 @@
     <title>BookVibe 2026</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
     <script>
       tailwind.config = {
         theme: {
@@ -313,7 +315,6 @@
     
     <script type="module">
       import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
-      import imageCompression from "https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js";
 
       const SUPABASE_URL = "https://gmhnnahtfjcgnbeyzctq.supabase.co";
       const SUPABASE_ANON_KEY = "sb_publishable_fQ0No6cq6837PG0xo3SaSA_0x7R1nJI";
