@@ -892,7 +892,7 @@
                 content: content.trim(),
                 reactions: {
                   '❤️': 0, '👍': 0, '🔥': 0, '👏': 0,
-                  '😄': 0, '😢': 0, '😡': 0, '✨': 0
+                  '😄': 0, '😢': 0, '😡': 0
                 }
               }
             ]);
@@ -909,7 +909,7 @@
       }
       
       // Reaction functions
-      const REACTION_EMOJIS = ['❤️', '👍', '🔥', '👏', '😄', '😢', '😡', '✨'];
+      const REACTION_EMOJIS = ['❤️', '👍', '🔥', '👏', '😄', '😢', '😡'];
       
       async function addReaction(readingId, emoji) {
         if (!currentMemberId) {
@@ -923,32 +923,52 @@
         }
         
         try {
-          // Get current reactions
+          console.log(`Adding reaction ${emoji} to reading ${readingId}`);
+          
+          // 1. Fetch current reactions
           const { data: reading, error: fetchError } = await sb
             .from('daily_readings')
             .select('reactions')
             .eq('id', readingId)
             .single();
           
-          if (fetchError) throw fetchError;
+          if (fetchError) {
+            console.error('Fetch error:', fetchError);
+            throw fetchError;
+          }
           
-          const currentReactions = reading.reactions || {};
+          console.log('Current reading data:', reading);
+          
+          // 2. Initialize reactions if null or create default object
+          let currentReactions = reading.reactions;
+          if (!currentReactions || currentReactions === null) {
+            currentReactions = {
+              '❤️': 0, '👍': 0, '🔥': 0, '👏': 0,
+              '😄': 0, '😢': 0, '😡': 0
+            };
+            console.log('Initialized default reactions object');
+          }
+          
+          // 3. Increment the specific emoji
           const currentCount = currentReactions[emoji] || 0;
+          currentReactions[emoji] = currentCount + 1;
           
-          // Update reactions with increment
+          console.log(`Incrementing ${emoji} from ${currentCount} to ${currentReactions[emoji]}`);
+          console.log('Updated reactions object:', currentReactions);
+          
+          // 4. Update back to DB
           const { error: updateError } = await sb
             .from('daily_readings')
-            .update({
-              reactions: {
-                ...currentReactions,
-                [emoji]: currentCount + 1
-              }
-            })
+            .update({ reactions: currentReactions })
             .eq('id', readingId);
           
-          if (updateError) throw updateError;
+          if (updateError) {
+            console.error('Update error:', updateError);
+            throw updateError;
+          }
           
           console.log(`Reaction ${emoji} added successfully to reading ${readingId}`);
+          console.log('Final reactions saved:', currentReactions);
           return true;
         } catch (error) {
           console.error('Error adding reaction:', error);
@@ -1044,13 +1064,35 @@
       async function handleReactionClick(readingId, emoji) {
         console.log('handleReactionClick called:', readingId, emoji);
         
+        // Optimistic UI update - increment count locally immediately
+        const reading = dailyReadingsCache.find(r => r.id === readingId);
+        if (reading) {
+          if (!reading.reactions) {
+            reading.reactions = {
+              '❤️': 0, '👍': 0, '🔥': 0, '👏': 0,
+              '😄': 0, '😢': 0, '😡': 0
+            };
+          }
+          reading.reactions[emoji] = (reading.reactions[emoji] || 0) + 1;
+          
+          // Update UI immediately
+          renderDailyReadingComments();
+          console.log('Optimistic UI update completed');
+        }
+        
+        // Then update database
         const success = await addReaction(readingId, emoji);
         if (success) {
-          // Reload and render comments to show updated reaction counts
+          // Reload to ensure sync with database
           await loadDailyReadings();
           renderDailyReadingComments();
           
           console.log('Reaction added and UI updated successfully');
+        } else {
+          // If failed, reload to revert optimistic update
+          await loadDailyReadings();
+          renderDailyReadingComments();
+          console.log('Reaction failed, reverted UI');
         }
       }
       async function refreshFromDb() {
