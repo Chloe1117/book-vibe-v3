@@ -949,7 +949,15 @@
           // 3. Update the DB with verification
           console.log('Attempting to update database with:', updatedReactions);
           console.log('Reading ID:', readingId);
+          console.log('Reading ID type:', typeof readingId);
           console.log('Type of updatedReactions:', typeof updatedReactions);
+          
+          // Validate UUID format
+          if (!readingId || typeof readingId !== 'string') {
+            console.error('Invalid reading ID format:', readingId);
+            alert('유효하지 않은 읽기 ID입니다.');
+            return false;
+          }
           
           const { data, error } = await sb
             .from('daily_readings')
@@ -969,14 +977,19 @@
             
             if (data && data.length > 0) {
               console.log('Verified saved reactions:', data[0].reactions);
+              console.log(`Reaction ${emoji} added successfully to reading ${readingId}`);
+              console.log('Final reactions saved:', updatedReactions);
+              return true;
             } else {
-              console.warn('No data returned from update operation');
+              console.error('CRITICAL: No rows were updated. Reading ID not found or RLS policy issue.');
+              console.error('This usually means:');
+              console.error('1. The reading ID does not exist in the database');
+              console.error('2. RLS policy prevents UPDATE operations for current user');
+              console.error('3. UUID format mismatch');
+              alert('데이터베이스 업데이트 실패: 해당 읽기 기록을 찾을 수 없거나 권한이 없습니다.');
+              return false;
             }
           }
-          
-          console.log(`Reaction ${emoji} added successfully to reading ${readingId}`);
-          console.log('Final reactions saved:', updatedReactions);
-          return true;
         } catch (error) {
           console.error('Error adding reaction:', error);
           alert('반응 추가에 실패했습니다. 다시 시도해주세요.');
@@ -1068,46 +1081,45 @@
         }
       }
       
-      async function handleReactionClick(readingId, emoji) {
+      function handleReactionClick(readingId, emoji) {
         console.log('handleReactionClick called:', readingId, emoji);
         
-        // Optimistic UI update - increment count locally immediately
+        // INSTANT UI UPDATE - Update local cache and render immediately
         const reading = dailyReadingsCache.find(r => r.id === readingId);
         if (reading && reading.reactions) {
           reading.reactions[emoji] = (reading.reactions[emoji] || 0) + 1;
           
-          // Update UI immediately
+          // Update UI immediately (0ms latency)
           renderDailyReadingComments();
-          console.log('Optimistic UI update completed');
+          console.log('Optimistic UI update completed INSTANTLY');
         }
         
-        try {
-          // Update database and wait for completion
-          const success = await addReaction(readingId, emoji);
-          console.log('Database update result:', success);
+        // FIRE-AND-FORGET database update - don't await, just handle errors
+        addReaction(readingId, emoji).then(success => {
+          console.log('Background database update result:', success);
           
           if (success) {
-            // Wait a moment to ensure DB consistency, then reload
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
-            // Reload to ensure sync with database
-            await loadDailyReadings();
-            renderDailyReadingComments();
-            
-            console.log('Reaction added and UI updated successfully');
+            // Optional: Sync with database after successful update
+            setTimeout(() => {
+              loadDailyReadings().then(() => {
+                renderDailyReadingComments();
+                console.log('Background sync completed');
+              });
+            }, 500); // Delay to allow DB consistency
           } else {
-            // If failed, reload to revert optimistic update
-            console.log('Database update failed, reloading to revert');
-            await loadDailyReadings();
-            renderDailyReadingComments();
-            console.log('Reaction failed, reverted UI');
+            // If failed, revert optimistic update
+            console.log('Database update failed, reverting optimistic update');
+            loadDailyReadings().then(() => {
+              renderDailyReadingComments();
+            });
           }
-        } catch (error) {
-          console.error('Unexpected error in handleReactionClick:', error);
-          // Reload to ensure UI consistency
-          await loadDailyReadings();
-          renderDailyReadingComments();
-        }
+        }).catch(error => {
+          console.error('Unexpected error in background update:', error);
+          // Revert on any error
+          loadDailyReadings().then(() => {
+            renderDailyReadingComments();
+          });
+        });
       }
       async function refreshFromDb() {
         const { data, error } = await sb.from("books").select("*");
