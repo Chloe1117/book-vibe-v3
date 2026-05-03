@@ -922,7 +922,7 @@
         }
         
         try {
-          // Check if user already has a reaction for this reading
+          // Step A: Check if this member has an existing record
           const { data: existingReaction, error: fetchError } = await sb
             .from('reading_reactions')
             .select('id, emoji')
@@ -938,7 +938,7 @@
           
           if (existingReaction) {
             if (existingReaction.emoji === emoji) {
-              // User clicked the same emoji - delete it
+              // Step B: Toggle/Cancel - DELETE the record
               const { error: deleteError } = await sb
                 .from('reading_reactions')
                 .delete()
@@ -947,17 +947,31 @@
               if (deleteError) throw deleteError;
               success = true;
             } else {
-              // User clicked a different emoji - update it
-              const { error: updateError } = await sb
+              // Step C: Swap - DELETE old, INSERT new
+              const oldEmoji = existingReaction.emoji;
+              
+              // Delete old reaction
+              const { error: deleteError } = await sb
                 .from('reading_reactions')
-                .update({ emoji: emoji })
+                .delete()
                 .eq('id', existingReaction.id);
               
-              if (updateError) throw updateError;
+              if (deleteError) throw deleteError;
+              
+              // Insert new reaction
+              const { error: insertError } = await sb
+                .from('reading_reactions')
+                .insert({
+                  reading_id: readingId,
+                  member_id: currentMemberId,
+                  emoji: emoji
+                });
+              
+              if (insertError) throw insertError;
               success = true;
             }
           } else {
-            // New reaction - insert it
+            // Step D: New - INSERT the record
             const { error: insertError } = await sb
               .from('reading_reactions')
               .insert({
@@ -973,7 +987,20 @@
           if (success) {
             // Update the count in daily_readings table
             await updateReactionCounts(readingId);
-            return true;
+            
+            // Return the final updated state for optimistic UI verification
+            const { data: finalReading, error: finalError } = await sb
+              .from('daily_readings')
+              .select('reactions')
+              .eq('id', readingId)
+              .single();
+            
+            if (finalError) {
+              console.error('Error fetching final state:', finalError);
+              return true; // Still return true since the operation succeeded
+            }
+            
+            return { success: true, finalReactions: finalReading.reactions };
           }
           
           return false;
@@ -994,16 +1021,29 @@
           
           if (countError) throw countError;
           
-          // Build reactions object with counts
-          const reactions = {};
+          // Get current reactions from daily_readings
+          const { data: currentReading, error: fetchError } = await sb
+            .from('daily_readings')
+            .select('reactions')
+            .eq('id', readingId)
+            .single();
+          
+          if (fetchError) throw fetchError;
+          
+          // Build updated reactions object with robust counting
+          const currentReactions = currentReading.reactions || {};
+          const updatedReactions = {};
+          
           REACTION_EMOJIS.forEach(emoji => {
-            reactions[emoji] = reactionCounts?.filter(r => r.emoji === emoji).length || 0;
+            const newCount = reactionCounts?.filter(r => r.emoji === emoji).length || 0;
+            // Use robust approach to ensure counts never go below 0
+            updatedReactions[emoji] = Math.max(0, newCount);
           });
           
           // Update the daily_readings table
           const { error: updateError } = await sb
             .from('daily_readings')
-            .update({ reactions: reactions })
+            .update({ reactions: updatedReactions })
             .eq('id', readingId);
           
           if (updateError) throw updateError;
@@ -1223,7 +1263,9 @@
         }
         
         // FIRE-AND-FORGET database update
-        toggleReaction(readingId, emoji).then(success => {
+        toggleReaction(readingId, emoji).then(result => {
+          const success = typeof result === 'object' ? result.success : result;
+          
           if (success) {
             // Sync with database after successful update
             setTimeout(() => {
