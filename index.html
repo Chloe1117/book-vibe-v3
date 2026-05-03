@@ -1192,17 +1192,15 @@
           const userReaction = reading.reading_reactions?.find(r => r.member_id === currentMemberId)?.emoji;
           
           if (userReaction === emoji) {
-            // User is removing their reaction
+            // Scenario A: Same emoji - DELETE reaction (Cancel)
             reading.reactions[emoji] = Math.max(0, (reading.reactions[emoji] || 0) - 1);
             // Remove from reading_reactions array
             reading.reading_reactions = reading.reading_reactions?.filter(r => r.member_id !== currentMemberId) || [];
-          } else {
-            // User is adding or changing reaction
-            if (userReaction) {
-              // Remove old reaction
-              reading.reactions[userReaction] = Math.max(0, (reading.reactions[userReaction] || 0) - 1);
-            }
-            // Add new reaction
+          } else if (userReaction) {
+            // Scenario B: Different emoji - REPLACE (Delete old, Insert new)
+            // Decrement old emoji count
+            reading.reactions[userReaction] = Math.max(0, (reading.reactions[userReaction] || 0) - 1);
+            // Increment new emoji count
             reading.reactions[emoji] = (reading.reactions[emoji] || 0) + 1;
             // Update reading_reactions array
             const existingIndex = reading.reading_reactions?.findIndex(r => r.member_id === currentMemberId) ?? -1;
@@ -1212,6 +1210,12 @@
               reading.reading_reactions = reading.reading_reactions || [];
               reading.reading_reactions.push({ member_id: currentMemberId, emoji: emoji });
             }
+          } else {
+            // Scenario C: New reaction - INSERT
+            reading.reactions[emoji] = (reading.reactions[emoji] || 0) + 1;
+            // Add to reading_reactions array
+            reading.reading_reactions = reading.reading_reactions || [];
+            reading.reading_reactions.push({ member_id: currentMemberId, emoji: emoji });
           }
           
           // Update UI immediately (0ms latency)
@@ -2225,53 +2229,7 @@
             return;
           }
           
-          // Reaction toggle button (+ Reaction)
-          if (t.classList && t.classList.contains('reaction-toggle-btn')) {
-            const readingId = t.getAttribute('data-reading-id');
-            const popup = document.querySelector(`.reaction-popup[data-reading-id="${readingId}"]`);
-            
-            // Toggle popup visibility
-            if (popup) {
-              popup.classList.toggle('hidden');
-              
-              // Close other popups
-              document.querySelectorAll('.reaction-popup').forEach(p => {
-                if (p !== popup) p.classList.add('hidden');
-              });
-            }
-            return;
-          }
-          
-          // Reaction option from popup
-          if (t.classList && t.classList.contains('reaction-option')) {
-            const readingId = t.getAttribute('data-reading-id');
-            const emoji = t.getAttribute('data-emoji');
-            
-            handleReactionToggle(readingId, emoji);
-            
-            // Close popup
-            const popup = document.querySelector(`.reaction-popup[data-reading-id="${readingId}"]`);
-            if (popup) popup.classList.add('hidden');
-            return;
-          }
-          
-          // Edit button
-          if (t.classList && t.classList.contains('edit-btn')) {
-            const readingId = t.getAttribute('data-reading-id');
-            const content = t.getAttribute('data-content');
-            
-            handleEditReading(readingId, content);
-            return;
-          }
-          
-          // Delete button
-          if (t.classList && t.classList.contains('delete-btn')) {
-            const readingId = t.getAttribute('data-reading-id');
-            
-            handleDeleteReading(readingId);
-            return;
-          }
-          const closeModalBtn = t.closest && t.closest("[data-close-modal]");
+                    const closeModalBtn = t.closest && t.closest("[data-close-modal]");
           if (closeModalBtn) {
             closeModal();
             return renderApp();
@@ -2309,13 +2267,65 @@
           }
         });
 
-        // Click outside handler to close reaction popups
+        // Event delegation for daily reading interactions
         document.addEventListener("click", (e) => {
-          if (!e.target.closest('.reaction-toggle-btn') && !e.target.closest('.reaction-popup')) {
-            // Close all reaction popups when clicking outside
+          const dailyReadingContainer = document.getElementById('daily-reading-comments');
+          if (!dailyReadingContainer || !e.target.closest('#daily-reading-comments')) {
+            // Close all reaction popups when clicking outside daily reading area
             document.querySelectorAll('.reaction-popup').forEach(popup => {
               popup.classList.add('hidden');
             });
+            return;
+          }
+          
+          // Reaction toggle button (+ Reaction)
+          const reactionToggleBtn = e.target.closest('.reaction-toggle-btn');
+          if (reactionToggleBtn) {
+            const readingId = reactionToggleBtn.getAttribute('data-reading-id');
+            const popup = document.querySelector(`.reaction-popup[data-reading-id="${readingId}"]`);
+            
+            if (popup) {
+              popup.classList.toggle('hidden');
+              
+              // Close other popups
+              document.querySelectorAll('.reaction-popup').forEach(p => {
+                if (p !== popup) p.classList.add('hidden');
+              });
+            }
+            return;
+          }
+          
+          // Reaction option from popup
+          const reactionOption = e.target.closest('.reaction-option');
+          if (reactionOption) {
+            const readingId = reactionOption.getAttribute('data-reading-id');
+            const emoji = reactionOption.getAttribute('data-emoji');
+            
+            handleReactionToggle(readingId, emoji);
+            
+            // Close popup
+            const popup = document.querySelector(`.reaction-popup[data-reading-id="${readingId}"]`);
+            if (popup) popup.classList.add('hidden');
+            return;
+          }
+          
+          // Edit button
+          const editBtn = e.target.closest('.edit-btn');
+          if (editBtn) {
+            const readingId = editBtn.getAttribute('data-reading-id');
+            const content = editBtn.getAttribute('data-content');
+            
+            handleEditReading(readingId, content);
+            return;
+          }
+          
+          // Delete button
+          const deleteBtn = e.target.closest('.delete-btn');
+          if (deleteBtn) {
+            const readingId = deleteBtn.getAttribute('data-reading-id');
+            
+            handleDeleteReading(readingId);
+            return;
           }
         });
 
