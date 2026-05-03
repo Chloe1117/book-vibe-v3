@@ -950,7 +950,7 @@
               // Step C: Swap - DELETE old, INSERT new
               const oldEmoji = existingReaction.emoji;
               
-              // Delete old reaction
+              // CRITICAL: Await delete operation completely
               const { error: deleteError } = await sb
                 .from('reading_reactions')
                 .delete()
@@ -958,7 +958,7 @@
               
               if (deleteError) throw deleteError;
               
-              // Insert new reaction
+              // CRITICAL: Await insert operation completely
               const { error: insertError } = await sb
                 .from('reading_reactions')
                 .insert({
@@ -1013,15 +1013,7 @@
       
       async function updateReactionCounts(readingId) {
         try {
-          // Count reactions by emoji for this reading
-          const { data: reactionCounts, error: countError } = await sb
-            .from('reading_reactions')
-            .select('emoji')
-            .eq('reading_id', readingId);
-          
-          if (countError) throw countError;
-          
-          // Get current reactions from daily_readings
+          // Get current reactions from daily_readings FIRST
           const { data: currentReading, error: fetchError } = await sb
             .from('daily_readings')
             .select('reactions')
@@ -1030,15 +1022,29 @@
           
           if (fetchError) throw fetchError;
           
-          // Build updated reactions object with robust counting
+          console.log('Previous State:', currentReading.reactions);
+          
+          // Count reactions by emoji for this reading
+          const { data: reactionCounts, error: countError } = await sb
+            .from('reading_reactions')
+            .select('emoji')
+            .eq('reading_id', readingId);
+          
+          if (countError) throw countError;
+          
+          // PARTIAL UPDATE - Start with current reactions and update counts
           const currentReactions = currentReading.reactions || {};
-          const updatedReactions = {};
+          const updatedReactions = { ...currentReactions }; // CRITICAL: Spread to preserve existing
+          
+          console.log('Reaction counts from DB:', reactionCounts);
           
           REACTION_EMOJIS.forEach(emoji => {
             const newCount = reactionCounts?.filter(r => r.emoji === emoji).length || 0;
             // Use robust approach to ensure counts never go below 0
             updatedReactions[emoji] = Math.max(0, newCount);
           });
+          
+          console.log('Final State to Save:', updatedReactions);
           
           // Update the daily_readings table
           const { error: updateError } = await sb
