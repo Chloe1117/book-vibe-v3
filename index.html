@@ -857,7 +857,7 @@
         try {
           const { data, error } = await sb
             .from('daily_readings')
-            .select('*, club_members(display_name), reading_reactions(emoji, member_id)')
+            .select('*, club_members(display_name), reading_reactions(emoji, member_id, club_members(display_name))')
             .order('created_at', { ascending: false })
             .limit(5);
           
@@ -922,12 +922,13 @@
         }
         
         try {
-          // Step A: Check if this member has an existing record
+          // Check if user already has this specific emoji reaction
           const { data: existingReaction, error: fetchError } = await sb
             .from('reading_reactions')
             .select('id, emoji')
             .eq('reading_id', readingId)
             .eq('member_id', currentMemberId)
+            .eq('emoji', emoji)
             .single();
           
           if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "not found"
@@ -937,41 +938,16 @@
           let success = false;
           
           if (existingReaction) {
-            if (existingReaction.emoji === emoji) {
-              // Step B: Toggle/Cancel - DELETE the record
-              const { error: deleteError } = await sb
-                .from('reading_reactions')
-                .delete()
-                .eq('id', existingReaction.id);
-              
-              if (deleteError) throw deleteError;
-              success = true;
-            } else {
-              // Step C: Swap - DELETE old, INSERT new
-              const oldEmoji = existingReaction.emoji;
-              
-              // CRITICAL: Await delete operation completely
-              const { error: deleteError } = await sb
-                .from('reading_reactions')
-                .delete()
-                .eq('id', existingReaction.id);
-              
-              if (deleteError) throw deleteError;
-              
-              // CRITICAL: Await insert operation completely
-              const { error: insertError } = await sb
-                .from('reading_reactions')
-                .insert({
-                  reading_id: readingId,
-                  member_id: currentMemberId,
-                  emoji: emoji
-                });
-              
-              if (insertError) throw insertError;
-              success = true;
-            }
+            // User has this emoji - DELETE it (Toggle/Cancel)
+            const { error: deleteError } = await sb
+              .from('reading_reactions')
+              .delete()
+              .eq('id', existingReaction.id);
+            
+            if (deleteError) throw deleteError;
+            success = true;
           } else {
-            // Step D: New - INSERT the record
+            // User doesn't have this emoji - INSERT it (Add)
             const { error: insertError } = await sb
               .from('reading_reactions')
               .insert({
@@ -1032,19 +1008,19 @@
           
           if (countError) throw countError;
           
-          // PARTIAL UPDATE - Start with current reactions and update counts
+          // ATOMIC JSONB SYNC - Start with all 7 emoji keys preserved
           const currentReactions = currentReading.reactions || {};
-          const updatedReactions = { ...currentReactions }; // CRITICAL: Spread to preserve existing
+          const updatedReactions = {};
           
-          console.log('Reaction counts from DB:', reactionCounts);
-          
+          // CRITICAL: Ensure all 7 emoji keys are present
           REACTION_EMOJIS.forEach(emoji => {
             const newCount = reactionCounts?.filter(r => r.emoji === emoji).length || 0;
-            // Use robust approach to ensure counts never go below 0
             updatedReactions[emoji] = Math.max(0, newCount);
           });
           
+          console.log('Reaction counts from DB:', reactionCounts);
           console.log('Final State to Save:', updatedReactions);
+          console.log('All 7 emoji keys preserved:', Object.keys(updatedReactions).length === 7);
           
           // Update the daily_readings table
           const { error: updateError } = await sb
@@ -1160,15 +1136,34 @@
           // Get user's current reaction for this reading
           const userReaction = reading.reading_reactions?.find(r => r.member_id === currentMemberId)?.emoji;
           
-          // Create reaction chips (only show emojis with count > 0)
+          // Create reaction chips (only show emojis with count > 0) with attribution
           const reactionChips = REACTION_EMOJIS
             .filter(emoji => reactions[emoji] > 0)
-            .map(emoji => `
-              <span class="reaction-chip px-2 py-1 bg-deep/10 rounded-full text-xs flex items-center gap-1 ${userReaction === emoji ? 'ring-2 ring-deep/30' : ''}">
-                <span>${emoji}</span>
-                <span class="font-medium">${reactions[emoji]}</span>
-              </span>
-            `).join('');
+            .map(emoji => {
+              // Get all reactors for this emoji
+              const reactors = reading.reading_reactions?.filter(r => r.emoji === emoji) || [];
+              const reactorNames = reactors.map(r => {
+                if (r.member_id === currentMemberId) {
+                  return `나(${r.club_members?.display_name || '알 수 없음'})`;
+                }
+                return r.club_members?.display_name || '알 수 없음';
+              });
+              
+              const attributionText = reactorNames.length > 0 
+                ? `${reactorNames.join(', ')}님이 리액션을 남겼습니다.`
+                : '';
+              
+              return `
+                <span class="reaction-chip px-2 py-1 bg-deep/10 rounded-full text-xs flex items-center gap-1 cursor-pointer hover:bg-deep/20 transition-colors ${userReaction === emoji ? 'ring-2 ring-deep/30' : ''}" 
+                      data-emoji="${emoji}" 
+                      data-reading-id="${reading.id}"
+                      data-attribution="${escapeHtml(attributionText)}"
+                      title="클릭하여 리액션한 사람 보기">
+                  <span>${emoji}</span>
+                  <span class="font-medium">${reactions[emoji]}</span>
+                </span>
+              `;
+            }).join('');
           
           return `
             <div class="daily-reading-item p-4 bg-deep/5 rounded-lg" data-reading-id="${reading.id}">
@@ -1232,32 +1227,18 @@
       }
       
       function handleReactionToggle(readingId, emoji) {
-        // INSTANT UI UPDATE - Update local cache optimistically
+        // INSTANT UI UPDATE - Update local cache optimistically for multi-reaction
         const reading = dailyReadingsCache.find(r => r.id === readingId);
         if (reading && reading.reactions) {
-          const userReaction = reading.reading_reactions?.find(r => r.member_id === currentMemberId)?.emoji;
+          const userReactionForEmoji = reading.reading_reactions?.find(r => r.member_id === currentMemberId && r.emoji === emoji);
           
-          if (userReaction === emoji) {
-            // Scenario A: Same emoji - DELETE reaction (Cancel)
+          if (userReactionForEmoji) {
+            // User has this emoji - DELETE it (Toggle/Cancel)
             reading.reactions[emoji] = Math.max(0, (reading.reactions[emoji] || 0) - 1);
             // Remove from reading_reactions array
-            reading.reading_reactions = reading.reading_reactions?.filter(r => r.member_id !== currentMemberId) || [];
-          } else if (userReaction) {
-            // Scenario B: Different emoji - REPLACE (Delete old, Insert new)
-            // Decrement old emoji count
-            reading.reactions[userReaction] = Math.max(0, (reading.reactions[userReaction] || 0) - 1);
-            // Increment new emoji count
-            reading.reactions[emoji] = (reading.reactions[emoji] || 0) + 1;
-            // Update reading_reactions array
-            const existingIndex = reading.reading_reactions?.findIndex(r => r.member_id === currentMemberId) ?? -1;
-            if (existingIndex >= 0) {
-              reading.reading_reactions[existingIndex].emoji = emoji;
-            } else {
-              reading.reading_reactions = reading.reading_reactions || [];
-              reading.reading_reactions.push({ member_id: currentMemberId, emoji: emoji });
-            }
+            reading.reading_reactions = reading.reading_reactions?.filter(r => !(r.member_id === currentMemberId && r.emoji === emoji)) || [];
           } else {
-            // Scenario C: New reaction - INSERT
+            // User doesn't have this emoji - ADD it
             reading.reactions[emoji] = (reading.reactions[emoji] || 0) + 1;
             // Add to reading_reactions array
             reading.reading_reactions = reading.reading_reactions || [];
@@ -1340,6 +1321,40 @@
             }
           });
         }
+      }
+      
+      function showReactionTooltip(chipElement, attributionText) {
+        // Remove any existing tooltips
+        const existingTooltip = document.querySelector('.reaction-tooltip');
+        if (existingTooltip) {
+          existingTooltip.remove();
+        }
+        
+        // Create tooltip element
+        const tooltip = document.createElement('div');
+        tooltip.className = 'reaction-tooltip absolute z-20 bg-white border border-deep/20 rounded-lg p-3 shadow-lg text-xs text-deep max-w-xs';
+        tooltip.innerHTML = `
+          <div class="font-medium mb-1">리액션 정보</div>
+          <div>${attributionText}</div>
+        `;
+        
+        // Position tooltip above the chip
+        const chipRect = chipElement.getBoundingClientRect();
+        tooltip.style.bottom = `${chipRect.height + 8}px`;
+        tooltip.style.left = `${chipRect.left + chipRect.width / 2}px`;
+        tooltip.style.transform = 'translateX(-50%)';
+        
+        // Add to body
+        document.body.appendChild(tooltip);
+        
+        // Remove tooltip after 3 seconds or on click outside
+        const removeTooltip = () => {
+          tooltip.remove();
+          document.removeEventListener('click', removeTooltip);
+        };
+        
+        setTimeout(removeTooltip, 3000);
+        document.addEventListener('click', removeTooltip);
       }
       async function refreshFromDb() {
         const { data, error } = await sb.from("books").select("*");
@@ -2373,6 +2388,19 @@
             const readingId = deleteBtn.getAttribute('data-reading-id');
             
             handleDeleteReading(readingId);
+            return;
+          }
+          
+          // Reaction chip click (show attribution tooltip)
+          const reactionChip = e.target.closest('.reaction-chip');
+          if (reactionChip) {
+            const emoji = reactionChip.getAttribute('data-emoji');
+            const readingId = reactionChip.getAttribute('data-reading-id');
+            const attribution = reactionChip.getAttribute('data-attribution');
+            
+            if (attribution) {
+              showReactionTooltip(reactionChip, attribution);
+            }
             return;
           }
         });
