@@ -351,14 +351,16 @@
       }
       .meeting-event-title {
         font-family: Georgia, serif;
-        font-size: 1rem;
-        font-weight: 600;
-        color: #0c1f18;
-        margin-bottom: 0.2rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: rgba(12, 31, 24, 0.65);
+        margin-bottom: 0.15rem;
       }
       .meeting-event-sub {
-        font-size: 0.78rem;
-        color: rgba(12, 31, 24, 0.55);
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: #0c1f18;
+        margin-bottom: 0.1rem;
       }
       .meeting-event-creator {
         font-size: 0.7rem;
@@ -459,6 +461,85 @@
         padding: 0.5rem 0;
         font-style: italic;
       }
+      .image-viewer-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        background: rgba(0, 0, 0, 0.95);
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      .image-viewer-modal.active {
+        display: flex;
+      }
+      .image-viewer-content {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .image-viewer-image {
+        max-width: 90%;
+        max-height: 90%;
+        object-fit: contain;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      .image-viewer-nav {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        font-size: 2rem;
+        padding: 1rem 1.5rem;
+        cursor: pointer;
+        border-radius: 50%;
+        transition: background 0.2s;
+        z-index: 10001;
+      }
+      .image-viewer-nav:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+      .image-viewer-nav.prev {
+        left: 1rem;
+      }
+      .image-viewer-nav.next {
+        right: 1rem;
+      }
+      .image-viewer-close {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        border-radius: 50%;
+        transition: background 0.2s;
+        z-index: 10001;
+      }
+      .image-viewer-close:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+      .image-viewer-counter {
+        position: absolute;
+        bottom: 1rem;
+        left: 50%;
+        transform: translateX(-50%);
+        color: white;
+        font-size: 0.9rem;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 0.5rem 1rem;
+        border-radius: 1rem;
+        z-index: 10001;
+      }
     </style>
   </head>
   <body class="app-bg min-h-screen antialiased">
@@ -468,6 +549,17 @@
     <div id="modal-overlay" class="hidden" style="position: fixed; inset: 0; z-index: 9999; display: none; align-items: center; justify-content: center;">
       <div class="modal-bg" style="position: absolute; inset: 0;"></div>
       <div id="modal-content" class="relative" style="pointer-events: auto;"></div>
+    </div>
+
+    <!-- Image Viewer Modal -->
+    <div id="image-viewer-modal" class="image-viewer-modal">
+      <div class="image-viewer-content">
+        <button class="image-viewer-nav prev" id="image-viewer-prev">‹</button>
+        <img id="image-viewer-img" class="image-viewer-image" src="" alt="확대된 이미지" />
+        <button class="image-viewer-nav next" id="image-viewer-next">›</button>
+        <button class="image-viewer-close" id="image-viewer-close">×</button>
+        <div class="image-viewer-counter" id="image-viewer-counter"></div>
+      </div>
     </div>
     
     <script type="module">
@@ -631,6 +723,7 @@
       let meetingEventsCache = [];
       let meetingPostsCache  = {};
       let meetingLoading     = false;
+      let imageViewerState = { images: [], currentIndex: 0, isOpen: false };
       let uiModal = { type: null, error: "", meta: {} };
       let pendingSecureAction = null;
       let toastMessage = "";
@@ -1736,6 +1829,50 @@
         return true;
       }
 
+      function openImageViewer(images, startIndex = 0) {
+        if (!images || !images.length) return;
+        imageViewerState = { images, currentIndex: startIndex, isOpen: true };
+        const modal = document.getElementById("image-viewer-modal");
+        const img = document.getElementById("image-viewer-img");
+        const counter = document.getElementById("image-viewer-counter");
+        const prevBtn = document.getElementById("image-viewer-prev");
+        const nextBtn = document.getElementById("image-viewer-next");
+
+        img.src = images[startIndex];
+        counter.textContent = `${startIndex + 1} / ${images.length}`;
+        prevBtn.style.visibility = startIndex === 0 ? "hidden" : "visible";
+        nextBtn.style.visibility = startIndex === images.length - 1 ? "hidden" : "visible";
+        modal.classList.add("active");
+        document.body.style.overflow = "hidden";
+      }
+
+      function closeImageViewer() {
+        imageViewerState = { images: [], currentIndex: 0, isOpen: false };
+        const modal = document.getElementById("image-viewer-modal");
+        modal.classList.remove("active");
+        document.body.style.overflow = "";
+      }
+
+      function navigateImageViewer(direction) {
+        const { images, currentIndex } = imageViewerState;
+        if (!images.length) return;
+
+        let newIndex = currentIndex + direction;
+        if (newIndex < 0) newIndex = 0;
+        if (newIndex >= images.length) newIndex = images.length - 1;
+
+        imageViewerState.currentIndex = newIndex;
+        const img = document.getElementById("image-viewer-img");
+        const counter = document.getElementById("image-viewer-counter");
+        const prevBtn = document.getElementById("image-viewer-prev");
+        const nextBtn = document.getElementById("image-viewer-next");
+
+        img.src = images[newIndex];
+        counter.textContent = `${newIndex + 1} / ${images.length}`;
+        prevBtn.style.visibility = newIndex === 0 ? "hidden" : "visible";
+        nextBtn.style.visibility = newIndex === images.length - 1 ? "hidden" : "visible";
+      }
+
       function renderMeetingEventCard(event) {
         const posts = meetingPostsCache[event.id] || [];
         const bookTitle = event.books?.title || "책 미지정";
@@ -1752,8 +1889,8 @@
           const isOwner = post.member_id === currentMemberId;
           const memberName = post.club_members?.display_name || "알 수 없음";
           const photosHtml = photos.length
-            ? `<div class="meeting-photo-strip">${photos.map(url =>
-                `<a href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="모임 사진" loading="lazy"/></a>`
+            ? `<div class="meeting-photo-strip">${photos.map((url, idx) =>
+                `<img src="${escapeHtml(url)}" alt="모임 사진" loading="lazy" class="meeting-photo-thumb" data-idx="${idx}" data-urls="${photos.map(u => escapeHtml(u)).join(',')}" style="cursor:pointer"/>`
               ).join("")}</div>`
             : "";
           return `
@@ -1795,8 +1932,8 @@
                   ? `<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(bookTitle)}" class="meeting-cover-thumb"/>`
                   : `<div class="meeting-cover-thumb meeting-cover-placeholder">📚</div>`}
                 <div>
-                  <h3 class="meeting-event-title">${escapeHtml(bookTitle)}</h3>
                   <p class="meeting-event-sub">${dateStr} · ${escapeHtml(event.location || "장소 미정")}</p>
+                  <h3 class="meeting-event-title">${escapeHtml(bookTitle)}</h3>
                   <p class="meeting-event-creator">등록: ${escapeHtml(creatorName)}</p>
                 </div>
               </div>
@@ -2417,8 +2554,8 @@
       }
       function renderAuthModal() {
         if (!uiModal.type) return "";
-        if (uiModal.type === "first-login") return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><h2 class="font-serif text-xl">처음 오셨네요!</h2><p class="mt-2 text-sm text-deep/60">앞으로 사용할 비밀번호를 설정해주세요.</p><form id="form-first-password" class="mt-4 space-y-3"><input type="password" name="password" class="input-field" placeholder="새 비밀번호" required /><input type="password" name="confirmPassword" class="input-field" placeholder="새 비밀번호 확인" required /><button class="btn-primary w-full">저장</button></form>${uiModal.error ? `<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>` : ""}</div></div>`;
-        if (uiModal.type === "secure-confirm") return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><h2 class="font-serif text-xl">본인 인증</h2><p class="mt-2 text-sm text-deep/60">${escapeHtml(uiModal.meta.message || "")}</p><form id="form-secure-confirm" class="mt-4 space-y-3"><input type="password" name="password" class="input-field" placeholder="개인 비밀번호" required /><button class="btn-primary w-full">확인</button></form>${uiModal.error ? `<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>` : ""}</div></div>`;
+        if (uiModal.type === "first-login") return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><div class="mb-3 flex items-center justify-between"><h2 class="font-serif text-xl">처음 오셨네요!</h2><button class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><p class="mt-2 text-sm text-deep/60">앞으로 사용할 비밀번호를 설정해주세요.</p><form id="form-first-password" class="mt-4 space-y-3"><input type="password" name="password" class="input-field" placeholder="새 비밀번호" required /><input type="password" name="confirmPassword" class="input-field" placeholder="새 비밀번호 확인" required /><button class="btn-primary w-full">저장</button></form>${uiModal.error ? `<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>` : ""}</div></div>`;
+        if (uiModal.type === "secure-confirm") return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><div class="mb-3 flex items-center justify-between"><h2 class="font-serif text-xl">본인 인증</h2><button class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><p class="mt-2 text-sm text-deep/60">${escapeHtml(uiModal.meta.message || "")}</p><form id="form-secure-confirm" class="mt-4 space-y-3"><input type="password" name="password" class="input-field" placeholder="개인 비밀번호" required /><button class="btn-primary w-full">확인</button></form>${uiModal.error ? `<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>` : ""}</div></div>`;
         return "";
       }
 
@@ -2571,6 +2708,31 @@
             return;
           }
 
+          // 이미지 뷰어 - 썸네일 클릭
+          const photoThumb = e.target.closest('.meeting-photo-thumb');
+          if (photoThumb) {
+            const idx = parseInt(photoThumb.dataset.idx, 10);
+            const urls = photoThumb.dataset.urls.split(',');
+            openImageViewer(urls, idx);
+            return;
+          }
+
+          // 이미지 뷰어 - 닫기 버튼
+          if (e.target.id === "image-viewer-close") {
+            closeImageViewer();
+            return;
+          }
+
+          // 이미지 뷰어 - 이전/다음 버튼
+          if (e.target.id === "image-viewer-prev") {
+            navigateImageViewer(-1);
+            return;
+          }
+          if (e.target.id === "image-viewer-next") {
+            navigateImageViewer(1);
+            return;
+          }
+
           if (t.id === "btn-book-settings") {
             // Check if user is chloe before allowing admin access
             const isAdmin = currentMemberId === 'chloe';
@@ -2702,6 +2864,48 @@
               showReactionTooltip(reactionChip, attribution);
             }
             return;
+          }
+        });
+
+        // Touch swipe support for image viewer
+        let touchStartX = 0;
+        let touchEndX = 0;
+        const imageViewerModal = document.getElementById("image-viewer-modal");
+
+        if (imageViewerModal) {
+          imageViewerModal.addEventListener("touchstart", (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+          }, { passive: true });
+
+          imageViewerModal.addEventListener("touchend", (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+          }, { passive: true });
+
+          function handleSwipe() {
+            const swipeThreshold = 50;
+            const diff = touchStartX - touchEndX;
+
+            if (Math.abs(diff) > swipeThreshold) {
+              if (diff > 0) {
+                navigateImageViewer(1); // Swipe left -> next
+              } else {
+                navigateImageViewer(-1); // Swipe right -> previous
+              }
+            }
+          }
+        }
+
+        // Keyboard navigation for image viewer
+        document.addEventListener("keydown", (e) => {
+          if (!imageViewerState.isOpen) return;
+
+          if (e.key === "Escape") {
+            closeImageViewer();
+          } else if (e.key === "ArrowLeft") {
+            navigateImageViewer(-1);
+          } else if (e.key === "ArrowRight") {
+            navigateImageViewer(1);
           }
         });
 
