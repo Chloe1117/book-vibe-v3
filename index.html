@@ -302,6 +302,163 @@
         color: #2d5a3d;
         line-height: 1.2;
       }
+      .meeting-tab-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.25rem;
+      }
+      .meeting-events-feed {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+      .meeting-event-card {
+        background: linear-gradient(160deg, #fcf8ef 0%, #f4eddf 100%);
+        border: 1px solid rgba(12, 31, 24, 0.10);
+        border-radius: 1.25rem;
+        padding: 1.25rem;
+        box-shadow: 0 2px 10px rgba(12, 31, 24, 0.06);
+      }
+      .meeting-event-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.875rem;
+        border-bottom: 1px solid rgba(12, 31, 24, 0.08);
+      }
+      .meeting-event-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+      .meeting-cover-thumb {
+        width: 44px;
+        height: 60px;
+        border-radius: 6px;
+        object-fit: cover;
+        flex-shrink: 0;
+        box-shadow: 0 2px 6px rgba(12,31,24,0.18);
+      }
+      .meeting-cover-placeholder {
+        background: linear-gradient(135deg, #e8dcc4 0%, #d4c9a8 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+      }
+      .meeting-event-title {
+        font-family: Georgia, serif;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #0c1f18;
+        margin-bottom: 0.2rem;
+      }
+      .meeting-event-sub {
+        font-size: 0.78rem;
+        color: rgba(12, 31, 24, 0.55);
+      }
+      .meeting-event-creator {
+        font-size: 0.7rem;
+        color: rgba(12, 31, 24, 0.38);
+        margin-top: 0.15rem;
+      }
+      .meeting-event-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.375rem;
+        flex-shrink: 0;
+      }
+      .meeting-post-count {
+        font-size: 0.7rem;
+        color: rgba(12, 31, 24, 0.45);
+        white-space: nowrap;
+      }
+      .meeting-posts-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.875rem;
+        margin-bottom: 0.875rem;
+      }
+      .meeting-post {
+        background: rgba(255, 255, 255, 0.75);
+        border: 1px solid rgba(12, 31, 24, 0.08);
+        border-radius: 0.875rem;
+        padding: 0.875rem;
+      }
+      .meeting-post-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.625rem;
+      }
+      .meeting-post-author {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: rgba(12, 31, 24, 0.75);
+      }
+      .meeting-post-actions { display: flex; gap: 0.25rem; }
+      .meeting-post-content {
+        font-size: 0.875rem;
+        color: rgba(12, 31, 24, 0.82);
+        line-height: 1.55;
+        white-space: pre-wrap;
+      }
+      .meeting-photo-strip {
+        display: flex;
+        gap: 0.5rem;
+        overflow-x: auto;
+        padding-bottom: 0.5rem;
+        margin-bottom: 0.625rem;
+        scrollbar-width: thin;
+      }
+      .meeting-photo-strip img {
+        width: 88px;
+        height: 88px;
+        object-fit: cover;
+        border-radius: 0.5rem;
+        flex-shrink: 0;
+        cursor: pointer;
+        transition: transform 0.18s ease;
+      }
+      .meeting-photo-strip img:hover { transform: scale(1.04); }
+      .meeting-add-section {
+        border-top: 1px solid rgba(12, 31, 24, 0.07);
+        padding-top: 0.875rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.625rem;
+      }
+      .meeting-add-form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.625rem;
+        padding-top: 0.25rem;
+      }
+      .meeting-photo-upload { display: flex; flex-direction: column; gap: 0.375rem; }
+      .photo-preview-strip { display: flex; gap: 0.375rem; flex-wrap: wrap; }
+      .photo-preview-thumb {
+        width: 60px;
+        height: 60px;
+        object-fit: cover;
+        border-radius: 0.375rem;
+        border: 1px solid rgba(12, 31, 24, 0.12);
+      }
+      .meeting-empty-state {
+        text-align: center;
+        padding: 3.5rem 1rem;
+        color: rgba(12, 31, 24, 0.45);
+      }
+      .meeting-empty-posts {
+        font-size: 0.8rem;
+        color: rgba(12, 31, 24, 0.38);
+        text-align: center;
+        padding: 0.5rem 0;
+        font-style: italic;
+      }
     </style>
   </head>
   <body class="app-bg min-h-screen antialiased">
@@ -460,10 +617,9 @@
       console.log("Current Debug Mode:", window.isDebugMode);
       
       function initializeApp() {
-        // Load data and start the app
         loadMembers().then(() => {
           refreshFromDb().then(() => {
-            loadDailyReadings().then(() => {
+            Promise.all([loadDailyReadings(), loadAllMeetingData()]).then(() => {
               subscribeRealtime();
               renderApp();
             });
@@ -472,6 +628,9 @@
       }
       
       let detailBookId = null;
+      let meetingEventsCache = [];
+      let meetingPostsCache  = {};
+      let meetingLoading     = false;
       let uiModal = { type: null, error: "", meta: {} };
       let pendingSecureAction = null;
       let toastMessage = "";
@@ -550,6 +709,35 @@
                   .join("");
                 modalContent.innerHTML = `<div class="paper-panel max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-deep/12 p-5 shadow-2xl"><div class="mb-3 flex items-start justify-between gap-3"><div><h3 class="font-serif text-xl text-deep">${escapeHtml(book.title)}</h3><p class="text-sm text-deep/55">${escapeHtml(book.author || "저자 미입력")}</p><p class="mt-1"><span class="guide-badge">🚩 이번 책의 길잡이: ${escapeHtml(memberNameById(book.guideId))}</span></p></div><button class="btn-ghost !py-1.5 !text-xs" data-close-modal="1">닫기</button></div><p class="text-xs text-deep/60">${canSelect ? "최종 선택 전 길잡이 비밀번호를 재확인합니다." : "길잡이의 비밀번호가 일치하지 않습니다."}</p>${rows}</div>`;
               }
+            } else if (type === "new-meeting-event") {
+              const bookOptions = cache.books
+                .map(b => `<option value="${b.id}">${escapeHtml(b.title)}</option>`)
+                .join("");
+              modalContent.innerHTML = `
+                <div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/12 p-5 shadow-2xl">
+                  <div class="mb-4 flex items-center justify-between">
+                    <h2 class="font-serif text-xl text-deep">새 모임 기록</h2>
+                    <button class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button>
+                  </div>
+                  <form id="form-new-meeting-event" class="grid gap-3">
+                    <div>
+                      <label class="text-xs text-deep/60">읽은 책</label>
+                      <select class="input-field mt-1" name="bookId">
+                        <option value="">책 미지정</option>
+                        ${bookOptions}
+                      </select>
+                    </div>
+                    <div>
+                      <label class="text-xs text-deep/60">모임 날짜</label>
+                      <input class="input-field mt-1" type="date" name="meetingDate" required/>
+                    </div>
+                    <div>
+                      <label class="text-xs text-deep/60">장소</label>
+                      <input class="input-field mt-1" type="text" name="location" placeholder="예: 성수동 카페 북바이브" required/>
+                    </div>
+                    <button class="btn-primary w-full">모임 만들기</button>
+                  </form>
+                </div>`;
             } else if (type === "schedule-settings") {
               const selectedId = meta.bookId || "";
               const selectedBook = bookById(selectedId);
@@ -1453,153 +1641,199 @@
         const canEdit = isGuideFor(book) || isAdmin;
         return `<section class="paper-panel mt-4 rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep">책 정보 설정</h3><p class="mt-1 text-xs text-deep/55">${canEdit ? "저장 시 길잡이 본인 인증이 필요합니다." : "해당 책의 길잡이만 수정 가능합니다."}</p><form id="form-book-edit" class="mt-3 grid gap-3" data-book="${book.id}"><input class="input-field" name="title" value="${escapeHtml(book.title)}" ${canEdit ? "" : "disabled"} /><input class="input-field" name="author" value="${escapeHtml(book.author)}" ${canEdit ? "" : "disabled"} /><input class="input-field" name="coverUrl" value="${escapeHtml(book.coverUrl)}" ${canEdit ? "" : "disabled"} /><select class="input-field" name="guideId" ${isAdmin ? "" : "disabled"}>${memberList().map((m) => `<option value="${m.id}" ${book.guideId === m.id ? "selected" : ""}>길잡이: ${escapeHtml(m.display_name)}</option>`).join("")}</select><input class="input-field" type="number" min="1" max="50" name="totalChapters" value="${book.totalChapters}" ${canEdit ? "" : "disabled"} /><button class="btn-primary ${canEdit ? "" : "opacity-40"}" ${canEdit ? "" : "disabled"}>저장</button></form></section>`;
       }
+
+      async function loadMeetingEvents() {
+        try {
+          const { data, error } = await sb
+            .from("meeting_events")
+            .select(`*, club_members!meeting_events_created_by_fkey(display_name), books(title, cover_url)`)
+            .order("meeting_date", { ascending: false });
+          if (error) throw error;
+          meetingEventsCache = data || [];
+          return meetingEventsCache;
+        } catch (err) {
+          console.error("loadMeetingEvents error:", err);
+          return [];
+        }
+      }
+
+      async function loadMeetingPosts(eventId) {
+        try {
+          const { data, error } = await sb
+            .from("meeting_posts")
+            .select(`*, club_members!meeting_posts_member_id_fkey(display_name)`)
+            .eq("event_id", eventId)
+            .order("created_at", { ascending: true });
+          if (error) throw error;
+          meetingPostsCache[eventId] = data || [];
+          return meetingPostsCache[eventId];
+        } catch (err) {
+          console.error("loadMeetingPosts error:", err);
+          return [];
+        }
+      }
+
+      async function loadAllMeetingData() {
+        meetingLoading = true;
+        const events = await loadMeetingEvents();
+        await Promise.all(events.map(e => loadMeetingPosts(e.id)));
+        meetingLoading = false;
+      }
+
+      async function postMeetingEvent({ bookId, meetingDate, location }) {
+        if (!currentMemberId) return false;
+        const { error } = await sb.from("meeting_events").insert({
+          book_id: bookId || null,
+          meeting_date: meetingDate,
+          location: location.trim(),
+          created_by: currentMemberId,
+        });
+        if (error) { console.error(error); return false; }
+        await loadAllMeetingData();
+        return true;
+      }
+
+      async function postMeetingPost(eventId, content, photoUrls = []) {
+        if (!currentMemberId) return false;
+        const { error } = await sb.from("meeting_posts").insert({
+          event_id: eventId,
+          member_id: currentMemberId,
+          content: content.trim(),
+          photo_urls: photoUrls,
+        });
+        if (error) { console.error(error); return false; }
+        await loadMeetingPosts(eventId);
+        return true;
+      }
+
+      async function updateMeetingPost(postId, eventId, content, photoUrls) {
+        if (!currentMemberId) return false;
+        const { error } = await sb
+          .from("meeting_posts")
+          .update({ content: content.trim(), photo_urls: photoUrls, updated_at: new Date().toISOString() })
+          .eq("id", postId)
+          .eq("member_id", currentMemberId);
+        if (error) { console.error(error); return false; }
+        await loadMeetingPosts(eventId);
+        return true;
+      }
+
+      async function deleteMeetingPost(postId, eventId) {
+        if (!currentMemberId) return false;
+        if (!confirm("기록을 삭제하시겠습니까?")) return false;
+        const { error } = await sb.from("meeting_posts").delete().eq("id", postId).eq("member_id", currentMemberId);
+        if (error) { console.error(error); return false; }
+        await loadMeetingPosts(eventId);
+        return true;
+      }
+
+      async function deleteMeetingEvent(eventId) {
+        if (!currentMemberId) return false;
+        if (!confirm("모임 기록 전체를 삭제하시겠습니까? 하위 기록도 모두 삭제됩니다.")) return false;
+        const { error } = await sb.from("meeting_events").delete().eq("id", eventId).eq("created_by", currentMemberId);
+        if (error) { console.error(error); return false; }
+        await loadAllMeetingData();
+        return true;
+      }
+
+      function renderMeetingEventCard(event) {
+        const posts = meetingPostsCache[event.id] || [];
+        const bookTitle = event.books?.title || "책 미지정";
+        const coverUrl  = event.books?.cover_url || "";
+        const creatorName = event.club_members?.display_name || "알 수 없음";
+        const isCreator = event.created_by === currentMemberId;
+        const dateStr = event.meeting_date
+          ? new Date(event.meeting_date).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })
+          : "날짜 미정";
+        const myPost = posts.find(p => p.member_id === currentMemberId);
+
+        const postsHtml = posts.map(post => {
+          const photos = Array.isArray(post.photo_urls) ? post.photo_urls : [];
+          const isOwner = post.member_id === currentMemberId;
+          const memberName = post.club_members?.display_name || "알 수 없음";
+          const photosHtml = photos.length
+            ? `<div class="meeting-photo-strip">${photos.map(url =>
+                `<a href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="모임 사진" loading="lazy"/></a>`
+              ).join("")}</div>`
+            : "";
+          return `
+            <div class="meeting-post" data-post-id="${post.id}" data-event-id="${event.id}">
+              <div class="meeting-post-header">
+                <span class="meeting-post-author">${escapeHtml(memberName)}</span>
+                ${isOwner ? `<div class="meeting-post-actions">
+                  <button class="mp-edit-btn btn-ghost !px-2 !py-1 !text-xs" data-post-id="${post.id}" data-event-id="${event.id}" data-content="${escapeHtml(post.content)}">수정</button>
+                  <button class="mp-delete-btn btn-ghost !px-2 !py-1 !text-xs text-red-600" data-post-id="${post.id}" data-event-id="${event.id}">삭제</button>
+                </div>` : ""}
+              </div>
+              ${photosHtml}
+              ${post.content ? `<p class="meeting-post-content">${escapeHtml(post.content)}</p>` : ""}
+            </div>`;
+        }).join("");
+
+        const addFormHtml = `
+          <div class="meeting-add-form" id="add-form-${event.id}" ${myPost ? 'style="display:none"' : ""}>
+            <textarea class="input-field text-sm" rows="2" id="post-content-${event.id}" placeholder="이번 모임 소감을 남겨보세요..."></textarea>
+            <div class="meeting-photo-upload">
+              <label class="btn-ghost !px-3 !py-2 !text-xs cursor-pointer">
+                📷 사진 추가 (최대 5장)
+                <input type="file" accept="image/*" multiple id="post-photos-${event.id}" style="display:none"/>
+              </label>
+              <div class="photo-preview-strip" id="preview-${event.id}"></div>
+            </div>
+            <button class="btn-primary !text-xs mp-post-btn" data-event-id="${event.id}">기록 등록</button>
+          </div>`;
+
+        const toggleBtnHtml = myPost
+          ? `<button class="btn-ghost !px-3 !py-1 !text-xs mp-toggle-form" data-event-id="${event.id}">✏️ 내 기록 수정</button>`
+          : `<button class="btn-ghost !px-3 !py-1 !text-xs mp-toggle-form" data-event-id="${event.id}">+ 내 기록 추가</button>`;
+
+        return `
+          <article class="meeting-event-card" data-event-id="${event.id}">
+            <div class="meeting-event-header">
+              <div class="meeting-event-meta">
+                ${coverUrl
+                  ? `<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(bookTitle)}" class="meeting-cover-thumb"/>`
+                  : `<div class="meeting-cover-thumb meeting-cover-placeholder">📚</div>`}
+                <div>
+                  <h3 class="meeting-event-title">${escapeHtml(bookTitle)}</h3>
+                  <p class="meeting-event-sub">${dateStr} · ${escapeHtml(event.location || "장소 미정")}</p>
+                  <p class="meeting-event-creator">등록: ${escapeHtml(creatorName)}</p>
+                </div>
+              </div>
+              <div class="meeting-event-right">
+                <span class="meeting-post-count">${posts.length}명 기록</span>
+                ${isCreator ? `<button class="btn-ghost !px-2 !py-1 !text-xs text-red-600 mp-del-event-btn" data-event-id="${event.id}">삭제</button>` : ""}
+              </div>
+            </div>
+            <div class="meeting-posts-list">
+              ${postsHtml || `<p class="meeting-empty-posts">아직 기록이 없습니다. 첫 번째로 남겨보세요!</p>`}
+            </div>
+            <div class="meeting-add-section">
+              ${toggleBtnHtml}
+              ${addFormHtml}
+            </div>
+          </article>`;
+      }
+
       function renderMeetingTab() {
-        return `<main class="reading-tab-container mx-auto max-w-content pb-28">
-          <div class="book-info-section">
-            <!-- Create Meeting Log Button -->
-            <section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm mb-4">
-              <div class="flex items-center justify-between">
-                <h2 class="font-serif text-xl text-deep">📸 모임 기록</h2>
-                <button id="create-meeting-btn" class="btn-primary text-sm">+ 새 모임 기록</button>
-              </div>
-            </section>
-
-            <!-- Meeting Logs Feed -->
-            <div class="space-y-4" id="meeting-logs-feed">
-              <!-- Sample Meeting Log 1 -->
-              <article class="paper-panel rounded-2xl border border-deep/10 p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
-                <div class="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 class="font-serif text-lg text-deep mb-1">5월 모임</h3>
-                    <div class="flex items-center gap-3 text-sm text-deep/60">
-                      <span class="flex items-center gap-1">📍 <span>가로수길 카페 '북바이브'</span></span>
-                      <span class="flex items-center gap-1">📅 <span>2026-05-15 19:00</span></span>
-                    </div>
-                  </div>
-                  <span class="text-xs text-deep/45 bg-deep/5 px-2 py-1 rounded-full">참여자 4명</span>
-                </div>
-                
-                <!-- Photo Gallery -->
-                <div class="mb-4">
-                  <h4 class="text-sm font-semibold text-deep mb-2">📸 사진</h4>
-                  <div class="flex gap-2 overflow-x-auto pb-2">
-                    <div class="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
-                      <img src="https://picsum.photos/seed/meeting1-1/200/200.jpg" alt="모임 사진 1" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
-                    </div>
-                    <div class="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
-                      <img src="https://picsum.photos/seed/meeting1-2/200/200.jpg" alt="모임 사진 2" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
-                    </div>
-                    <div class="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
-                      <img src="https://picsum.photos/seed/meeting1-3/200/200.jpg" alt="모임 사진 3" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
-                    </div>
-                    <div class="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
-                      <img src="https://picsum.photos/seed/meeting1-4/200/200.jpg" alt="모임 사진 4" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
-                    </div>
-                  </div>
-                </div>
-                
-                <!-- Summary -->
-                <div class="bg-deep/5 rounded-lg p-3">
-                  <h4 class="text-sm font-semibold text-deep mb-2">📝 모임 요약</h4>
-                  <p class="text-sm text-deep/85 leading-relaxed">
-                    이번 모임에서는 '어린 왕자'를 함께 읽고 각자의 인상 깊었던 구절에 대해 이야기 나눴습니다. 
-                    특히 여우와 어린 왕자의 관계에 대한 토론이 활발했으며, 다음 모임까지 3장까지 읽기로 했습니다.
-                    다과는 Mary가 준비한 수제 쿠키와 차가 큰 사랑을 받았습니다.
-                  </p>
-                </div>
-                
-                <!-- Participants -->
-                <div class="mt-3 flex items-center gap-2">
-                  <span class="text-xs text-deep/60">참여자:</span>
-                  <div class="flex -space-x-2">
-                    <div class="w-6 h-6 bg-deep/20 rounded-full border-2 border-white flex items-center justify-center">
-                      <span class="text-xs font-semibold text-deep">M</span>
-                    </div>
-                    <div class="w-6 h-6 bg-deep/20 rounded-full border-2 border-white flex items-center justify-center">
-                      <span class="text-xs font-semibold text-deep">C</span>
-                    </div>
-                    <div class="w-6 h-6 bg-deep/20 rounded-full border-2 border-white flex items-center justify-center">
-                      <span class="text-xs font-semibold text-deep">C</span>
-                    </div>
-                    <div class="w-6 h-6 bg-deep/20 rounded-full border-2 border-white flex items-center justify-center">
-                      <span class="text-xs font-semibold text-deep">J</span>
-                    </div>
-                  </div>
-                </div>
-              </article>
-
-              <!-- Sample Meeting Log 2 -->
-              <article class="paper-panel rounded-2xl border border-deep/10 p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
-                <div class="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 class="font-serif text-lg text-deep mb-1">4월 모임</h3>
-                    <div class="flex items-center gap-3 text-sm text-deep/60">
-                      <span class="flex items-center gap-1">📍 <span>성수동 서점</span></span>
-                      <span class="flex items-center gap-1">📅 <span>2026-04-17 19:00</span></span>
-                    </div>
-                  </div>
-                  <span class="text-xs text-deep/45 bg-deep/5 px-2 py-1 rounded-full">참여자 3명</span>
-                </div>
-                
-                <!-- Photo Gallery -->
-                <div class="mb-4">
-                  <h4 class="text-sm font-semibold text-deep mb-2">📸 사진</h4>
-                  <div class="flex gap-2 overflow-x-auto pb-2">
-                    <div class="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
-                      <img src="https://picsum.photos/seed/meeting2-1/200/200.jpg" alt="모임 사진 1" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
-                    </div>
-                    <div class="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
-                      <img src="https://picsum.photos/seed/meeting2-2/200/200.jpg" alt="모임 사진 2" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
-                    </div>
-                    <div class="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden">
-                      <img src="https://picsum.photos/seed/meeting2-3/200/200.jpg" alt="모임 사진 3" class="w-full h-full object-cover hover:scale-105 transition-transform duration-300">
-                    </div>
-                  </div>
-                </div>
-                
-                <!-- Summary -->
-                <div class="bg-deep/5 rounded-lg p-3">
-                  <h4 class="text-sm font-semibold text-deep mb-2">� 모임 요약</h4>
-                  <p class="text-sm text-deep/85 leading-relaxed">
-                    '데미안'에 대한 깊이 있는 토론을 진행했습니다. 싱어와 데미안의 관계성에 대해 각자의 해석을 공유하며
-                    성장과 자기 찾기에 대한 의미 있는 대화를 나누었습니다. 책을 통해 얻은 영감과 개인적인 경험을 연결하는 시간이었습니다.
-                  </p>
-                </div>
-                
-                <!-- Participants -->
-                <div class="mt-3 flex items-center gap-2">
-                  <span class="text-xs text-deep/60">참여자:</span>
-                  <div class="flex -space-x-2">
-                    <div class="w-6 h-6 bg-deep/20 rounded-full border-2 border-white flex items-center justify-center">
-                      <span class="text-xs font-semibold text-deep">C</span>
-                    </div>
-                    <div class="w-6 h-6 bg-deep/20 rounded-full border-2 border-white flex items-center justify-center">
-                      <span class="text-xs font-semibold text-deep">M</span>
-                    </div>
-                    <div class="w-6 h-6 bg-deep/20 rounded-full border-2 border-white flex items-center justify-center">
-                      <span class="text-xs font-semibold text-deep">C</span>
-                    </div>
-                  </div>
-                </div>
-              </article>
+        if (meetingLoading) {
+          return `<main class="mx-auto max-w-content px-4 py-6 pb-28 text-center text-deep/45 text-sm">불러오는 중...</main>`;
+        }
+        const cardsHtml = meetingEventsCache.length
+          ? meetingEventsCache.map(renderMeetingEventCard).join("")
+          : `<div class="meeting-empty-state">
+              <p class="text-4xl mb-3">📸</p>
+              <p class="font-serif text-lg text-deep mb-1">첫 모임 기록을 남겨보세요</p>
+              <p class="text-sm text-deep/55">책을 다 읽고 모인 날의 기억을 함께 쌓아갑니다</p>
+            </div>`;
+        return `
+          <main class="mx-auto max-w-content px-4 py-5 pb-28">
+            <div class="meeting-tab-top">
+              <h2 class="font-serif text-xl text-deep">모임 기록</h2>
+              <button class="btn-primary !text-sm" id="btn-new-meeting-event">+ 새 모임</button>
             </div>
-
-            <!-- Empty State (hidden when data exists) -->
-            <div id="empty-meeting-state" class="paper-panel rounded-2xl border border-deep/10 p-8 shadow-sm text-center hidden">
-              <div class="mb-6">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-deep/10 rounded-full mb-4">
-                  <svg class="w-8 h-8 text-deep" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
-                    <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 1 1 0 000 2H6a2 2 0 100 4h2a2 2 0 100-4h-.09A1.65 1.65 0 0013 5.5a1.65 1.65 0 00-.09-1.5H14a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
-                  </svg>
-                </div>
-                <h3 class="font-serif text-xl text-deep mb-2">첫 모임 기록을 남겨보세요!</h3>
-                <p class="text-deep/60">소모임의 소중한 순간들을 기록하고 공유할 수 있습니다.</p>
-              </div>
-              <button id="create-first-meeting-btn" class="btn-primary">+ 첫 모임 기록하기</button>
-            </div>
-          </div>
-        </main>`;
+            <div class="meeting-events-feed">${cardsHtml}</div>
+          </main>`;
       }
       
       function renderReadingTab() {
@@ -2260,17 +2494,83 @@
       }
 
       function bindEvents() {
-        document.addEventListener("click", (e) => {
+        document.addEventListener("click", async (e) => {
           const t = e.target;
           const tab = t.closest && t.closest("[data-tab]");
           if (tab) {
             currentTab = tab.getAttribute("data-tab");
-            return renderApp();
+            if (currentTab === "meeting" && !meetingEventsCache.length) {
+              loadAllMeetingData().then(() => renderApp());
+            } else {
+              return renderApp();
+            }
           }
           if (t.id === "btn-logout") {
             logout();
             return;
           }
+
+          // 새 모임 버튼
+          if (e.target.id === "btn-new-meeting-event") {
+            openModal("new-meeting-event");
+            return;
+          }
+
+          // 내 기록 추가/수정 토글
+          const toggleBtn = e.target.closest(".mp-toggle-form");
+          if (toggleBtn) {
+            const eventId = toggleBtn.dataset.eventId;
+            const form = document.getElementById(`add-form-${eventId}`);
+            if (form) form.style.display = form.style.display === "none" ? "" : "none";
+            return;
+          }
+
+          // 기록 등록
+          const postBtn = e.target.closest(".mp-post-btn");
+          if (postBtn) {
+            const eventId = postBtn.dataset.eventId;
+            const content = document.getElementById(`post-content-${eventId}`)?.value || "";
+            const photoInput = document.getElementById(`post-photos-${eventId}`);
+            let photoUrls = [];
+            if (photoInput?.files?.length) {
+              photoUrls = await handleImageUpload({ target: photoInput }, 5);
+            }
+            const ok = await postMeetingPost(eventId, content, photoUrls);
+            if (ok) { showToast("기록이 등록됐습니다!"); renderApp(); }
+            return;
+          }
+
+          // 포스트 삭제
+          const delPostBtn = e.target.closest(".mp-delete-btn");
+          if (delPostBtn) {
+            const ok = await deleteMeetingPost(delPostBtn.dataset.postId, delPostBtn.dataset.eventId);
+            if (ok) { showToast("삭제됐습니다."); renderApp(); }
+            return;
+          }
+
+          // 이벤트 삭제
+          const delEventBtn = e.target.closest(".mp-del-event-btn");
+          if (delEventBtn) {
+            const ok = await deleteMeetingEvent(delEventBtn.dataset.eventId);
+            if (ok) { showToast("모임 기록이 삭제됐습니다."); renderApp(); }
+            return;
+          }
+
+          // 사진 파일 선택 → 미리보기
+          const fileInput = e.target.closest('input[type="file"]');
+          if (fileInput) {
+            fileInput.addEventListener("change", () => {
+              const eventId = fileInput.id.replace("post-photos-", "");
+              const preview = document.getElementById(`preview-${eventId}`);
+              if (!preview) return;
+              const files = Array.from(fileInput.files).slice(0, 5);
+              preview.innerHTML = files.map(f =>
+                `<img src="${URL.createObjectURL(f)}" class="photo-preview-thumb" alt="미리보기"/>`
+              ).join("");
+            }, { once: true });
+            return;
+          }
+
           if (t.id === "btn-book-settings") {
             // Check if user is chloe before allowing admin access
             const isAdmin = currentMemberId === 'chloe';
@@ -2446,7 +2746,17 @@
               closeModal();
               return renderApp();
             }
-            
+
+            if (form.id === "form-new-meeting-event") {
+              const bookId      = form.elements.namedItem("bookId").value;
+              const meetingDate = form.elements.namedItem("meetingDate").value;
+              const location    = form.elements.namedItem("location").value;
+              if (!meetingDate || !location.trim()) return alert("날짜와 장소를 입력해주세요.");
+              const ok = await postMeetingEvent({ bookId, meetingDate, location });
+              if (ok) { closeModal(); showToast("모임이 등록됐습니다!"); renderApp(); }
+              return;
+            }
+
             if (form.id === "form-schedule-settings") {
               // Check if user is admin
               const isAdmin = currentMemberId === 'chloe';
