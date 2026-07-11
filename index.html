@@ -17,11 +17,14 @@
               serif: ["Georgia", "Times New Roman", "serif"],
             },
             colors: {
-              deep: "#0c1f18",
-              "deep-soft": "#1a3a2d",
-              beige: "#f3f0e8",
-              mist: "#e8e5dd",
-              gold: "#c4a35a",
+              deep: "#1a1a2e",
+              "deep-soft": "#16213e",
+              beige: "#f8f9fa",
+              mist: "#e9ecef",
+              gold: "#6c5ce7",
+              accent: "#00cec9",
+              coral: "#fd79a8",
+              sage: "#00b894",
             },
             maxWidth: { content: "1100px" },
           },
@@ -29,65 +32,82 @@
       };
     </script>
     <style>
-      body { background: #f3f0e8; color: #0c1f18; }
-      .app-bg { background: radial-gradient(circle at 20% 10%, rgba(12, 31, 24, 0.08), transparent 42%), #f3f0e8; }
-      .book-card { aspect-ratio: 2 / 3; border-radius: 0.65rem; overflow: hidden; background: linear-gradient(165deg, #ece9e1 0%, #ddd9cf 100%); box-shadow: 0 6px 18px rgba(12, 31, 24, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.4); }
+      body { background: #f8f9fa; color: #1a1a2e; }
+      .app-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+      .book-card { aspect-ratio: 2 / 3; border-radius: 1rem; overflow: hidden; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2); transition: transform 0.3s ease, box-shadow 0.3s ease; }
+      .book-card:hover { transform: translateY(-4px); box-shadow: 0 15px 40px rgba(102, 126, 234, 0.4); }
       .book-card img { width: 100%; height: 100%; object-fit: cover; }
-      .book-card-placeholder { background: linear-gradient(135deg, #ffeaa7 0%, #fab1a0 50%, #74b9ff 100%); display: flex; align-items: center; justify-content: center; text-align: center; padding: 1rem; position: relative; overflow: hidden; }
-      .book-card-placeholder::before { content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%); animation: shimmer 3s ease-in-out infinite; }
+      .book-card-placeholder { background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%); display: flex; align-items: center; justify-content: center; text-align: center; padding: 1rem; position: relative; overflow: hidden; }
+      .book-card-placeholder::before { content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%); animation: shimmer 3s ease-in-out infinite; }
       @keyframes shimmer { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(180deg); } }
-      .book-card-placeholder .book-title { font-weight: 600; color: #2d3436; font-size: 0.9rem; line-height: 1.3; z-index: 1; position: relative; }
-      .paper-panel { background: linear-gradient(160deg, #fcf8ef 0%, #f4eddf 100%); }
-      .wood-touch { background: linear-gradient(145deg, #2f2018 0%, #5d3f2d 50%, #6e4c36 100%); position: relative; }
-      .wood-touch::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(255,255,255,0.03), rgba(255,255,255,0.03) 2px, rgba(0,0,0,0.05) 2px, rgba(0,0,0,0.05) 6px); }
-      .input-field { width: 100%; border-radius: 0.6rem; border: 1px solid rgba(12, 31, 24, 0.14); padding: 0.65rem 0.75rem; font-size: 0.875rem; background: #fff; }
-      .btn-primary { border-radius: 0.6rem; background: #0c1f18; color: #f3f0e8; font-size: 0.875rem; font-weight: 600; padding: 0.65rem 0.95rem; }
-      .btn-ghost { border-radius: 0.6rem; border: 1px solid rgba(12, 31, 24, 0.15); color: #0c1f18; font-size: 0.875rem; padding: 0.65rem 0.95rem; }
-      #modal-overlay { position: fixed; inset: 0; z-index: 9999; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); pointer-events: none; }
+      .book-card-placeholder .book-title { font-weight: 600; color: #ffffff; font-size: 0.9rem; line-height: 1.3; z-index: 1; position: relative; }
+      .paper-panel { background: #ffffff; border-radius: 1rem; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); border: 1px solid rgba(0, 0, 0, 0.05); }
+      .wood-touch { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); position: relative; }
+      .wood-touch::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, transparent 100%); }
+      .input-field { width: 100%; border-radius: 0.75rem; border: 2px solid #e9ecef; padding: 0.75rem 1rem; font-size: 0.9rem; background: #ffffff; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+      .input-field:focus { outline: none; border-color: #6c5ce7; box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.1); }
+      .btn-primary { border-radius: 0.75rem; background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: #ffffff; font-size: 0.9rem; font-weight: 600; padding: 0.75rem 1.25rem; border: none; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+      .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(108, 92, 231, 0.4); }
+      .btn-ghost { border-radius: 0.75rem; border: 2px solid #e9ecef; color: #1a1a2e; font-size: 0.9rem; padding: 0.75rem 1.25rem; background: #ffffff; cursor: pointer; transition: all 0.2s ease; }
+      .btn-ghost:hover { border-color: #6c5ce7; color: #6c5ce7; background: rgba(108, 92, 231, 0.05); }
+      #modal-overlay { position: fixed; inset: 0; z-index: 9999; display: none; align-items: center; justify-content: center; background: rgba(26, 26, 46, 0.6); pointer-events: none; backdrop-filter: blur(8px); }
       #modal-overlay:not(.hidden) { display: flex; pointer-events: auto; }
       #modal-content { pointer-events: auto; position: relative; z-index: 10000; }
-      .toast { position: fixed; left: 50%; bottom: 5.5rem; transform: translateX(-50%); z-index: 80; background: #0c1f18; color: #f3f0e8; border-radius: 999px; padding: 0.55rem 0.95rem; font-size: 0.78rem; box-shadow: 0 8px 20px rgba(12, 31, 24, 0.28); }
-      .guide-badge { display: inline-flex; align-items: center; gap: 0.3rem; border-radius: 999px; padding: 0.2rem 0.6rem; font-size: 0.75rem; background: rgba(196, 163, 90, 0.12); color: #c4a35a; border: 1px solid rgba(196, 163, 90, 0.5); }
-      .chapter-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 1.5rem; background: rgba(248, 250, 252, 0.5); border-radius: 1rem; border: 1px solid rgba(0, 0, 0, 0.03); }
-      .chapter-card { padding: 16px; border-radius: 12px; border: 1px solid rgba(0, 0, 0, 0.03); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); transition: all 0.2s ease; text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: center; }
-      .chapter-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); }
-      .chapter-card .chapter-label { font-size: 0.75rem; color: #666; margin-bottom: 0.5rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
-      .chapter-card .date-value { font-size: 1rem; font-weight: 700; color: #2C3E50; line-height: 1.3; }
-      .color-soft-blue { background: #E3F2FD; } .color-pale-green { background: #F1F8E9; } .color-light-peach { background: #FFF3E0; } .color-lavender { background: #F3E5F5; } .color-soft-coral { background: #FFEBEE; } .color-mint-green { background: #E8F5E8; } .color-sky-blue { background: #E1F5FE; } .color-warm-yellow { background: #FFFDE7; }
+      .toast { position: fixed; left: 50%; bottom: 5.5rem; transform: translateX(-50%); z-index: 80; background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: #ffffff; border-radius: 999px; padding: 0.75rem 1.25rem; font-size: 0.85rem; box-shadow: 0 8px 24px rgba(108, 92, 231, 0.4); }
+      .guide-badge { display: inline-flex; align-items: center; gap: 0.3rem; border-radius: 999px; padding: 0.3rem 0.75rem; font-size: 0.75rem; background: linear-gradient(135deg, rgba(108, 92, 231, 0.1) 0%, rgba(162, 155, 254, 0.1) 100%); color: #6c5ce7; border: 1px solid rgba(108, 92, 231, 0.3); }
+      .chapter-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 1.5rem; background: rgba(255, 255, 255, 0.8); border-radius: 1rem; border: 1px solid rgba(0, 0, 0, 0.05); }
+      .chapter-card { padding: 20px; border-radius: 16px; border: 1px solid rgba(0, 0, 0, 0.05); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06); transition: all 0.3s ease; text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: center; background: #ffffff; }
+      .chapter-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(108, 92, 231, 0.15); border-color: rgba(108, 92, 231, 0.2); }
+      .chapter-card .chapter-label { font-size: 0.75rem; color: #6c5ce7; margin-bottom: 0.5rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+      .chapter-card .date-value { font-size: 1.1rem; font-weight: 700; color: #1a1a2e; line-height: 1.3; }
+      .color-soft-blue { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); } .color-pale-green { background: linear-gradient(135deg, #00b894 0%, #00cec9 100%); } .color-light-peach { background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%); } .color-lavender { background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%); } .color-soft-coral { background: linear-gradient(135deg, #ff7675 0%, #d63031 100%); } .color-mint-green { background: linear-gradient(135deg, #55efc4 0%, #00b894 100%); } .color-sky-blue { background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%); } .color-warm-yellow { background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%); }
       .reading-tab-container { padding: 24px; }
       .book-info-section { margin-bottom: 40px; }
       .schedule-section { margin-bottom: 32px; }
-      .schedule-display { background: rgba(255, 255, 255, 0.95); border: 1px solid #eee; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); }
-      .schedule-title { font-size: 0.9rem; font-weight: 600; color: #0c1f18; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; }
+      .schedule-display { background: rgba(255, 255, 255, 0.95); border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 1.25rem; padding: 1.75rem; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08); }
+      .schedule-title { font-size: 1rem; font-weight: 700; color: #1a1a2e; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; }
       /* 모임 기록 CSS */
-      .meeting-tab-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
-      .meeting-events-feed { display: flex; flex-direction: column; gap: 1.5rem; }
-      .meeting-event-card { background: linear-gradient(160deg, #fcf8ef 0%, #f4eddf 100%); border: 1px solid rgba(12, 31, 24, 0.10); border-radius: 1.25rem; padding: 1.25rem; box-shadow: 0 2px 10px rgba(12, 31, 24, 0.06); }
-      .meeting-event-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; margin-bottom: 1rem; padding-bottom: 0.875rem; border-bottom: 1px solid rgba(12, 31, 24, 0.08); }
-      .meeting-event-meta { display: flex; align-items: center; gap: 0.75rem; }
-      .meeting-cover-thumb { width: 44px; height: 60px; border-radius: 6px; object-fit: cover; flex-shrink: 0; box-shadow: 0 2px 6px rgba(12,31,24,0.18); }
-      .meeting-cover-placeholder { background: linear-gradient(135deg, #e8dcc4 0%, #d4c9a8 100%); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; }
-      .meeting-event-title { font-family: Georgia, serif; font-size: 1rem; font-weight: 600; color: #0c1f18; margin-bottom: 0.2rem; }
-      .meeting-event-sub { font-size: 0.78rem; color: rgba(12, 31, 24, 0.55); }
-      .meeting-event-creator { font-size: 0.7rem; color: rgba(12, 31, 24, 0.38); margin-top: 0.15rem; }
-      .meeting-event-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.375rem; flex-shrink: 0; }
-      .meeting-post-count { font-size: 0.7rem; color: rgba(12, 31, 24, 0.45); white-space: nowrap; }
-      .meeting-posts-list { display: flex; flex-direction: column; gap: 0.875rem; margin-bottom: 0.875rem; }
-      .meeting-post { background: rgba(255, 255, 255, 0.75); border: 1px solid rgba(12, 31, 24, 0.08); border-radius: 0.875rem; padding: 0.875rem; }
-      .meeting-post-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.625rem; }
-      .meeting-post-author { font-size: 0.8rem; font-weight: 600; color: rgba(12, 31, 24, 0.75); }
-      .meeting-post-actions { display: flex; gap: 0.25rem; }
-      .meeting-post-content { font-size: 0.875rem; color: rgba(12, 31, 24, 0.82); line-height: 1.55; white-space: pre-wrap; }
-      .meeting-photo-strip { display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.5rem; margin-bottom: 0.625rem; scrollbar-width: thin; }
-      .meeting-photo-strip img { width: 88px; height: 88px; object-fit: cover; border-radius: 0.5rem; flex-shrink: 0; cursor: pointer; transition: transform 0.18s ease; }
-      .meeting-photo-strip img:hover { transform: scale(1.04); }
-      .meeting-add-section { border-top: 1px solid rgba(12, 31, 24, 0.07); padding-top: 0.875rem; display: flex; flex-direction: column; gap: 0.625rem; }
-      .meeting-add-form { display: flex; flex-direction: column; gap: 0.625rem; padding-top: 0.25rem; }
-      .meeting-photo-upload { display: flex; flex-direction: column; gap: 0.375rem; }
-      .photo-preview-strip { display: flex; gap: 0.375rem; flex-wrap: wrap; }
-      .photo-preview-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 0.375rem; border: 1px solid rgba(12, 31, 24, 0.12); }
-      .meeting-empty-state { text-align: center; padding: 3.5rem 1rem; color: rgba(12, 31, 24, 0.45); }
-      .meeting-empty-posts { font-size: 0.8rem; color: rgba(12, 31, 24, 0.38); text-align: center; padding: 0.5rem 0; font-style: italic; }
+      .meeting-tab-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+      .meeting-events-feed { display: flex; flex-direction: column; gap: 1.75rem; }
+      .meeting-event-card { background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%); border: 1px solid rgba(108, 92, 231, 0.1); border-radius: 1.5rem; padding: 1.5rem; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06); transition: transform 0.3s ease, box-shadow 0.3s ease; }
+      .meeting-event-card:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(108, 92, 231, 0.12); }
+      .meeting-event-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(0, 0, 0, 0.06); }
+      .meeting-event-meta { display: flex; align-items: center; gap: 1rem; }
+      .meeting-cover-thumb { width: 52px; height: 72px; border-radius: 12px; object-fit: cover; flex-shrink: 0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
+      .meeting-cover-placeholder { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: #ffffff; }
+      .meeting-event-title { font-family: Georgia, serif; font-size: 0.9rem; font-weight: 500; color: rgba(26, 26, 46, 0.65); margin-bottom: 0.15rem; }
+      .meeting-event-sub { font-size: 1.1rem; font-weight: 600; color: #1a1a2e; margin-bottom: 0.1rem; }
+      .meeting-event-creator { font-size: 0.75rem; color: rgba(26, 26, 46, 0.45); margin-top: 0.2rem; }
+      .meeting-event-right { display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem; flex-shrink: 0; }
+      .meeting-post-count { font-size: 0.8rem; color: #6c5ce7; font-weight: 600; white-space: nowrap; }
+      .meeting-posts-list { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1rem; }
+      .meeting-post { background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.06); border-radius: 1rem; padding: 1rem; transition: all 0.2s ease; }
+      .meeting-post:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); }
+      .meeting-post-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+      .meeting-post-author { font-size: 0.9rem; font-weight: 600; color: #1a1a2e; }
+      .meeting-post-actions { display: flex; gap: 0.5rem; }
+      .meeting-post-content { font-size: 0.95rem; color: rgba(26, 26, 46, 0.85); line-height: 1.6; white-space: pre-wrap; }
+      .meeting-photo-strip { display: flex; gap: 0.75rem; overflow-x: auto; padding-bottom: 0.75rem; margin-bottom: 0.75rem; scrollbar-width: thin; scroll-snap-type: x mandatory; }
+      .meeting-photo-strip img { width: 120px; height: 120px; min-width: 120px; min-height: 120px; object-fit: cover; border-radius: 12px; flex-shrink: 0; cursor: pointer; transition: transform 0.3s ease, box-shadow 0.3s ease; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); scroll-snap-align: start; }
+      .meeting-photo-strip img:hover { transform: scale(1.08); box-shadow: 0 8px 20px rgba(108, 92, 231, 0.3); }
+      .meeting-add-section { border-top: 1px solid rgba(0, 0, 0, 0.06); padding-top: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+      .meeting-add-form { display: flex; flex-direction: column; gap: 0.75rem; padding-top: 0.25rem; }
+      .meeting-photo-upload { display: flex; flex-direction: column; gap: 0.5rem; }
+      .photo-preview-strip { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+      .photo-preview-thumb { width: 70px; height: 70px; object-fit: cover; border-radius: 10px; border: 2px solid rgba(108, 92, 231, 0.2); }
+      .meeting-empty-state { text-align: center; padding: 4rem 1rem; color: rgba(26, 26, 46, 0.5); }
+      .meeting-empty-posts { font-size: 0.9rem; color: rgba(26, 26, 46, 0.4); text-align: center; padding: 0.75rem 0; font-style: italic; }
+      /* Image Viewer Modal */
+      .image-viewer { position: fixed; inset: 0; z-index: 10000; background: rgba(0, 0, 0, 0.95); display: flex; align-items: center; justify-content: center; }
+      .image-viewer-container { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+      .image-viewer-img { max-width: 90%; max-height: 90%; object-fit: contain; }
+      .image-viewer-close { position: absolute; top: 20px; right: 20px; background: rgba(255, 255, 255, 0.2); color: white; border: none; border-radius: 50%; width: 44px; height: 44px; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+      .image-viewer-close:hover { background: rgba(255, 255, 255, 0.3); }
+      .image-viewer-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255, 255, 255, 0.2); color: white; border: none; border-radius: 50%; width: 50px; height: 50px; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
+      .image-viewer-nav:hover { background: rgba(255, 255, 255, 0.3); }
+      .image-viewer-prev { left: 20px; }
+      .image-viewer-next { right: 20px; }
+      .image-viewer-counter { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); color: white; font-size: 14px; background: rgba(0, 0, 0, 0.5); padding: 8px 16px; border-radius: 20px; }
     </style>
   </head>
   <body class="app-bg min-h-screen antialiased">
@@ -127,6 +147,7 @@
       let toastTimer = null;
       let rtChannel = null;
       let debounceTimer = null;
+      let imageViewerState = { isOpen: false, images: [], currentIndex: 0 };
 
       // ── URL 인증 ──
       function checkUrlAuthentication() {
@@ -542,7 +563,7 @@
 
       // ── 렌더 ──
       function renderHeader() {
-        return `<header class="sticky top-0 z-20 border-b border-deep/10 bg-beige/95 backdrop-blur"><div class="mx-auto flex max-w-content items-center justify-between px-4 py-4"><div><p class="text-[10px] uppercase tracking-[0.2em] text-deep/45">Stair</p><h1 class="font-serif text-xl text-deep">2026 Book Club</h1></div><div class="flex items-center gap-2"><span class="rounded-full bg-deep-soft px-2.5 py-1 text-[10px] font-semibold text-beige">${escapeHtml(currentMemberName)}</span><button id="btn-logout" class="btn-ghost !px-3 !py-2 !text-xs">로그아웃</button></div></div></header>`;
+        return `<header class="sticky top-0 z-20 border-b border-white/10 bg-white/80 backdrop-blur-lg shadow-sm"><div class="mx-auto flex max-w-content items-center justify-between px-4 py-4"><div><p class="text-[10px] uppercase tracking-[0.2em] text-gold font-semibold">Stair</p><h1 class="font-serif text-xl font-bold text-deep">2026 Book Club</h1></div><div class="flex items-center gap-3"><span class="rounded-full bg-gradient-to-r from-gold to-accent px-3 py-1.5 text-[11px] font-semibold text-white shadow-md">${escapeHtml(currentMemberName)}</span><button id="btn-logout" class="btn-ghost !px-4 !py-2 !text-xs font-medium">로그아웃</button></div></div></header>`;
       }
 
       function renderReadingTab() {
@@ -560,31 +581,129 @@
         const rows=Array.from({length:sel.totalChapters},(_,i)=>i+1).map(c=>{
           const blind=isChapterBlind(sel,c);
           const sub=memberList().filter(m=>(sel.chapters[c]?.[m.id]||"").trim()).length;
-          return `<section class="mt-3 rounded-xl border border-deep/10 bg-white/65 p-3"><div class="mb-2 flex items-center justify-between"><h4 class="font-semibold text-deep">Chapter ${c}</h4><span class="text-xs text-deep/45">${sub}/${memberList().length} 작성</span></div><ul class="space-y-2">${memberList().map(m=>{
+          return `<section class="mt-4 rounded-2xl border border-white/10 bg-white/80 p-4 shadow-sm hover:shadow-md transition-shadow"><div class="mb-3 flex items-center justify-between"><h4 class="font-bold text-deep text-lg">Chapter ${c}</h4><span class="text-xs font-medium text-gold bg-gold/10 px-2 py-1 rounded-full">${sub}/${memberList().length} 작성</span></div><ul class="space-y-3">${memberList().map(m=>{
             const sentence=(sel.chapters[c]?.[m.id]||"").trim(), isOwn=m.id===currentMemberId;
             let disp;
             if (!sentence) disp=`<span class="text-deep/35">아직 기록 없음</span>`;
-            else if (isOwn) disp=`<div class="sentence-view"><p class="text-sm text-deep/85">${escapeHtml(sentence)}</p><div class="mt-2 flex gap-2"><button class="btn-ghost !px-2 !py-1 !text-xs" onclick="editSentence(${c},'${m.id}','${escapeHtml(sentence)}')">수정</button><button class="btn-ghost !px-2 !py-1 !text-xs text-red-600" onclick="deleteSentence(${c},'${m.id}')">삭제</button></div></div>`;
-            else if (!blind) disp=`<p class="text-sm text-deep/85">${escapeHtml(sentence)}</p>`;
+            else if (isOwn) disp=`<div class="sentence-view"><p class="text-sm text-deep/90 leading-relaxed">${escapeHtml(sentence)}</p><div class="mt-3 flex gap-2"><button class="btn-ghost !px-3 !py-1.5 !text-xs font-medium" onclick="editSentence(${c},'${m.id}','${escapeHtml(sentence)}')">수정</button><button class="btn-ghost !px-3 !py-1.5 !text-xs text-red-500 font-medium" onclick="deleteSentence(${c},'${m.id}')">삭제</button></div></div>`;
+            else if (!blind) disp=`<p class="text-sm text-deep/90 leading-relaxed">${escapeHtml(sentence)}</p>`;
             else disp=`<p class="text-sm text-deep/35 italic">입력 완료~ (모두의 입력 대기 중...♡)</p>`;
-            return `<li class="rounded-lg border border-deep/10 bg-white/70 px-3 py-2" data-chapter="${c}" data-member="${m.id}"><p class="text-[11px] font-semibold text-deep/60">${escapeHtml(m.display_name)}</p><div class="mt-1">${disp}<div class="sentence-edit hidden mt-1"><textarea class="input-field text-sm" rows="2" id="edit-${c}-${m.id}">${escapeHtml(sentence)}</textarea><div class="mt-2 flex gap-2"><button class="btn-primary !px-2 !py-1 !text-xs" onclick="saveSentence(${c},'${m.id}')">저장</button><button class="btn-ghost !px-2 !py-1 !text-xs" onclick="cancelEdit(${c},'${m.id}')">취소</button></div></div></div></li>`;
+            return `<li class="rounded-xl border border-white/10 bg-white/90 px-4 py-3 shadow-sm" data-chapter="${c}" data-member="${m.id}"><p class="text-[11px] font-bold text-gold mb-1">${escapeHtml(m.display_name)}</p><div class="mt-1">${disp}<div class="sentence-edit hidden mt-2"><textarea class="input-field text-sm" rows="2" id="edit-${c}-${m.id}">${escapeHtml(sentence)}</textarea><div class="mt-2 flex gap-2"><button class="btn-primary !px-3 !py-1.5 !text-xs font-medium" onclick="saveSentence(${c},'${m.id}')">저장</button><button class="btn-ghost !px-3 !py-1.5 !text-xs font-medium" onclick="cancelEdit(${c},'${m.id}')">취소</button></div></div></div></li>`;
           }).join("")}</ul></section>`;
         }).join("");
         return `<main class="reading-tab-container mx-auto max-w-content pb-28">
-          <section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm mb-4">
-            <h3 class="font-serif text-lg text-deep mb-3">📖 오늘의 읽기</h3>
-            <div class="mb-4"><div class="flex gap-2"><input type="text" id="daily-reading-input" class="input-field flex-1 text-sm" placeholder="오늘의 독서 생각을 나눠보세요..." maxlength="50"><button id="daily-reading-post" class="btn-primary px-3 py-2 text-sm">게시</button></div><p class="mt-1 text-xs text-deep/45">${currentMemberName}님으로 게시됩니다</p></div>
-            <div class="space-y-2" id="daily-reading-comments"></div>
+          <section class="paper-panel rounded-2xl border border-white/10 p-5 shadow-lg mb-6 bg-gradient-to-br from-white to-gray-50">
+            <h3 class="font-serif text-xl font-bold text-deep mb-4">📖 오늘의 읽기</h3>
+            <div class="mb-4"><div class="flex gap-3"><input type="text" id="daily-reading-input" class="input-field flex-1 text-sm" placeholder="오늘의 독서 생각을 나눠보세요..." maxlength="50"><button id="daily-reading-post" class="btn-primary px-4 py-2.5 text-sm font-medium">게시</button></div><p class="mt-2 text-xs text-deep/50">${currentMemberName}님으로 게시됩니다</p></div>
+            <div class="space-y-3" id="daily-reading-comments"></div>
           </section>
-          <div class="book-info-section"><section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm">
-            <div class="flex items-center justify-between gap-3"><div><p class="text-[11px] uppercase tracking-[0.18em] text-gold">이달의 책</p><h2 class="font-serif text-xl">${escapeHtml(sel.title)}</h2><p class="mt-1"><span class="guide-badge">⭐ 길잡이: ${escapeHtml(memberNameById(sel.guideId))}</span></p></div><span class="text-xs text-deep/50">${prog.done}/${prog.total} 완료</span></div>
-            <div class="mt-3 h-2 overflow-hidden rounded-full bg-mist"><div class="h-full rounded-full bg-deep-soft" style="width:${prog.pct}%"></div></div>
-            <form id="form-reading-input" class="mt-4 grid gap-2"><select class="input-field" name="chapter">${chapterOpts}</select><textarea class="input-field" rows="3" name="sentence" placeholder="기억에 남는 문장을 입력하세요" required></textarea><button class="btn-primary">문장 기록</button></form>
+          <div class="book-info-section"><section class="paper-panel rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50">
+            <div class="flex items-center justify-between gap-4"><div><p class="text-[11px] uppercase tracking-[0.2em] text-gold font-bold">이달의 책</p><h2 class="font-serif text-2xl font-bold text-deep mt-1">${escapeHtml(sel.title)}</h2><p class="mt-2"><span class="guide-badge">⭐ 길잡이: ${escapeHtml(memberNameById(sel.guideId))}</span></p></div><span class="text-sm font-bold text-gold bg-gold/10 px-3 py-1.5 rounded-full">${prog.done}/${prog.total} 완료</span></div>
+            <div class="mt-4 h-3 overflow-hidden rounded-full bg-gray-200"><div class="h-full rounded-full bg-gradient-to-r from-gold to-accent transition-all duration-500" style="width:${prog.pct}%"></div></div>
+            <form id="form-reading-input" class="mt-5 grid gap-3"><select class="input-field" name="chapter">${chapterOpts}</select><textarea class="input-field" rows="3" name="sentence" placeholder="기억에 남는 문장을 입력하세요" required></textarea><button class="btn-primary font-medium">문장 기록</button></form>
           </section></div>
-          <div class="schedule-section"><div class="schedule-display"><div class="schedule-title"><span>📅 챕터별 목표 일정</span>${isAdmin?`<button class="btn-ghost !px-2 !py-1 !text-xs" onclick="event.stopPropagation();window.openModal('schedule-settings',{bookId:'${sel.id}'})">일정 설정</button>`:''}</div>${chapterCards}</div></div>
+          <div class="schedule-section"><div class="schedule-display"><div class="schedule-title"><span class="font-bold">📅 챕터별 목표 일정</span>${isAdmin?`<button class="btn-ghost !px-3 !py-1.5 !text-xs font-medium" onclick="event.stopPropagation();window.openModal('schedule-settings',{bookId:'${sel.id}'})">일정 설정</button>`:''}</div>${chapterCards}</div></div>
           <section>${rows}</section>
         </main>`;
       }
+
+      // ── Image Viewer Functions ──
+      function openImageViewer(images, startIndex = 0) {
+        imageViewerState = { isOpen: true, images: images, currentIndex: startIndex };
+        renderImageViewer();
+      }
+
+      function closeImageViewer() {
+        imageViewerState = { isOpen: false, images: [], currentIndex: 0 };
+        const viewer = document.getElementById('image-viewer');
+        if (viewer) viewer.remove();
+      }
+
+      function navigateImageViewer(direction) {
+        const { images, currentIndex } = imageViewerState;
+        if (images.length === 0) return;
+        
+        if (direction === 'next') {
+          imageViewerState.currentIndex = (currentIndex + 1) % images.length;
+        } else if (direction === 'prev') {
+          imageViewerState.currentIndex = (currentIndex - 1 + images.length) % images.length;
+        }
+        
+        renderImageViewer();
+      }
+
+      function renderImageViewer() {
+        const { isOpen, images, currentIndex } = imageViewerState;
+        if (!isOpen || images.length === 0) return;
+
+        let viewer = document.getElementById('image-viewer');
+        if (!viewer) {
+          viewer = document.createElement('div');
+          viewer.id = 'image-viewer';
+          viewer.className = 'image-viewer';
+          document.body.appendChild(viewer);
+        }
+
+        const currentImage = images[currentIndex];
+        viewer.innerHTML = `
+          <div class="image-viewer-container">
+            <img src="${escapeHtml(currentImage)}" alt="이미지" class="image-viewer-img"/>
+            <button class="image-viewer-close" onclick="window.closeImageViewer()">×</button>
+            ${images.length > 1 ? `
+              <button class="image-viewer-nav image-viewer-prev" onclick="window.navigateImageViewer('prev')">‹</button>
+              <button class="image-viewer-nav image-viewer-next" onclick="window.navigateImageViewer('next')">›</button>
+              <div class="image-viewer-counter">${currentIndex + 1} / ${images.length}</div>
+            ` : ''}
+          </div>
+        `;
+
+        // Add touch swipe support
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        viewer.addEventListener('touchstart', (e) => {
+          touchStartX = e.changedTouches[0].screenX;
+        }, { passive: true });
+
+        viewer.addEventListener('touchend', (e) => {
+          touchEndX = e.changedTouches[0].screenX;
+          handleSwipe();
+        }, { passive: true });
+
+        function handleSwipe() {
+          const swipeThreshold = 50;
+          const diff = touchStartX - touchEndX;
+          
+          if (Math.abs(diff) > swipeThreshold) {
+            if (diff > 0) {
+              navigateImageViewer('next');
+            } else {
+              navigateImageViewer('prev');
+            }
+          }
+        }
+
+        // Add keyboard navigation
+        const handleKeydown = (e) => {
+          if (!imageViewerState.isOpen) return;
+          
+          if (e.key === 'Escape') {
+            closeImageViewer();
+          } else if (e.key === 'ArrowLeft') {
+            navigateImageViewer('prev');
+          } else if (e.key === 'ArrowRight') {
+            navigateImageViewer('next');
+          }
+        };
+
+        document.addEventListener('keydown', handleKeydown);
+        viewer.dataset.keydownHandler = 'true';
+      }
+
+      // Expose functions to window
+      window.openImageViewer = openImageViewer;
+      window.closeImageViewer = closeImageViewer;
+      window.navigateImageViewer = navigateImageViewer;
 
       function renderMeetingEventCard(event) {
         const posts=meetingPostsCache[event.id]||[], bTitle=event.books?.title||"책 미지정", coverUrl=event.books?.cover_url||"";
@@ -594,7 +713,7 @@
         const postsHtml=posts.map(post=>{
           const photos=Array.isArray(post.photo_urls)?post.photo_urls:[], isOwner=post.member_id===currentMemberId;
           const mName=post.club_members?.display_name||"알 수 없음";
-          const photosHtml=photos.length?`<div class="meeting-photo-strip">${photos.map(url=>`<a href="${escapeHtml(url)}" target="_blank" rel="noopener"><img src="${escapeHtml(url)}" alt="모임 사진" loading="lazy"/></a>`).join("")}</div>`:"";
+          const photosHtml=photos.length?`<div class="meeting-photo-strip" data-post-photos="${escapeHtml(JSON.stringify(photos))}">${photos.map((url, idx) => `<img src="${escapeHtml(url)}" alt="모임 사진" loading="lazy" data-photo-index="${idx}" class="meeting-photo-thumb"/>`).join("")}</div>`:"";
           return `<div class="meeting-post" data-post-id="${post.id}" data-event-id="${event.id}"><div class="meeting-post-header"><span class="meeting-post-author">${escapeHtml(mName)}</span>${isOwner?`<div class="meeting-post-actions"><button class="mp-edit-btn btn-ghost !px-2 !py-1 !text-xs" data-post-id="${post.id}" data-event-id="${event.id}" data-content="${escapeHtml(post.content)}">수정</button><button class="mp-delete-btn btn-ghost !px-2 !py-1 !text-xs text-red-600" data-post-id="${post.id}" data-event-id="${event.id}">삭제</button></div>`:""}</div>${photosHtml}${post.content?`<p class="meeting-post-content">${escapeHtml(post.content)}</p>`:""}</div>`;
         }).join("");
         const addFormHtml=`<div class="meeting-add-form" id="add-form-${event.id}" ${myPost?'style="display:none"':""}><textarea class="input-field text-sm" rows="2" id="post-content-${event.id}" placeholder="이번 모임 소감을 남겨보세요..."></textarea><div class="meeting-photo-upload"><label class="btn-ghost !px-3 !py-2 !text-xs cursor-pointer">📷 사진 추가 (최대 5장)<input type="file" accept="image/*" multiple id="post-photos-${event.id}" style="display:none"/></label><div class="photo-preview-strip" id="preview-${event.id}"></div></div><button class="btn-primary !text-xs mp-post-btn" data-event-id="${event.id}">기록 등록</button></div>`;
@@ -607,25 +726,25 @@
         return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><div class="meeting-tab-top"><h2 class="font-serif text-xl text-deep">모임 기록</h2><button class="btn-primary !text-sm" id="btn-new-meeting-event">+ 새 모임</button></div><div class="meeting-events-feed">${cardsHtml}</div></main>`;
       }
       function renderBookshelfTab() {
-        return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><section class="wood-touch relative overflow-hidden rounded-2xl p-4"><div class="relative z-10"><h2 class="font-serif text-xl text-[#f4e6c2]">2026 북쉘프</h2><div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">${cache.books.map(b=>`<button type="button" class="group text-left" data-open-book="${b.id}"><div class="bg-white/90 backdrop-blur rounded-xl p-4 shadow-lg border border-white/20 hover:shadow-xl transition-all duration-300 hover:bg-white/95"><div class="flex gap-4"><div class="flex-shrink-0 w-24 h-36"><div class="book-card h-full">${b.coverUrl?`<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy"/>`:`<div class="book-card-placeholder h-full"><div class="book-title text-xs">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><h3 class="font-semibold text-deep text-base mb-1 truncate">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/70 mb-2 truncate">${escapeHtml(b.author||"저자 미입력")}</p><span class="guide-badge text-xs">🚩 길잡이: ${escapeHtml(memberNameById(b.guideId))}</span></div></div></div></button>`).join("")}</div></div></section></main>`;
+        return `<main class="mx-auto max-w-content px-4 py-5 pb-28"><section class="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-deep to-deep-soft shadow-2xl"><div class="relative z-10"><h2 class="font-serif text-2xl font-bold text-white mb-2">2026 북쉘프</h2><p class="text-white/70 text-sm mb-6">올해 함께 읽은 책들을 만나보세요</p><div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">${cache.books.map(b=>`<button type="button" class="group text-left" data-open-book="${b.id}"><div class="bg-white/95 backdrop-blur-xl rounded-2xl p-5 shadow-lg border border-white/20 hover:shadow-2xl transition-all duration-300 hover:bg-white hover:-translate-y-1"><div class="flex gap-4"><div class="flex-shrink-0 w-28 h-40"><div class="book-card h-full">${b.coverUrl?`<img src="${escapeHtml(b.coverUrl)}" alt="${escapeHtml(b.title)}" loading="lazy"/>`:`<div class="book-card-placeholder h-full"><div class="book-title text-xs">${escapeHtml(b.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><h3 class="font-bold text-deep text-lg mb-2 truncate">${escapeHtml(b.title)}</h3><p class="text-sm text-deep/70 mb-3 truncate">${escapeHtml(b.author||"저자 미입력")}</p><span class="guide-badge text-xs">🚩 길잡이: ${escapeHtml(memberNameById(b.guideId))}</span></div></div></div></button>`).join("")}</div></div></section></main>`;
       }
       function renderHallTab() {
         const gn=id=>memberList().find(m=>m.id===id)?.display_name||"알 수 없음";
-        let html=`<main class="mx-auto max-w-content px-4 py-5 pb-28"><h2 class="font-serif text-xl text-deep mb-6">올해의 문장</h2>`;
+        let html=`<main class="mx-auto max-w-content px-4 py-5 pb-28"><h2 class="font-serif text-2xl font-bold text-deep mb-8">올해의 문장</h2>`;
         const hallBooks=cache.books.filter(b=>b.final_sentence_text);
-        if (!hallBooks.length) return html+`<div class="text-center py-10 text-deep/30 italic">아직 선정된 올해의 문장이 없습니다.</div></main>`;
+        if (!hallBooks.length) return html+`<div class="text-center py-16 text-deep/40 italic text-lg">아직 선정된 올해의 문장이 없습니다.</div></main>`;
         hallBooks.forEach(book=>{
           const sn=gn(book.final_sentence_member_id), gName=gn(book.guide_id);
           const quote=book.final_sentence_member_id?`"${book.final_sentence_text}" by ${sn}`:`"${book.final_sentence_text}"`;
-          html+=`<article class="paper-panel rounded-xl border border-deep/10 p-6 shadow-sm hover:shadow-md transition-shadow mb-4"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-32 h-48 mx-auto sm:mx-0"><div class="book-card h-full">${book.coverUrl?`<img src="${escapeHtml(book.coverUrl)}" alt="${escapeHtml(book.title)}" loading="lazy" class="w-full h-full object-cover rounded-lg"/>`:`<div class="book-card-placeholder h-full rounded-lg"><div class="book-title text-sm font-semibold">${escapeHtml(book.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><h3 class="font-serif text-xl text-deep mb-2">${escapeHtml(book.title)}</h3><p class="text-sm text-deep/60 mb-3">${escapeHtml(book.author||"저자 미입력")}</p><div class="bg-gradient-to-r from-deep/5 to-deep/10 rounded-lg p-6 border border-deep/10"><p class="text-lg font-serif text-deep leading-relaxed italic">${escapeHtml(quote)}</p><p class="mt-4 text-xs text-deep/60">길잡이 ${escapeHtml(gName)}가 선정한 최종 문장입니다</p></div></div></div></article>`;
+          html+=`<article class="paper-panel rounded-2xl border border-white/10 p-6 shadow-lg hover:shadow-xl transition-all duration-300 mb-6 bg-gradient-to-br from-white to-gray-50"><div class="flex flex-col sm:flex-row gap-6"><div class="flex-shrink-0 w-36 h-52 mx-auto sm:mx-0"><div class="book-card h-full">${book.coverUrl?`<img src="${escapeHtml(book.coverUrl)}" alt="${escapeHtml(book.title)}" loading="lazy" class="w-full h-full object-cover rounded-xl"/>`:`<div class="book-card-placeholder h-full rounded-xl"><div class="book-title text-sm font-semibold">${escapeHtml(book.title)}</div></div>`}</div></div><div class="flex-1 min-w-0"><h3 class="font-serif text-2xl font-bold text-deep mb-2">${escapeHtml(book.title)}</h3><p class="text-sm text-deep/70 mb-4">${escapeHtml(book.author||"저자 미입력")}</p><div class="bg-gradient-to-r from-gold/10 to-accent/10 rounded-2xl p-6 border border-gold/20"><p class="text-xl font-serif text-deep leading-relaxed italic font-medium">${escapeHtml(quote)}</p><p class="mt-4 text-sm text-gold font-medium">길잡이 ${escapeHtml(gName)}가 선정한 최종 문장입니다</p></div></div></div></article>`;
         });
         return html+`</main>`;
       }
       function renderSettingsTab() {
         const isAdmin=currentMemberId==='chloe';
-        const acct=`<section class="paper-panel rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep mb-4">🔐 계정 설정</h3><form id="form-change-password" class="mt-3 grid gap-2"><input class="input-field" type="password" name="currentPassword" placeholder="현재 비밀번호" required/><input class="input-field" type="password" name="newPassword" placeholder="새 비밀번호" required/><input class="input-field" type="password" name="confirmPassword" placeholder="새 비밀번호 확인" required/><button class="btn-primary">변경하기</button></form></section>`;
-        const mgmt=isAdmin?`<section class="paper-panel mt-4 rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep mb-4">📚 사이트 관리</h3><div class="mb-4 text-xs text-deep/60">현재 이달의 책: <span class="font-medium text-gold">${cache.books?.find(b=>b.is_book_of_the_month)?.title||'없음'}</span></div><div class="space-y-3">${(cache.books||[]).map(book=>`<div class="flex items-center gap-4 p-3 rounded-lg border border-deep/10 bg-white/70"><div class="flex-shrink-0 w-12 h-16">${book.coverUrl?`<img src="${escapeHtml(book.coverUrl)}" alt="${escapeHtml(book.title)}" class="w-full h-full object-cover rounded"/>`:`<div class="w-full h-full bg-gradient-to-br from-deep/10 to-deep/20 rounded flex items-center justify-center"><span class="text-xs text-deep/60 font-semibold">No Cover</span></div>`}</div><div class="flex-1"><p class="font-medium text-deep">${escapeHtml(book.title)}</p><p class="text-xs text-deep/60">${escapeHtml(book.author||"저자 미입력")} | ${book.totalChapters}챕터</p><p class="text-xs text-deep/45">길잡이: ${escapeHtml(memberNameById(book.guideId))}</p></div><div class="flex flex-col gap-2"><div class="flex gap-2"><button class="btn-ghost !px-3 !py-2 !text-xs" onclick="event.stopPropagation();window.openModal('edit-book',{bookId:'${book.id}'})">수정</button><button class="btn-ghost !px-3 !py-2 !text-xs text-red-600" onclick="confirmDeleteBook('${book.id}')">삭제</button></div><button id="btn-set-book-month-${book.id}" class="btn-primary !px-3 !py-2 !text-xs w-full ${book.is_book_of_the_month?'!bg-gold !cursor-not-allowed':''}" onclick="setBookOfTheMonthDirect('${book.id}','${escapeHtml(book.title)}')" ${book.is_book_of_the_month?'disabled':''}>${book.is_book_of_the_month?'현재 이달의 책 ✓':'이달의 책으로 선정'}</button></div></div>`).join("")}</div></section>`:"";
-        const memMgmt=isAdmin?`<section class="paper-panel mt-4 rounded-2xl border border-deep/10 p-4 shadow-sm"><h3 class="font-semibold text-deep mb-4">👥 멤버 관리</h3><div class="space-y-3">${memberList().map(m=>`<div class="rounded-lg border border-deep/10 bg-white/80 p-3"><p class="text-sm font-semibold">${escapeHtml(m.display_name)}</p><p class="mt-1 text-xs text-deep/55">is_first_login: ${m.is_first_login?"true":"false"}</p><form class="mt-2 grid gap-2 sm:grid-cols-2" data-member-reset="${m.id}"><button class="btn-ghost !text-xs">최초 로그인 초기화</button><input class="input-field" type="password" name="newPassword" placeholder="임시 비밀번호(선택)"/></form></div>`).join("")}</div></section>`:"";
+        const acct=`<section class="paper-panel rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50"><h3 class="font-bold text-deep mb-4 text-lg">🔐 계정 설정</h3><form id="form-change-password" class="mt-3 grid gap-3"><input class="input-field" type="password" name="currentPassword" placeholder="현재 비밀번호" required/><input class="input-field" type="password" name="newPassword" placeholder="새 비밀번호" required/><input class="input-field" type="password" name="confirmPassword" placeholder="새 비밀번호 확인" required/><button class="btn-primary font-medium">변경하기</button></form></section>`;
+        const mgmt=isAdmin?`<section class="paper-panel mt-6 rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50"><h3 class="font-bold text-deep mb-4 text-lg">📚 사이트 관리</h3><div class="mb-4 text-sm text-deep/70 bg-gold/10 px-4 py-2 rounded-lg">현재 이달의 책: <span class="font-bold text-gold">${cache.books?.find(b=>b.is_book_of_the_month)?.title||'없음'}</span></div><div class="space-y-4">${(cache.books||[]).map(book=>`<div class="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/90 shadow-sm hover:shadow-md transition-shadow"><div class="flex-shrink-0 w-14 h-20">${book.coverUrl?`<img src="${escapeHtml(book.coverUrl)}" alt="${escapeHtml(book.title)}" class="w-full h-full object-cover rounded-lg"/>`:`<div class="w-full h-full bg-gradient-to-br from-deep/10 to-deep/20 rounded-lg flex items-center justify-center"><span class="text-xs text-deep/60 font-semibold">No Cover</span></div>`}</div><div class="flex-1"><p class="font-bold text-deep">${escapeHtml(book.title)}</p><p class="text-sm text-deep/70">${escapeHtml(book.author||"저자 미입력")} | ${book.totalChapters}챕터</p><p class="text-xs text-deep/50">길잡이: ${escapeHtml(memberNameById(book.guideId))}</p></div><div class="flex flex-col gap-2"><div class="flex gap-2"><button class="btn-ghost !px-3 !py-2 !text-xs font-medium" onclick="event.stopPropagation();window.openModal('edit-book',{bookId:'${book.id}'})">수정</button><button class="btn-ghost !px-3 !py-2 !text-xs text-red-500 font-medium" onclick="confirmDeleteBook('${book.id}')">삭제</button></div><button id="btn-set-book-month-${book.id}" class="btn-primary !px-3 !py-2 !text-xs w-full font-medium ${book.is_book_of_the_month?'!bg-gold !cursor-not-allowed':''}" onclick="setBookOfTheMonthDirect('${book.id}','${escapeHtml(book.title)}')" ${book.is_book_of_the_month?'disabled':''}>${book.is_book_of_the_month?'현재 이달의 책 ✓':'이달의 책으로 선정'}</button></div></div>`).join("")}</div></section>`:"";
+        const memMgmt=isAdmin?`<section class="paper-panel mt-6 rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50"><h3 class="font-bold text-deep mb-4 text-lg">👥 멤버 관리</h3><div class="space-y-4">${memberList().map(m=>`<div class="rounded-xl border border-white/10 bg-white/90 p-4 shadow-sm"><p class="text-sm font-bold text-deep">${escapeHtml(m.display_name)}</p><p class="mt-2 text-xs text-deep/60">is_first_login: ${m.is_first_login?"true":"false"}</p><form class="mt-3 grid gap-3 sm:grid-cols-2" data-member-reset="${m.id}"><button class="btn-ghost !text-xs font-medium">최초 로그인 초기화</button><input class="input-field" type="password" name="newPassword" placeholder="임시 비밀번호(선택)"/></form></div>`).join("")}</div></section>`:"";
         return `<main class="mx-auto max-w-content px-4 py-5 pb-28">${acct}${mgmt}${memMgmt}</main>`;
       }
       function renderAuthModal() {
@@ -635,10 +754,10 @@
         return "";
       }
       function renderBottomTabs() {
-        const tab=(id,label)=>`<button type="button" class="flex-1 py-3 text-center text-[12px] font-semibold ${currentTab===id?"text-deep":"text-deep/45"}" data-tab="${id}">${label}</button>`;
+        const tab=(id,label)=>`<button type="button" class="flex-1 py-4 text-center text-[12px] font-semibold transition-all duration-200 ${currentTab===id?"text-gold":"text-deep/50 hover:text-deep/80"}" data-tab="${id}">${label}</button>`;
         const tabs=[tab("reading","이달의 책"),tab("shelf","2026 북쉘프"),tab("hall","올해의 문장"),tab("meeting","모임 기록")];
         if (currentMemberId==='chloe') tabs.push(tab("settings","설정"));
-        return `<nav class="fixed bottom-0 left-0 right-0 z-30 border-t border-deep/10 bg-beige/95 backdrop-blur"><div class="mx-auto flex max-w-content">${tabs.join('')}</div></nav>`;
+        return `<nav class="fixed bottom-0 left-0 right-0 z-30 border-t border-white/10 bg-white/90 backdrop-blur-lg shadow-lg"><div class="mx-auto flex max-w-content">${tabs.join('')}</div></nav>`;
       }
       function renderApp() {
         const root=document.getElementById("app-root"); if (!root) return;
@@ -746,6 +865,20 @@
           if(delEvtBtn){const ok=await deleteMeetingEvent(delEvtBtn.dataset.eventId);if(ok){showToast("모임 기록이 삭제됐습니다.");renderApp();}return;}
           const fileEl=t.closest('input[type="file"]');
           if(fileEl){fileEl.addEventListener("change",()=>{const eid=fileEl.id.replace("post-photos-","");const prev=document.getElementById(`preview-${eid}`);if(!prev)return;prev.innerHTML=Array.from(fileEl.files).slice(0,5).map(f=>`<img src="${URL.createObjectURL(f)}" class="photo-preview-thumb" alt="미리보기"/>`).join("");},{once:true});return;}
+
+          const photoThumb=t.closest('.meeting-photo-thumb');
+          if(photoThumb){
+            const strip=photoThumb.closest('.meeting-photo-strip');
+            const photosJson=strip?.dataset.postPhotos;
+            if(photosJson){
+              try{
+                const photos=JSON.parse(photosJson);
+                const index=parseInt(photoThumb.dataset.photoIndex,10)||0;
+                openImageViewer(photos,index);
+              }catch(e){console.error('Failed to parse photos:',e);}
+            }
+            return;
+          }
 
           if(t.id==="daily-reading-post"){const inp=document.getElementById('daily-reading-input');const ok=await postDailyReading(inp?.value||"");if(ok){if(inp)inp.value="";await loadDailyReadings();renderDailyReadingComments();}return;}
 
