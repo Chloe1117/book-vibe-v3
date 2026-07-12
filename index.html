@@ -55,12 +55,20 @@
       #modal-content { pointer-events: auto; position: relative; z-index: 10000; }
       .toast { position: fixed; left: 50%; bottom: 5.5rem; transform: translateX(-50%); z-index: 80; background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: #ffffff; border-radius: 999px; padding: 0.75rem 1.25rem; font-size: 0.85rem; box-shadow: 0 8px 24px rgba(108, 92, 231, 0.4); }
       .guide-badge { display: inline-flex; align-items: center; gap: 0.3rem; border-radius: 999px; padding: 0.3rem 0.75rem; font-size: 0.75rem; background: linear-gradient(135deg, rgba(108, 92, 231, 0.1) 0%, rgba(162, 155, 254, 0.1) 100%); color: #6c5ce7; border: 1px solid rgba(108, 92, 231, 0.3); }
-      .chapter-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; padding: 1.5rem; background: rgba(255, 255, 255, 0.8); border-radius: 1rem; border: 1px solid rgba(0, 0, 0, 0.05); }
-      .chapter-card { padding: 20px; border-radius: 16px; border: 1px solid rgba(0, 0, 0, 0.05); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06); transition: all 0.3s ease; text-align: center; height: 100%; display: flex; flex-direction: column; justify-content: center; background: #ffffff; }
-      .chapter-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(108, 92, 231, 0.15); border-color: rgba(108, 92, 231, 0.2); }
-      .chapter-card .chapter-label { font-size: 0.75rem; color: #6c5ce7; margin-bottom: 0.5rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-      .chapter-card .date-value { font-size: 1.1rem; font-weight: 700; color: #1a1a2e; line-height: 1.3; }
-      .color-soft-blue { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); } .color-pale-green { background: linear-gradient(135deg, #00b894 0%, #00cec9 100%); } .color-light-peach { background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%); } .color-lavender { background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%); } .color-soft-coral { background: linear-gradient(135deg, #ff7675 0%, #d63031 100%); } .color-mint-green { background: linear-gradient(135deg, #55efc4 0%, #00b894 100%); } .color-sky-blue { background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%); } .color-warm-yellow { background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%); }
+      .color-soft-blue { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); } .color-pale-green { background: linear-gradient(135deg, #00b894 0%, #00cec9 100%); } .color-light-peach { background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%); } .color-lavender { background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 100%); } .color-soft-coral { background: linear-gradient(135deg, #ff7675 0%, #d63031 100%); } .color-mint-green { background: linear-gradient(135deg, #55efc4 0%, #00b894 100%); } .color-sky-blue { background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%); } .color-warm-yellow { background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%); } .color-blush-pink { background: linear-gradient(135deg, #fd79a8 0%, #fdcb6e 100%); } .color-periwinkle { background: linear-gradient(135deg, #6c5ce7 0%, #74b9ff 100%); }
+      .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+      .cal-weekday { font-size: 0.7rem; color: rgba(26, 26, 46, 0.4); text-align: center; font-weight: 600; }
+      .cal-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 0.75rem; color: rgba(26, 26, 46, 0.75); position: relative; }
+      .cal-cell.has-range { color: #ffffff; font-weight: 600; }
+      .cal-cell.is-end { outline: 2px solid rgba(26, 26, 46, 0.5); outline-offset: -2px; }
+      .cal-cell.is-today { box-shadow: 0 0 0 2px #1a1a2e inset; }
+      .cal-cell .cal-today-tag { position: absolute; bottom: 1px; font-size: 0.55rem; line-height: 1; }
+      .cal-nav-btn { cursor: pointer; padding: 0.2rem 0.6rem; border-radius: 0.5rem; font-size: 0.9rem; color: #6c5ce7; }
+      .cal-nav-btn:hover { background: rgba(108, 92, 231, 0.1); }
+      .cal-legend { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+      .cal-legend-chip { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: rgba(26, 26, 46, 0.65); cursor: pointer; padding: 0.2rem 0.5rem; border-radius: 999px; background: rgba(0,0,0,0.03); }
+      .cal-legend-chip:hover { background: rgba(108, 92, 231, 0.1); }
+      .cal-legend-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
       .reading-tab-container { padding: 24px; }
       .book-info-section { margin-bottom: 40px; }
       .schedule-section { margin-bottom: 32px; }
@@ -147,6 +155,7 @@
       let toastTimer = null;
       let rtChannel = null;
       let debounceTimer = null;
+      let scheduleCalMonth = {};
       let imageViewerState = { isOpen: false, images: [], currentIndex: 0 };
 
       // ── URL 인증 ──
@@ -262,6 +271,64 @@
         return submittedCount < memberList().length;
       }
 
+      // ── 챕터별 목표 일정: 구간 계산 & 달력 렌더 ──
+      const SCHEDULE_PALETTE = ['color-soft-blue','color-pale-green','color-light-peach','color-lavender','color-soft-coral','color-mint-green','color-sky-blue','color-warm-yellow','color-blush-pink','color-periwinkle'];
+      function computeScheduleGroups(book) {
+        const raw = book.schedules || {};
+        const groups = [];
+        for (let c=1; c<=book.totalChapters; c++) {
+          const d = raw[c] || "";
+          const last = groups[groups.length-1];
+          if (last && ((d && !last.unset && last.end===d) || (!d && last.unset))) last.chapters.push(c);
+          else groups.push({ unset: !d, end: d, chapters: [c] });
+        }
+        let prevEnd = null; let ci = 0;
+        groups.forEach(g => {
+          if (g.unset) return;
+          g.start = prevEnd ? dayjs(prevEnd).add(1,'day').format('YYYY-MM-DD') : (raw._start || g.end);
+          g.color = SCHEDULE_PALETTE[ci % SCHEDULE_PALETTE.length]; ci++;
+          prevEnd = g.end;
+        });
+        return groups;
+      }
+      function renderScheduleCalendarView(book) {
+        const groups = computeScheduleGroups(book);
+        const validGroups = groups.filter(g=>!g.unset);
+        const unsetChapters = groups.filter(g=>g.unset).flatMap(g=>g.chapters);
+        const todayStr = dayjs().format('YYYY-MM-DD');
+        if (!scheduleCalMonth[book.id]) {
+          const active = validGroups.find(g=>todayStr>=g.start&&todayStr<=g.end) || validGroups.find(g=>g.end>=todayStr) || validGroups[validGroups.length-1];
+          scheduleCalMonth[book.id] = active ? dayjs(active.end).format('YYYY-MM') : dayjs().format('YYYY-MM');
+        }
+        const monthStart = dayjs(scheduleCalMonth[book.id]+'-01');
+        const daysInMonth = monthStart.daysInMonth();
+        const firstDow = monthStart.day();
+        let cells = '';
+        for (let i=0;i<firstDow;i++) cells += '<div></div>';
+        for (let d=1; d<=daysInMonth; d++) {
+          const dateStr = monthStart.date(d).format('YYYY-MM-DD');
+          const g = validGroups.find(x=>dateStr>=x.start&&dateStr<=x.end);
+          const isToday = dateStr===todayStr, isEnd = g&&dateStr===g.end;
+          cells += `<div class="cal-cell ${g?g.color+' has-range':''} ${isEnd?'is-end':''} ${isToday?'is-today':''}">${d}${isToday?'<span class="cal-today-tag">오늘</span>':''}</div>`;
+        }
+        const legend = validGroups.map(g => {
+          const label = g.chapters.length>1 ? `Ch${g.chapters[0]}-${g.chapters[g.chapters.length-1]}` : `Ch${g.chapters[0]}`;
+          return `<span class="cal-legend-chip" data-jump-month="${dayjs(g.end).format('YYYY-MM')}" data-book="${book.id}"><span class="cal-legend-dot ${g.color}"></span>${label} · ${dayjs(g.end).format('M/D')}</span>`;
+        }).join('');
+        const unsetLine = unsetChapters.length ? `<p class="mt-2 text-xs text-deep/40">일정 미정: ${unsetChapters.map(c=>`Chapter ${c}`).join(', ')}</p>` : '';
+        return `<div class="schedule-calendar">
+          <div class="flex items-center justify-between mb-2">
+            <span class="cal-nav-btn" data-cal-nav="prev" data-book="${book.id}">‹</span>
+            <span class="text-sm font-bold text-deep">${monthStart.format('YYYY년 M월')}</span>
+            <span class="cal-nav-btn" data-cal-nav="next" data-book="${book.id}">›</span>
+          </div>
+          <div class="cal-grid mb-1">${['일','월','화','수','목','금','토'].map(w=>`<div class="cal-weekday">${w}</div>`).join('')}</div>
+          <div class="cal-grid">${cells}</div>
+          <div class="cal-legend">${legend}</div>
+          ${unsetLine}
+        </div>`;
+      }
+
       function isGuideFor(book) { return !!currentMemberId && book.guideId === currentMemberId; }
       function ensureBook(id) {
         const hit = bookById(id); if (hit) return hit;
@@ -328,7 +395,7 @@
 
       // ── Daily Readings ──
       let dailyReadingsCache = [];
-      const REACTION_EMOJIS = ['❤️','👍','🔥','👏','😄','😢','😡'];
+      const REACTION_EMOJIS = ['❤️','👍','🔥','👏','😄','😢','😡','🤔','🤣','🎉'];
       async function loadDailyReadings() {
         try {
           const { data, error } = await sb.from('daily_readings')
@@ -340,14 +407,16 @@
       }
       async function postDailyReading(content) {
         if (!currentMemberId||!content?.trim()) return false;
+        const initialReactions = {};
+        REACTION_EMOJIS.forEach(e => initialReactions[e] = 0);
         const { error } = await sb.from('daily_readings').insert([{
           member_id:currentMemberId, content:content.trim(),
-          reactions:{'❤️':0,'👍':0,'🔥':0,'👏':0,'😄':0,'😢':0,'😡':0}
+          reactions:initialReactions
         }]);
         return !error;
       }
       async function toggleReaction(readingId, emoji) {
-        if (!currentMemberId||!REACTION_EMOJIS.includes(emoji)) return false;
+        if (!currentMemberId) return false;
         try {
           const { data:ex, error:fe } = await sb.from('reading_reactions').select('id')
             .eq('reading_id',readingId).eq('member_id',currentMemberId).eq('emoji',emoji).single();
@@ -355,7 +424,13 @@
           if (ex) await sb.from('reading_reactions').delete().eq('id',ex.id);
           else await sb.from('reading_reactions').insert({reading_id:readingId,member_id:currentMemberId,emoji});
           const { data:counts } = await sb.from('reading_reactions').select('emoji').eq('reading_id',readingId);
-          const updated = {}; REACTION_EMOJIS.forEach(e => { updated[e]=Math.max(0,(counts||[]).filter(r=>r.emoji===e).length); });
+          // Get existing reactions to preserve history
+          const { data:reading } = await sb.from('daily_readings').select('reactions').eq('id',readingId).single();
+          const existingReactions = reading?.reactions || {};
+          const updated = { ...existingReactions };
+          // Update counts for all emojis that have reactions
+          const allEmojis = [...new Set([...REACTION_EMOJIS, ...Object.keys(existingReactions)])];
+          allEmojis.forEach(e => { updated[e]=Math.max(0,(counts||[]).filter(r=>r.emoji===e).length); });
           await sb.from('daily_readings').update({reactions:updated}).eq('id',readingId);
           return true;
         } catch(e) { console.error(e); return false; }
@@ -382,7 +457,9 @@
         el.innerHTML = dailyReadingsCache.map(r => {
           const name=r.club_members?.display_name||'알 수 없음', isOwner=r.member_id===currentMemberId;
           const reactions=r.reactions||{};
-          const chips = REACTION_EMOJIS.filter(e=>reactions[e]>0).map(e => {
+          // Show all existing reactions, not just new ones
+          const allEmojis = Object.keys(reactions).filter(e => reactions[e] > 0);
+          const chips = allEmojis.map(e => {
             const reactors=(r.reading_reactions||[]).filter(x=>x.emoji===e);
             const names=reactors.map(x=>x.member_id===currentMemberId?`나(${x.club_members?.display_name||'?'})`:x.club_members?.display_name||'?');
             return `<span class="reaction-chip px-2 py-1 bg-deep/10 rounded-full text-xs flex items-center gap-1 cursor-pointer hover:bg-deep/20" data-emoji="${e}" data-reading-id="${r.id}" data-attribution="${escapeHtml(names.join(', ')+'님이 리액션을 남겼습니다.')}"><span>${e}</span><span class="font-medium">${reactions[e]}</span></span>`;
@@ -397,8 +474,8 @@
               <div class="flex gap-1">${chips||'<span class="text-xs text-deep/30">반응 없음</span>'}</div>
               <button class="reaction-toggle-btn px-3 py-1 bg-deep/10 hover:bg-deep/20 rounded-full text-xs" data-reading-id="${r.id}">+ 반응</button>
             </div>
-            <div class="reaction-popup hidden absolute z-10 bg-white border border-deep/20 rounded-lg p-2 shadow-lg mt-1" data-reading-id="${r.id}">
-              <div class="flex gap-1">${REACTION_EMOJIS.map(e=>`<button class="reaction-option px-3 py-2 hover:bg-deep/10 rounded text-lg" data-emoji="${e}" data-reading-id="${r.id}">${e}</button>`).join('')}</div>
+            <div class="reaction-popup hidden absolute z-10 bg-white border border-deep/20 rounded-lg p-2 shadow-lg mt-1" style="width:max-content;max-width:calc(100vw - 2.5rem);" data-reading-id="${r.id}">
+              <div class="grid gap-0.5" style="grid-template-columns:repeat(${Math.ceil(REACTION_EMOJIS.length/2)},minmax(0,1fr));">${REACTION_EMOJIS.map(e=>`<button class="reaction-option px-2 py-1.5 hover:bg-deep/10 rounded text-base" data-emoji="${e}" data-reading-id="${r.id}">${e}</button>`).join('')}</div>
             </div>
           </div>`;
         }).join('');
@@ -541,13 +618,18 @@
         } else if (type==="schedule-settings") {
           const book=bookById(meta.bookId);
           if (!book) { content.innerHTML=`<div class="paper-panel p-6">책을 찾을 수 없습니다.</div>`; return; }
-          const inputs=Array.from({length:book.totalChapters},(_,i)=>{const c=i+1;return`<div class="grid gap-1"><label class="text-xs text-deep/60">Chapter ${c}</label><input type="date" name="schedule-${c}" value="${book.schedules?.[c]||""}" class="input-field text-sm"/></div>`;}).join("");
-          content.innerHTML=`<div class="paper-panel max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-deep/12 p-5 shadow-2xl"><div class="mb-4 flex items-center justify-between"><h2 class="font-serif text-xl text-deep">일정 설정 (관리자)</h2><button class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><form id="form-schedule-settings" class="grid gap-4"><input type="hidden" name="bookId" value="${meta.bookId}"/><div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">${inputs}</div><button class="btn-primary w-full">일정 저장</button></form></div>`;
+          const chapterOpts=Array.from({length:book.totalChapters},(_,i)=>`<option value="${i+1}">Chapter ${i+1}</option>`).join("");
+          const inputs=Array.from({length:book.totalChapters},(_,i)=>{const c=i+1;return`<div class="grid gap-1"><label class="text-xs text-deep/60">Chapter ${c}</label><input type="date" name="schedule-${c}" id="schedule-input-${c}" value="${book.schedules?.[c]||""}" class="input-field text-sm"/></div>`;}).join("");
+          content.innerHTML=`<div class="paper-panel max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-deep/12 p-5 shadow-2xl"><div class="mb-4 flex items-center justify-between"><h2 class="font-serif text-xl text-deep">일정 설정 (관리자)</h2><button class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><form id="form-schedule-settings" class="grid gap-4"><input type="hidden" name="bookId" value="${meta.bookId}"/>
+            <div class="grid gap-1"><label class="text-xs text-deep/60">독서 시작일</label><input type="date" name="startDate" value="${book.schedules?._start||""}" class="input-field text-sm"/></div>
+            <div class="rounded-xl border border-deep/10 bg-white/60 p-3"><p class="text-xs font-semibold text-deep/70 mb-2">구간 일괄 설정</p><div class="flex flex-wrap items-end gap-2"><div class="grid gap-1"><label class="text-[11px] text-deep/50">시작 챕터</label><select id="bulk-start-ch" class="input-field text-sm !w-24">${chapterOpts}</select></div><div class="grid gap-1"><label class="text-[11px] text-deep/50">종료 챕터</label><select id="bulk-end-ch" class="input-field text-sm !w-24">${chapterOpts}</select></div><div class="grid gap-1"><label class="text-[11px] text-deep/50">목표일</label><input type="date" id="bulk-date" class="input-field text-sm"/></div><button type="button" id="bulk-apply-btn" class="btn-ghost !px-3 !py-2 !text-xs">적용</button></div><p class="mt-1.5 text-[11px] text-deep/40">예: 1~3챕터를 9/1까지로 한번에 지정하려면 시작 1, 종료 3, 날짜 9/1 선택 후 적용</p></div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">${inputs}</div>
+            <button class="btn-primary w-full">일정 저장</button></form></div>`;
 
         } else if (type==="edit-book"||type==="book-settings") {
           const selId=meta.bookId||""; const selBook=bookById(selId);
           const opts=cache.books.map(b=>`<option value="${b.id}" ${selId===b.id?"selected":""}>${b.id} · ${escapeHtml(b.title)}</option>`).join("");
-          content.innerHTML=`<div class="paper-panel max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-2xl border border-deep/12 p-5 shadow-2xl sm:rounded-2xl"><div class="sticky top-0 z-10 -mx-5 -mt-5 mb-4 flex items-center justify-between border-b border-deep/10 bg-[#f7f1e5]/95 px-5 py-3 backdrop-blur"><h2 class="font-serif text-xl">책 정보 설정(관리자)</h2><button type="button" class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><form id="form-book-settings" class="grid gap-3"><div><label class="text-xs text-deep/60">책 선택</label><select class="input-field mt-1" name="bookPick"><option value="">새 ID 사용</option>${opts}</select></div><div><label class="text-xs text-deep/60">새 ID (예: b11)</label><input class="input-field mt-1" name="bookId" value="${selBook?"":escapeHtml(selId)}" placeholder="b1"/></div><div><label class="text-xs text-deep/60">책 제목</label><input class="input-field mt-1" name="title" value="${escapeHtml(selBook?.title||"")}" required/></div><div><label class="text-xs text-deep/60">저자</label><input class="input-field mt-1" name="author" value="${escapeHtml(selBook?.author||"")}"/></div><div><label class="text-xs text-deep/60">총 챕터 수</label><input class="input-field mt-1" type="number" min="1" max="150" name="totalChapters" value="${selBook?.totalChapters||4}" required/></div><div><label class="text-xs text-deep/60">길잡이 지정</label><select class="input-field mt-1" name="guideId">${memberList().map(m=>`<option value="${m.id}" ${selBook?.guideId===m.id?"selected":""}>${escapeHtml(m.display_name)}</option>`).join("")}</select></div><div><label class="text-xs text-deep/60">표지 이미지 URL</label><input class="input-field mt-1" name="coverUrl" value="${escapeHtml(selBook?.coverUrl||"")}" placeholder="https://..."/></div><button class="btn-primary w-full">저장</button></form></div>`;
+          content.innerHTML=`<div class="paper-panel max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-2xl border border-deep/12 p-5 shadow-2xl sm:rounded-2xl"><div class="sticky top-0 z-10 -mx-5 -mt-5 mb-4 flex items-center justify-between border-b border-deep/10 bg-[#f7f1e5]/95 px-5 py-3 backdrop-blur"><h2 class="font-serif text-xl">책 정보 설정(관리자)</h2><button type="button" class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><form id="form-book-settings" class="grid gap-3"><div><label class="text-xs text-deep/60">책 선택</label><select class="input-field mt-1" name="bookPick"><option value="">새 ID 사용</option>${opts}</select></div><div><label class="text-xs text-deep/60">새 ID (예: b11)</label><input class="input-field mt-1" name="bookId" value="${selBook?"":escapeHtml(selId)}" placeholder="b1"/></div><div><label class="text-xs text-deep/60">책 제목</label><input class="input-field mt-1" name="title" value="${escapeHtml(selBook?.title||"")}" required/></div><div><label class="text-xs text-deep/60">저자</label><input class="input-field mt-1" name="author" value="${escapeHtml(selBook?.author||"")}"/></div><div><label class="text-xs text-deep/60">총 챕터 수</label><input class="input-field mt-1" type="number" min="1" max="10" name="totalChapters" value="${selBook?.totalChapters||4}" required/></div><div><label class="text-xs text-deep/60">길잡이 지정</label><select class="input-field mt-1" name="guideId">${memberList().map(m=>`<option value="${m.id}" ${selBook?.guideId===m.id?"selected":""}>${escapeHtml(m.display_name)}</option>`).join("")}</select></div><div><label class="text-xs text-deep/60">표지 이미지 URL</label><input class="input-field mt-1" name="coverUrl" value="${escapeHtml(selBook?.coverUrl||"")}" placeholder="https://..."/></div><button class="btn-primary w-full">저장</button></form></div>`;
 
         } else {
           content.innerHTML = renderAuthModal();
@@ -574,10 +656,6 @@
         const highestDone=submitted.length?Math.max(...submitted):0;
         const defaultChapter=Math.min(highestDone+1,sel.totalChapters);
         const chapterOpts=Array.from({length:sel.totalChapters},(_,i)=>i+1).map(n=>`<option value="${n}" ${n===defaultChapter?'selected':''}>Chapter ${n}</option>`).join("");
-        const palette=['color-soft-blue','color-pale-green','color-light-peach','color-lavender','color-soft-coral','color-mint-green','color-sky-blue','color-warm-yellow'];
-        const colors=[]; let ci=0, lastD='';
-        for(let i=0;i<sel.totalChapters;i++){const d=sel.schedules?.[i+1]||'';if(d&&d!==lastD){ci=(ci+1)%palette.length;lastD=d;}colors.push(d?palette[ci]:palette[0]);}
-        const chapterCards=`<div class="chapter-cards-grid">${Array.from({length:sel.totalChapters},(_,i)=>{const c=i+1,d=sel.schedules?.[c]||'';return`<div class="chapter-card ${colors[i]}"><div class="chapter-label">Chapter ${c}</div><div class="date-value">${d||'미정'}</div></div>`;}).join('')}</div>`;
         const rows=Array.from({length:sel.totalChapters},(_,i)=>i+1).map(c=>{
           const blind=isChapterBlind(sel,c);
           const sub=memberList().filter(m=>(sel.chapters[c]?.[m.id]||"").trim()).length;
@@ -602,7 +680,7 @@
             <div class="mt-4 h-3 overflow-hidden rounded-full bg-gray-200"><div class="h-full rounded-full bg-gradient-to-r from-gold to-accent transition-all duration-500" style="width:${prog.pct}%"></div></div>
             <form id="form-reading-input" class="mt-5 grid gap-3"><select class="input-field" name="chapter">${chapterOpts}</select><textarea class="input-field" rows="3" name="sentence" placeholder="기억에 남는 문장을 입력하세요" required></textarea><button class="btn-primary font-medium">문장 기록</button></form>
           </section></div>
-          <div class="schedule-section"><div class="schedule-display"><div class="schedule-title"><span class="font-bold">📅 챕터별 목표 일정</span>${isAdmin?`<button class="btn-ghost !px-3 !py-1.5 !text-xs font-medium" onclick="event.stopPropagation();window.openModal('schedule-settings',{bookId:'${sel.id}'})">일정 설정</button>`:''}</div>${chapterCards}</div></div>
+          <div class="schedule-section"><div class="schedule-display"><div class="schedule-title"><span class="font-bold">📅 챕터별 목표 일정</span>${isAdmin?`<button class="btn-ghost !px-3 !py-1.5 !text-xs font-medium" onclick="event.stopPropagation();window.openModal('schedule-settings',{bookId:'${sel.id}'})">일정 설정</button>`:''}</div>${renderScheduleCalendarView(sel)}</div></div>
           <section>${rows}</section>
         </main>`;
       }
@@ -824,7 +902,7 @@
           const b=cache.books.find(x=>x.id===bookId);if(!b)return;
           b.title=payload.title||b.title;b.author=payload.author||"";b.coverUrl=payload.coverUrl||"";
           if(currentMemberId==='chloe'&&payload.guideId)b.guideId=payload.guideId;
-          const next=Math.max(1,parseInt(payload.totalChapters,10)||1);
+          const next=Math.min(10,Math.max(1,parseInt(payload.totalChapters,10)||1));
           if(next>b.totalChapters)for(let c=b.totalChapters+1;c<=next;c++)b.chapters[c]=emptyChapterRecord();
           if(next<b.totalChapters)for(let c=b.totalChapters;c>next;c--)delete b.chapters[c];
           b.totalChapters=next;await persistBook(b);await refreshFromDb();
@@ -844,6 +922,27 @@
           }
           if(t.id==="btn-logout"){logout();return;}
           if(t.id==="btn-new-meeting-event"){openModal("new-meeting-event");return;}
+
+          const calNav=t.closest&&t.closest("[data-cal-nav]");
+          if(calNav){
+            const bookId=calNav.getAttribute("data-book"), dir=calNav.getAttribute("data-cal-nav");
+            const cur=scheduleCalMonth[bookId]||dayjs().format('YYYY-MM');
+            scheduleCalMonth[bookId]=dayjs(cur+'-01').add(dir==='next'?1:-1,'month').format('YYYY-MM');
+            return renderApp();
+          }
+          const legendChip=t.closest&&t.closest("[data-jump-month]");
+          if(legendChip){
+            scheduleCalMonth[legendChip.getAttribute("data-book")]=legendChip.getAttribute("data-jump-month");
+            return renderApp();
+          }
+          if(t.id==="bulk-apply-btn"){
+            const s=parseInt(document.getElementById('bulk-start-ch')?.value,10);
+            const en=parseInt(document.getElementById('bulk-end-ch')?.value,10);
+            const val=document.getElementById('bulk-date')?.value;
+            if(!val||!s||!en||s>en){alert('시작/종료 챕터와 날짜를 올바르게 입력해주세요.');return;}
+            for(let c=s;c<=en;c++){const el=document.getElementById(`schedule-input-${c}`);if(el)el.value=val;}
+            return;
+          }
 
           const toggleBtn=t.closest(".mp-toggle-form");
           if(toggleBtn){const eid=toggleBtn.dataset.eventId;const f=document.getElementById(`add-form-${eid}`);if(f)f.style.display=f.style.display==="none"?"":"none";return;}
@@ -927,9 +1026,12 @@
               if(currentMemberId!=='chloe'){alert("관리자 기능에 접근할 수 없습니다.");return;}
               const bookId=form.elements.namedItem("bookId").value, book=cache.books.find(b=>b.id===bookId);if(!book)return;
               const schedules={};
+              const startVal=form.elements.namedItem("startDate")?.value;
+              if(startVal)schedules._start=startVal;
               for(let i=1;i<=book.totalChapters;i++){const d=form.elements.namedItem(`schedule-${i}`);if(d?.value)schedules[i]=d.value;}
               const{error}=await sb.from('books').update({schedules}).eq('id',bookId).select();
               if(error){alert("일정 저장 실패: "+error.message);return;}
+              delete scheduleCalMonth[bookId];
               await refreshFromDb();closeModal();return renderApp();
             }
             if(form.id==="form-book-settings"){
@@ -940,7 +1042,7 @@
               book.title=(form.elements.namedItem("title").value||"").trim()||book.title;
               book.author=(form.elements.namedItem("author").value||"").trim();
               book.guideId=form.elements.namedItem("guideId").value;
-              const next=Math.max(1,parseInt(form.elements.namedItem("totalChapters").value,10)||1);
+              const next=Math.min(10,Math.max(1,parseInt(form.elements.namedItem("totalChapters").value,10)||1));
               book.totalChapters=next;book.chapters=alignChaptersToTotal(book.chapters,next);
               const cu=(form.elements.namedItem("coverUrl").value||"").trim();if(cu)book.coverUrl=cu;
               await persistBook(book);await refreshFromDb();closeModal();renderApp();showToast("책 정보가 업데이트되었습니다!");
