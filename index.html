@@ -69,6 +69,19 @@
       .cal-legend-chip { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: rgba(26, 26, 46, 0.65); cursor: pointer; padding: 0.2rem 0.5rem; border-radius: 999px; background: rgba(0,0,0,0.03); }
       .cal-legend-chip:hover { background: rgba(108, 92, 231, 0.1); }
       .cal-legend-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+      .cal-thumbnails { position: absolute; top: 2px; right: 2px; display: flex; gap: 3px; z-index: 5; }
+      .cal-thumbnail { width: 24px; height: 36px; border-radius: 4px; object-fit: cover; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3); transition: transform 0.2s; aspect-ratio: 2/3; }
+      .cal-thumbnail:hover { transform: scale(1.3); z-index: 10; }
+      .cal-thumbnail-more { font-size: 10px; background: rgba(108, 92, 231, 0.9); color: white; border-radius: 4px; padding: 2px 4px; line-height: 1; min-width: 18px; text-align: center; }
+      @media (min-width: 768px) {
+        .cal-thumbnail { width: 32px; height: 48px; border-radius: 6px; }
+        .cal-thumbnail-more { font-size: 12px; padding: 3px 6px; min-width: 22px; }
+      }
+      @media (max-width: 767px) {
+        .cal-thumbnails { top: 2px; right: 2px; gap: 2px; }
+        .cal-thumbnail { width: 20px; height: 30px; border-radius: 3px; }
+        .cal-thumbnail-more { font-size: 9px; padding: 1px 3px; min-width: 16px; }
+      }
       .reading-tab-container { padding: 24px; }
       .book-info-section { margin-bottom: 40px; }
       .schedule-section { margin-bottom: 32px; }
@@ -283,6 +296,27 @@
 
       // ── 챕터별 목표 일정: 구간 계산 & 달력 렌더 ──
       const SCHEDULE_PALETTE = ['color-soft-blue','color-pale-green','color-light-peach','color-lavender','color-soft-coral','color-mint-green','color-sky-blue','color-warm-yellow','color-blush-pink','color-periwinkle'];
+      
+      // 완료된 책 목록 추출
+      function getCompletedBooks() {
+        return cache.books.filter(book => {
+          const prog = chapterProgress(book);
+          return prog.done === prog.total && book.finalAt;
+        });
+      }
+      
+      // 책의 읽기 기간 계산
+      function getBookReadingPeriod(book) {
+        const groups = computeScheduleGroups(book);
+        const validGroups = groups.filter(g => !g.unset);
+        if (validGroups.length === 0) return null;
+        
+        const firstStart = validGroups[0].start;
+        const lastEnd = validGroups[validGroups.length - 1].end;
+        
+        return { start: firstStart, end: lastEnd };
+      }
+      
       function computeScheduleGroups(book) {
         const raw = book.schedules || {};
         const groups = [];
@@ -306,6 +340,14 @@
         const validGroups = groups.filter(g=>!g.unset);
         const unsetChapters = groups.filter(g=>g.unset).flatMap(g=>g.chapters);
         const todayStr = dayjs().format('YYYY-MM-DD');
+        
+        // 완료된 책 목록 및 읽기 기간
+        const completedBooks = getCompletedBooks();
+        const completedBookPeriods = completedBooks.map(b => ({
+          book: b,
+          period: getBookReadingPeriod(b)
+        })).filter(x => x.period);
+        
         if (!scheduleCalMonth[book.id]) {
           const active = validGroups.find(g=>todayStr>=g.start&&todayStr<=g.end) || validGroups.find(g=>g.end>=todayStr) || validGroups[validGroups.length-1];
           scheduleCalMonth[book.id] = active ? dayjs(active.end).format('YYYY-MM') : dayjs().format('YYYY-MM');
@@ -319,7 +361,31 @@
           const dateStr = monthStart.date(d).format('YYYY-MM-DD');
           const g = validGroups.find(x=>dateStr>=x.start&&dateStr<=x.end);
           const isToday = dateStr===todayStr, isEnd = g&&dateStr===g.end;
-          cells += `<div class="cal-cell ${g?g.color+' has-range':''} ${isEnd?'is-end':''} ${isToday?'is-today':''}">${d}${isToday?'<span class="cal-today-tag">오늘</span>':''}</div>`;
+          
+          // 해당 날짜에 완료된 책이 있는지 확인
+          const completedOnDate = completedBookPeriods.filter(x => 
+            dateStr >= x.period.start && dateStr <= x.period.end
+          );
+          
+          let thumbnailHtml = '';
+          if (completedOnDate.length > 0) {
+            const displayBooks = completedOnDate.slice(0, 2);
+            const remainingCount = completedOnDate.length - 2;
+            
+            thumbnailHtml = '<div class="cal-thumbnails">';
+            displayBooks.forEach(item => {
+              const coverUrl = item.book.coverUrl || '';
+              if (coverUrl) {
+                thumbnailHtml += `<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(item.book.title)}" class="cal-thumbnail" data-open-book="${item.book.id}" title="${escapeHtml(item.book.title)}"/>`;
+              }
+            });
+            if (remainingCount > 0) {
+              thumbnailHtml += `<span class="cal-thumbnail-more">+${remainingCount}</span>`;
+            }
+            thumbnailHtml += '</div>';
+          }
+          
+          cells += `<div class="cal-cell ${g?g.color+' has-range':''} ${isEnd?'is-end':''} ${isToday?'is-today':''}">${d}${isToday?'<span class="cal-today-tag">오늘</span>':''}${thumbnailHtml}</div>`;
         }
         const legend = validGroups.map(g => {
           const label = g.chapters.length>1 ? `Ch${g.chapters[0]}-${g.chapters[g.chapters.length-1]}` : `Ch${g.chapters[0]}`;
@@ -480,22 +546,31 @@
               ${isOwner?`<div class="flex gap-1"><button class="edit-btn text-xs text-deep/60 hover:text-deep px-2 py-1 hover:bg-deep/10 rounded" data-reading-id="${r.id}" data-content="${escapeHtml(r.content)}">수정</button><button class="delete-btn text-xs text-red-600 px-2 py-1 hover:bg-red-50 rounded" data-reading-id="${r.id}">삭제</button></div>`:''}
             </div>
             <div class="text-sm text-deep/85 mb-3">${escapeHtml(r.content)}</div>
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between relative">
               <div class="flex gap-1">${chips||'<span class="text-xs text-deep/30">반응 없음</span>'}</div>
-              <button class="reaction-toggle-btn px-3 py-1 bg-deep/10 hover:bg-deep/20 rounded-full text-xs" data-reading-id="${r.id}">+ 반응</button>
-            </div>
-            <div class="reaction-popup hidden absolute z-10 bg-white border border-deep/20 rounded-lg p-2 shadow-lg mt-1" style="width:max-content;max-width:calc(100vw - 2.5rem);" data-reading-id="${r.id}">
-              <div class="grid gap-0.5" style="grid-template-columns:repeat(${Math.ceil(REACTION_EMOJIS.length/2)},minmax(0,1fr));">${REACTION_EMOJIS.map(e=>`<button class="reaction-option px-2 py-1.5 hover:bg-deep/10 rounded text-base" data-emoji="${e}" data-reading-id="${r.id}">${e}</button>`).join('')}</div>
+              <div class="relative">
+                <button class="reaction-toggle-btn px-3 py-1 bg-deep/10 hover:bg-deep/20 rounded-full text-xs" data-reading-id="${r.id}">+ 반응</button>
+                <div class="reaction-popup hidden absolute right-0 top-full mt-1 z-10 bg-white border border-deep/20 rounded-lg p-2 shadow-lg" style="width:max-content;max-width:calc(100vw - 2.5rem);" data-reading-id="${r.id}">
+                  <div class="grid gap-0.5" style="grid-template-columns:repeat(${Math.ceil(REACTION_EMOJIS.length/2)},minmax(0,1fr));">${REACTION_EMOJIS.map(e=>`<button class="reaction-option px-2 py-1.5 hover:bg-deep/10 rounded text-base" data-emoji="${e}" data-reading-id="${r.id}">${e}</button>`).join('')}</div>
+                </div>
+              </div>
             </div>
           </div>`;
         }).join('');
       }
       function handleReactionToggle(readingId, emoji) {
         const r = dailyReadingsCache.find(x=>x.id===readingId);
-        if (r?.reactions) {
+        if (r) {
           const has = r.reading_reactions?.find(x=>x.member_id===currentMemberId&&x.emoji===emoji);
-          if (has) { r.reactions[emoji]=Math.max(0,(r.reactions[emoji]||0)-1); r.reading_reactions=r.reading_reactions?.filter(x=>!(x.member_id===currentMemberId&&x.emoji===emoji))||[]; }
-          else { r.reactions[emoji]=(r.reactions[emoji]||0)+1; (r.reading_reactions=r.reading_reactions||[]).push({member_id:currentMemberId,emoji}); }
+          if (has) {
+            // Remove reaction
+            r.reactions[emoji]=Math.max(0,(r.reactions[emoji]||0)-1);
+            r.reading_reactions=r.reading_reactions?.filter(x=>!(x.member_id===currentMemberId&&x.emoji===emoji))||[];
+          } else {
+            // Add reaction
+            r.reactions[emoji]=(r.reactions[emoji]||0)+1;
+            (r.reading_reactions=r.reading_reactions||[]).push({member_id:currentMemberId,emoji});
+          }
           renderDailyReadingComments();
         }
         toggleReaction(readingId,emoji).then(ok => {
@@ -1007,6 +1082,60 @@
           const roBtn=t.closest('.reaction-option');if(roBtn){handleReactionToggle(roBtn.dataset.readingId,roBtn.dataset.emoji);document.querySelector(`.reaction-popup[data-reading-id="${roBtn.dataset.readingId}"]`)?.classList.add('hidden');return;}
           const editBtn2=t.closest('.edit-btn');if(editBtn2){const nc=prompt('내용을 수정하세요:',editBtn2.dataset.content);if(nc!==null){const r=dailyReadingsCache.find(x=>x.id===editBtn2.dataset.readingId);if(r){r.content=nc.trim();renderDailyReadingComments();}editDailyReading(editBtn2.dataset.readingId,nc).then(ok=>{if(ok)setTimeout(()=>loadDailyReadings().then(()=>renderDailyReadingComments()),500);else loadDailyReadings().then(()=>renderDailyReadingComments());});}return;}
           const delBtn2=t.closest('.delete-btn');if(delBtn2){if(confirm('정말로 삭제하시겠습니까?')){const idx=dailyReadingsCache.findIndex(x=>x.id===delBtn2.dataset.readingId);if(idx>-1){dailyReadingsCache.splice(idx,1);renderDailyReadingComments();}deleteDailyReading(delBtn2.dataset.readingId).then(ok=>{if(!ok)loadDailyReadings().then(()=>renderDailyReadingComments());});}return;}
+        });
+
+        // Long press handler for reaction chips
+        let longPressTimer = null;
+        let longPressTarget = null;
+        const LONG_PRESS_DURATION = 500;
+
+        document.addEventListener('touchstart', (e) => {
+          const chip = e.target.closest('.reaction-chip');
+          if (chip) {
+            longPressTarget = chip;
+            longPressTimer = setTimeout(() => {
+              const attribution = chip.dataset.attribution;
+              if (attribution) alert(attribution);
+              longPressTarget = null;
+            }, LONG_PRESS_DURATION);
+          }
+        }, { passive: true });
+
+        document.addEventListener('touchend', () => {
+          if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+          }
+          longPressTarget = null;
+        });
+
+        document.addEventListener('touchmove', () => {
+          if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+          }
+          longPressTarget = null;
+        });
+
+        // Desktop long press with mouse
+        document.addEventListener('mousedown', (e) => {
+          const chip = e.target.closest('.reaction-chip');
+          if (chip) {
+            longPressTarget = chip;
+            longPressTimer = setTimeout(() => {
+              const attribution = chip.dataset.attribution;
+              if (attribution) alert(attribution);
+              longPressTarget = null;
+            }, LONG_PRESS_DURATION);
+          }
+        });
+
+        document.addEventListener('mouseup', () => {
+          if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+          }
+          longPressTarget = null;
         });
 
         document.addEventListener("change",(e)=>{
