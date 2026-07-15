@@ -116,6 +116,16 @@
       .image-viewer-prev { left: 20px; }
       .image-viewer-next { right: 20px; }
       .image-viewer-counter { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); color: white; font-size: 14px; background: rgba(0, 0, 0, 0.5); padding: 8px 16px; border-radius: 20px; }
+      /* Daily Reading Scroll */
+      .daily-reading-scroll { max-height: 400px; overflow-y: auto; padding-right: 8px; scrollbar-width: thin; }
+      .daily-reading-scroll::-webkit-scrollbar { width: 6px; }
+      .daily-reading-scroll::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.05); border-radius: 3px; }
+      .daily-reading-scroll::-webkit-scrollbar-thumb { background: rgba(108, 92, 231, 0.3); border-radius: 3px; }
+      .daily-reading-scroll::-webkit-scrollbar-thumb:hover { background: rgba(108, 92, 231, 0.5); }
+      /* Reaction Popup Layout */
+      .reaction-popup { flex-wrap: wrap; max-width: 280px; gap: 4px; }
+      .reaction-popup .flex { flex-wrap: wrap; }
+      .reaction-option { flex: 0 0 calc(33.33% - 4px); }
     </style>
   </head>
   <body class="app-bg min-h-screen antialiased">
@@ -400,7 +410,7 @@
         try {
           const { data, error } = await sb.from('daily_readings')
             .select('*, club_members(display_name), reading_reactions(emoji,member_id,club_members(display_name))')
-            .order('created_at',{ascending:false}).limit(5);
+            .order('created_at',{ascending:false});
           if (error) throw error;
           dailyReadingsCache = data||[]; return dailyReadingsCache;
         } catch(e) { console.error(e); return []; }
@@ -673,7 +683,7 @@
           <section class="paper-panel rounded-2xl border border-white/10 p-5 shadow-lg mb-6 bg-gradient-to-br from-white to-gray-50">
             <h3 class="font-serif text-xl font-bold text-deep mb-4">📖 오늘의 읽기</h3>
             <div class="mb-4"><div class="flex gap-3"><input type="text" id="daily-reading-input" class="input-field flex-1 text-sm" placeholder="오늘의 독서 생각을 나눠보세요..." maxlength="50"><button id="daily-reading-post" class="btn-primary px-4 py-2.5 text-sm font-medium">게시</button></div><p class="mt-2 text-xs text-deep/50">${currentMemberName}님으로 게시됩니다</p></div>
-            <div class="space-y-3" id="daily-reading-comments"></div>
+            <div class="daily-reading-scroll space-y-3" id="daily-reading-comments"></div>
           </section>
           <div class="book-info-section"><section class="paper-panel rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50">
             <div class="flex items-center justify-between gap-4"><div><p class="text-[11px] uppercase tracking-[0.2em] text-gold font-bold">이달의 책</p><h2 class="font-serif text-2xl font-bold text-deep mt-1">${escapeHtml(sel.title)}</h2><p class="mt-2"><span class="guide-badge">⭐ 길잡이: ${escapeHtml(memberNameById(sel.guideId))}</span></p></div><span class="text-sm font-bold text-gold bg-gold/10 px-3 py-1.5 rounded-full">${prog.done}/${prog.total} 완료</span></div>
@@ -720,6 +730,48 @@
           viewer.id = 'image-viewer';
           viewer.className = 'image-viewer';
           document.body.appendChild(viewer);
+          
+          // Add touch swipe support (only once)
+          let touchStartX = 0;
+          let touchEndX = 0;
+
+          viewer.addEventListener('touchstart', (e) => {
+            touchStartX = e.changedTouches[0].screenX;
+          }, { passive: true });
+
+          viewer.addEventListener('touchend', (e) => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+          }, { passive: true });
+
+          function handleSwipe() {
+            const swipeThreshold = 50;
+            const diff = touchStartX - touchEndX;
+            
+            if (Math.abs(diff) > swipeThreshold) {
+              if (diff > 0) {
+                navigateImageViewer('next');
+              } else {
+                navigateImageViewer('prev');
+              }
+            }
+          }
+
+          // Add keyboard navigation (only once)
+          const handleKeydown = (e) => {
+            if (!imageViewerState.isOpen) return;
+            
+            if (e.key === 'Escape') {
+              closeImageViewer();
+            } else if (e.key === 'ArrowLeft') {
+              navigateImageViewer('prev');
+            } else if (e.key === 'ArrowRight') {
+              navigateImageViewer('next');
+            }
+          };
+
+          document.addEventListener('keydown', handleKeydown);
+          viewer.dataset.keydownHandler = 'true';
         }
 
         const currentImage = images[currentIndex];
@@ -734,48 +786,6 @@
             ` : ''}
           </div>
         `;
-
-        // Add touch swipe support
-        let touchStartX = 0;
-        let touchEndX = 0;
-
-        viewer.addEventListener('touchstart', (e) => {
-          touchStartX = e.changedTouches[0].screenX;
-        }, { passive: true });
-
-        viewer.addEventListener('touchend', (e) => {
-          touchEndX = e.changedTouches[0].screenX;
-          handleSwipe();
-        }, { passive: true });
-
-        function handleSwipe() {
-          const swipeThreshold = 50;
-          const diff = touchStartX - touchEndX;
-          
-          if (Math.abs(diff) > swipeThreshold) {
-            if (diff > 0) {
-              navigateImageViewer('next');
-            } else {
-              navigateImageViewer('prev');
-            }
-          }
-        }
-
-        // Add keyboard navigation
-        const handleKeydown = (e) => {
-          if (!imageViewerState.isOpen) return;
-          
-          if (e.key === 'Escape') {
-            closeImageViewer();
-          } else if (e.key === 'ArrowLeft') {
-            navigateImageViewer('prev');
-          } else if (e.key === 'ArrowRight') {
-            navigateImageViewer('next');
-          }
-        };
-
-        document.addEventListener('keydown', handleKeydown);
-        viewer.dataset.keydownHandler = 'true';
       }
 
       // Expose functions to window
