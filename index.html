@@ -152,6 +152,7 @@
 
       const SUPABASE_URL = "https://gmhnnahtfjcgnbeyzctq.supabase.co";
       const SUPABASE_ANON_KEY = "sb_publishable_fQ0No6cq6837PG0xo3SaSA_0x7R1nJI";
+      const ADMIN_EMAIL = "kimmira1117@gmail.com"; // 관리자 삭제 권한 전용 Supabase Auth 계정
       const BOOK_TOTAL = 10;
       const DEFAULT_MEMBERS = [
         { id:"mary",  display_name:"Mary",  sort_order:3, password:"", is_first_login:true, member_code:"mary2026" },
@@ -174,6 +175,7 @@
       let detailBookId = null;
       let uiModal = { type:null, error:"", meta:{} };
       let pendingSecureAction = null;
+      let isAdminAuthed = false; // Supabase Auth 로그인(관리자) 여부 — 모임 이벤트 삭제 권한
       let toastMessage = "";
       let toastTimer = null;
       let rtChannel = null;
@@ -212,12 +214,31 @@
         currentMemberId = ""; currentMemberName = ""; isAdminMode = false; isGatePassed = false;
         ["currentMemberId","currentMemberName","isAdminMode","isGatePassed"].forEach(k => localStorage.removeItem(k));
       }
-      function logout() { clearMemberSession(); showAccessDenied(); }
+      function logout() { clearMemberSession(); adminLogout(); showAccessDenied(); }
+
+      // ── 관리자 인증 (Supabase Auth: 모임 이벤트 삭제 권한) ──
+      async function refreshAdminAuth() {
+        try { const { data } = await sb.auth.getSession(); isAdminAuthed = !!data?.session; }
+        catch(e) { isAdminAuthed = false; }
+        return isAdminAuthed;
+      }
+      async function adminLogin(password) {
+        const { error } = await sb.auth.signInWithPassword({ email: ADMIN_EMAIL, password });
+        if (error) return { ok:false, message:"비밀번호가 올바르지 않습니다." };
+        isAdminAuthed = true; return { ok:true };
+      }
+      async function adminLogout() {
+        try { await sb.auth.signOut(); } catch(e) {}
+        isAdminAuthed = false;
+      }
+
       function initializeApp() {
-        loadMembers().then(() => {
-          refreshFromDb().then(() => {
-            Promise.all([loadDailyReadings(), loadAllMeetingData()]).then(() => {
-              subscribeRealtime(); renderApp();
+        refreshAdminAuth().finally(() => {
+          loadMembers().then(() => {
+            refreshFromDb().then(() => {
+              Promise.all([loadDailyReadings(), loadAllMeetingData()]).then(() => {
+                subscribeRealtime(); renderApp();
+              });
             });
           });
         });
@@ -623,9 +644,10 @@
         await loadMeetingPosts(eventId); return true;
       }
       async function deleteMeetingEvent(eventId) {
-        if (!currentMemberId||!confirm("모임 기록 전체를 삭제하시겠습니까? 하위 기록도 모두 삭제됩니다.")) return false;
-        const { error } = await sb.from("meeting_events").delete().eq("id",eventId).eq("created_by",currentMemberId);
-        if (error) { console.error(error); return false; }
+        if (!isAdminAuthed) { showToast("모임 삭제는 설정 탭에서 관리자 로그인 후 가능합니다."); return false; }
+        if (!confirm("모임 기록 전체를 삭제하시겠습니까? 하위 기록도 모두 삭제됩니다.")) return false;
+        const { error } = await sb.from("meeting_events").delete().eq("id",eventId);
+        if (error) { console.error(error); showToast("삭제 실패: "+error.message); return false; }
         await loadAllMeetingData(); return true;
       }
 
@@ -881,7 +903,7 @@
         }).join("");
         const addFormHtml=`<div class="meeting-add-form" id="add-form-${event.id}" ${myPost?'style="display:none"':""}><textarea class="input-field text-sm" rows="2" id="post-content-${event.id}" placeholder="이번 모임 소감을 남겨보세요..."></textarea><div class="meeting-photo-upload"><label class="btn-ghost !px-3 !py-2 !text-xs cursor-pointer">📷 사진 추가 (최대 5장)<input type="file" accept="image/*" multiple id="post-photos-${event.id}" style="display:none"/></label><div class="photo-preview-strip" id="preview-${event.id}"></div></div><button class="btn-primary !text-xs mp-post-btn" data-event-id="${event.id}">기록 등록</button></div>`;
         const toggleBtn=myPost?`<button class="btn-ghost !px-3 !py-1 !text-xs mp-toggle-form" data-event-id="${event.id}">✏️ 내 기록 수정</button>`:`<button class="btn-ghost !px-3 !py-1 !text-xs mp-toggle-form" data-event-id="${event.id}">+ 내 기록 추가</button>`;
-        return `<article class="meeting-event-card" data-event-id="${event.id}"><div class="meeting-event-header"><div class="meeting-event-meta">${coverUrl?`<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(bTitle)}" class="meeting-cover-thumb"/>`:`<div class="meeting-cover-thumb meeting-cover-placeholder">📚</div>`}<div><h3 class="meeting-event-title">${escapeHtml(bTitle)}</h3><p class="meeting-event-sub">${dateStr} · ${escapeHtml(event.location||"장소 미정")}</p><p class="meeting-event-creator">등록: ${escapeHtml(creatorName)}</p></div></div><div class="meeting-event-right"><span class="meeting-post-count">${posts.length}명 기록</span>${isCreator?`<button class="btn-ghost !px-2 !py-1 !text-xs text-red-600 mp-del-event-btn" data-event-id="${event.id}">삭제</button>`:""}</div></div><div class="meeting-posts-list">${postsHtml||`<p class="meeting-empty-posts">아직 기록이 없습니다. 첫 번째로 남겨보세요!</p>`}</div><div class="meeting-add-section">${toggleBtn}${addFormHtml}</div></article>`;
+        return `<article class="meeting-event-card" data-event-id="${event.id}"><div class="meeting-event-header"><div class="meeting-event-meta">${coverUrl?`<img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(bTitle)}" class="meeting-cover-thumb"/>`:`<div class="meeting-cover-thumb meeting-cover-placeholder">📚</div>`}<div><h3 class="meeting-event-title">${escapeHtml(bTitle)}</h3><p class="meeting-event-sub">${dateStr} · ${escapeHtml(event.location||"장소 미정")}</p><p class="meeting-event-creator">등록: ${escapeHtml(creatorName)}</p></div></div><div class="meeting-event-right"><span class="meeting-post-count">${posts.length}명 기록</span>${isAdminAuthed?`<button class="btn-ghost !px-2 !py-1 !text-xs text-red-600 mp-del-event-btn" data-event-id="${event.id}">삭제</button>`:""}</div></div><div class="meeting-posts-list">${postsHtml||`<p class="meeting-empty-posts">아직 기록이 없습니다. 첫 번째로 남겨보세요!</p>`}</div><div class="meeting-add-section">${toggleBtn}${addFormHtml}</div></article>`;
       }
       function renderMeetingTab() {
         if (meetingLoading) return `<main class="mx-auto max-w-content px-4 py-6 pb-28 text-center text-deep/45 text-sm">불러오는 중...</main>`;
@@ -908,7 +930,8 @@
         const acct=`<section class="paper-panel rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50"><h3 class="font-bold text-deep mb-4 text-lg">🔐 계정 설정</h3><form id="form-change-password" class="mt-3 grid gap-3"><input class="input-field" type="password" name="currentPassword" placeholder="현재 비밀번호" required/><input class="input-field" type="password" name="newPassword" placeholder="새 비밀번호" required/><input class="input-field" type="password" name="confirmPassword" placeholder="새 비밀번호 확인" required/><button class="btn-primary font-medium">변경하기</button></form></section>`;
         const mgmt=isAdmin?`<section class="paper-panel mt-6 rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50"><h3 class="font-bold text-deep mb-4 text-lg">📚 사이트 관리</h3><div class="mb-4 text-sm text-deep/70 bg-gold/10 px-4 py-2 rounded-lg">현재 이달의 책: <span class="font-bold text-gold">${cache.books?.find(b=>b.is_book_of_the_month)?.title||'없음'}</span></div><div class="space-y-4">${(cache.books||[]).map(book=>`<div class="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/90 shadow-sm hover:shadow-md transition-shadow"><div class="flex-shrink-0 w-14 h-20">${book.coverUrl?`<img src="${escapeHtml(book.coverUrl)}" alt="${escapeHtml(book.title)}" class="w-full h-full object-cover rounded-lg"/>`:`<div class="w-full h-full bg-gradient-to-br from-deep/10 to-deep/20 rounded-lg flex items-center justify-center"><span class="text-xs text-deep/60 font-semibold">No Cover</span></div>`}</div><div class="flex-1"><p class="font-bold text-deep">${escapeHtml(book.title)}</p><p class="text-sm text-deep/70">${escapeHtml(book.author||"저자 미입력")} | ${book.totalChapters}챕터</p><p class="text-xs text-deep/50">길잡이: ${escapeHtml(memberNameById(book.guideId))}</p></div><div class="flex flex-col gap-2"><div class="flex gap-2"><button class="btn-ghost !px-3 !py-2 !text-xs font-medium" onclick="event.stopPropagation();window.openModal('edit-book',{bookId:'${book.id}'})">수정</button><button class="btn-ghost !px-3 !py-2 !text-xs text-red-500 font-medium" onclick="confirmDeleteBook('${book.id}')">삭제</button></div><button id="btn-set-book-month-${book.id}" class="btn-primary !px-3 !py-2 !text-xs w-full font-medium ${book.is_book_of_the_month?'!bg-gold !cursor-not-allowed':''}" onclick="setBookOfTheMonthDirect('${book.id}','${escapeHtml(book.title)}')" ${book.is_book_of_the_month?'disabled':''}>${book.is_book_of_the_month?'현재 이달의 책 ✓':'이달의 책으로 선정'}</button></div></div>`).join("")}</div></section>`:"";
         const memMgmt=isAdmin?`<section class="paper-panel mt-6 rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50"><h3 class="font-bold text-deep mb-4 text-lg">👥 멤버 관리</h3><div class="space-y-4">${memberList().map(m=>`<div class="rounded-xl border border-white/10 bg-white/90 p-4 shadow-sm"><p class="text-sm font-bold text-deep">${escapeHtml(m.display_name)}</p><p class="mt-2 text-xs text-deep/60">is_first_login: ${m.is_first_login?"true":"false"}</p><form class="mt-3 grid gap-3 sm:grid-cols-2" data-member-reset="${m.id}"><button class="btn-ghost !text-xs font-medium">최초 로그인 초기화</button><input class="input-field" type="password" name="newPassword" placeholder="임시 비밀번호(선택)"/></form></div>`).join("")}</div></section>`:"";
-        return `<main class="mx-auto max-w-content px-4 py-5 pb-28">${acct}${mgmt}${memMgmt}</main>`;
+        const adminAuth=isAdmin?`<section class="paper-panel mt-6 rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50"><h3 class="font-bold text-deep mb-4 text-lg">🛡️ 관리자 인증</h3>${isAdminAuthed?`<div class="text-sm text-deep/70 bg-green-50 px-4 py-3 rounded-lg mb-3">✅ 관리자로 인증됨 — 모임 기록 삭제가 가능합니다.</div><button id="btn-admin-logout" class="btn-ghost !text-sm font-medium">관리자 로그아웃</button>`:`<p class="text-sm text-deep/60 mb-3">모임 이벤트 삭제는 관리자 인증이 필요합니다.</p><form id="form-admin-login" class="grid gap-3"><input class="input-field" type="password" name="adminPassword" placeholder="관리자 비밀번호" autocomplete="current-password" required/><button class="btn-primary font-medium">관리자 로그인</button></form>`}</section>`:"";
+        return `<main class="mx-auto max-w-content px-4 py-5 pb-28">${acct}${adminAuth}${mgmt}${memMgmt}</main>`;
       }
       function renderAuthModal() {
         if (!uiModal.type) return "";
@@ -1047,6 +1070,7 @@
           if(delPostBtn){const ok=await deleteMeetingPost(delPostBtn.dataset.postId,delPostBtn.dataset.eventId);if(ok){showToast("삭제됐습니다.");renderApp();}return;}
           const delEvtBtn=t.closest(".mp-del-event-btn");
           if(delEvtBtn){const ok=await deleteMeetingEvent(delEvtBtn.dataset.eventId);if(ok){showToast("모임 기록이 삭제됐습니다.");renderApp();}return;}
+          if(t.id==="btn-admin-logout"){await adminLogout();showToast("관리자 로그아웃되었습니다.");renderApp();return;}
           const fileEl=t.closest('input[type="file"]');
           if(fileEl){fileEl.addEventListener("change",()=>{const eid=fileEl.id.replace("post-photos-","");const prev=document.getElementById(`preview-${eid}`);if(!prev)return;prev.innerHTML=Array.from(fileEl.files).slice(0,5).map(f=>`<img src="${URL.createObjectURL(f)}" class="photo-preview-thumb" alt="미리보기"/>`).join("");},{once:true});return;}
 
@@ -1152,6 +1176,13 @@
               if(!meetingDate||!location.trim()){alert("날짜와 장소를 입력해주세요.");return;}
               const ok=await postMeetingEvent({bookId,meetingDate,location});
               if(ok){closeModal();showToast("모임이 등록됐습니다!");renderApp();}
+              return;
+            }
+            if(form.id==="form-admin-login"){
+              const pw=form.elements.namedItem("adminPassword").value;
+              const res=await adminLogin(pw);
+              if(res.ok){showToast("관리자 인증 완료!");renderApp();}
+              else{alert(res.message||"로그인 실패");}
               return;
             }
             if(form.id==="form-first-password"){
