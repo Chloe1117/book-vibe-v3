@@ -132,12 +132,16 @@
       .image-viewer-prev { left: 20px; }
       .image-viewer-next { right: 20px; }
       .image-viewer-counter { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); color: white; font-size: 14px; background: rgba(0, 0, 0, 0.5); padding: 8px 16px; border-radius: 20px; }
-      /* Daily Reading Scroll */
-      .daily-reading-scroll { max-height: 400px; overflow-y: auto; padding-right: 8px; scrollbar-width: thin; }
-      .daily-reading-scroll::-webkit-scrollbar { width: 6px; }
-      .daily-reading-scroll::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.05); border-radius: 3px; }
-      .daily-reading-scroll::-webkit-scrollbar-thumb { background: rgba(108, 92, 231, 0.3); border-radius: 3px; }
-      .daily-reading-scroll::-webkit-scrollbar-thumb:hover { background: rgba(108, 92, 231, 0.5); }
+      /* Daily Reading — 내부 스크롤을 두지 않는다.
+         폰에서 카드 안 스크롤이 페이지 스크롤을 가로채 아래로 내려가기 어렵다는 VOC(2026-08-15).
+         길이는 미리보기 개수 + '더 보기' 로 제어한다. */
+      .daily-reading-scroll { padding-right: 2px; }
+      .daily-more-btn, .daily-fold-btn { width: 100%; padding: 0.6rem 0; border: none; background: transparent; cursor: pointer;
+        font-size: 0.78rem; font-weight: 600; color: #6c5ce7; border-radius: 0.6rem; transition: background 0.2s ease; }
+      .daily-more-btn { margin-top: 0.25rem; }
+      .daily-more-btn:hover, .daily-fold-btn:hover { background: rgba(108, 92, 231, 0.07); }
+      /* 펼친 상태에서는 목록 위에도 접기를 둔다 — 끝까지 내려가야 접히는 불편(2026-08-15 VOC) */
+      .daily-fold-top { margin-bottom: 0.25rem; background: rgba(108, 92, 231, 0.05); }
       /* Reaction Popup Layout */
       .reaction-popup { flex-wrap: wrap; max-width: 280px; gap: 4px; }
       .reaction-popup .flex { flex-wrap: wrap; }
@@ -267,17 +271,19 @@
       function activeMembers(book) { return memberList().filter(m => !isDropout(book, m.id)); }
       // 실제 완료일(_meta.completedAt): 활성 회원이 모두 문장을 채운 날을 챕터별로 남긴다.
       // 목표 일정(schedules)은 계획이므로 덮어쓰지 않고 둘 다 보존한다.
-      // 한 번 찍힌 완료일은 이후 수정·삭제가 있어도 유지한다 — "처음 다 찬 날"이 사실이기 때문.
+      // 수정(saveSentence)은 문장을 비우지 않으므로 완료일이 유지된다.
+      // 삭제로 완료가 깨지면 완료일도 지운다 — 기록만 남으면 화면이 서로 모순되고 되돌릴 방법이 없다.
       // 문장에 타임스탬프가 없어 과거 챕터는 소급 기록이 불가능하다(날짜 미기록으로 표시).
       function isChapterComplete(book, c) {
         const active = activeMembers(book);
         return active.length > 0 && active.every(m => (book.chapters[c]?.[m.id]||"").trim());
       }
-      function stampChapterCompletion(book, c) {
+      function syncChapterCompletion(book, c) {
         if (!book.completedAt) book.completedAt = {};
-        if (!isChapterComplete(book, c) || book.completedAt[c]) return false;
+        if (!isChapterComplete(book, c)) { delete book.completedAt[c]; return false; }
+        if (book.completedAt[c]) return false;
         book.completedAt[c] = dayjs().format('YYYY-MM-DD');
-        return true;
+        return true;   // 방금 완료됨
       }
       function alignChaptersToTotal(chapters, total) {
         const n = { ...(chapters||{}) };
@@ -536,6 +542,9 @@
 
       // ── Daily Readings ──
       let dailyReadingsCache = [];
+      const DAILY_PREVIEW_COUNT = 3;         // 기본으로 보여줄 최근 기록 수
+      const DAILY_STEP = 5;                  // '더 보기' 한 번에 추가할 개수 (한꺼번에 다 펼치지 않는다)
+      let dailyVisible = DAILY_PREVIEW_COUNT;
       const REACTION_EMOJIS = ['❤️','👍','🔥','👏','😄','😢','😡','🤔','🤣','🎉'];
       async function loadDailyReadings() {
         try {
@@ -593,7 +602,16 @@
       function renderDailyReadingComments() {
         const el = document.getElementById('daily-reading-comments'); if (!el) return;
         if (!dailyReadingsCache.length) { el.innerHTML=`<div class="text-center py-4 text-deep/45 text-sm">아직 독서 기록이 없습니다.</div>`; return; }
-        el.innerHTML = dailyReadingsCache.map(r => {
+        const total = dailyReadingsCache.length;
+        const shown = Math.min(dailyVisible, total);
+        const list = dailyReadingsCache.slice(0, shown);
+        const expanded = shown > DAILY_PREVIEW_COUNT;
+        const foldBtn = `<button type="button" class="daily-fold-btn">접기 ▲</button>`;
+        const topBtn = expanded ? `<button type="button" class="daily-fold-btn daily-fold-top">접기 ▲</button>` : "";
+        const moreBtn = shown < total
+          ? `<button type="button" class="daily-more-btn">+ 이전 기록 더 보기 (${shown}/${total})</button>`
+          : (expanded ? foldBtn : "");
+        el.innerHTML = topBtn + list.map(r => {
           const name=r.club_members?.display_name||'알 수 없음', isOwner=r.member_id===currentMemberId;
           const reactions=r.reactions||{};
           // Show all existing reactions, not just new ones
@@ -619,7 +637,7 @@
               </div>
             </div>
           </div>`;
-        }).join('');
+        }).join('') + moreBtn;
       }
       function handleReactionToggle(readingId, emoji) {
         const r = dailyReadingsCache.find(x=>x.id===readingId);
@@ -749,7 +767,7 @@
               const isOwn = m.id === currentMemberId, dropped = isDropout(book, m.id);
               let displayContent;
               if (!txt) {
-                displayContent = `<span class="text-deep/35">${dropped?"완독 제외":"기록 없음"}</span>`;
+                displayContent = dropped?`<p class="text-sm text-deep/35 italic">이번 책은 쉬어가는 중이에요~ 👋</p>`:`<span class="text-deep/35">기록 없음</span>`;
               } else if (isOwn || !blind) {
                 // 본인이거나, 챕터 블라인드 해제된 경우 → 텍스트 + 최종선택 버튼
                 displayContent = `<p class="text-sm text-deep/85">${escapeHtml(txt)}</p>${canSelect?`<div class="mt-1.5 text-right"><button type="button" class="btn-ghost !px-2.5 !py-1 !text-[11px]" data-select-final="1" data-book="${book.id}" data-member="${m.id}" data-chapter="${c}">최종 선택</button></div>`:''}`;
@@ -757,7 +775,7 @@
                 // 블라인드 중 + 타인
                 displayContent = `<p class="text-sm text-deep/35 italic">입력 완료~ (모두의 입력 대기 중...♡)</p>`;
               }
-              return `<li class="rounded-md border border-deep/10 px-2 py-2"><span class="text-[11px] font-semibold text-deep/55">${escapeHtml(m.display_name)}</span>${dropped?`<span class="ml-1.5 rounded-full bg-deep/10 px-1.5 py-0.5 text-[10px] font-medium text-deep/50">완독 제외</span>`:""}<div class="mt-1">${displayContent}</div></li>`;
+              return `<li class="rounded-md border border-deep/10 px-2 py-2"><span class="text-[11px] font-semibold text-deep/55">${escapeHtml(m.display_name)}</span>${dropped?`<span class="ml-1.5 rounded-full bg-deep/10 px-1.5 py-0.5 text-[10px] font-medium text-deep/50">☕ 쉬어가는 중</span>`:""}<div class="mt-1">${displayContent}</div></li>`;
             }).join("");
             const dAt = book.completedAt?.[c];
             const dTxt = dAt ? `<span class="ml-2 text-[11px] font-medium text-sage">✓ ${dayjs(dAt).format('M/D')} 완료</span>`
@@ -818,11 +836,11 @@
           return `<section class="mt-4 rounded-2xl border border-white/10 bg-white/80 p-4 shadow-sm hover:shadow-md transition-shadow"><div class="mb-3 flex items-center justify-between gap-2"><h4 class="font-bold text-deep text-lg">Chapter ${c}</h4><div class="flex items-center gap-1.5">${doneBadge}<span class="text-xs font-medium text-gold bg-gold/10 px-2 py-1 rounded-full whitespace-nowrap">${sub}/${active.length} 작성</span></div></div><ul class="space-y-3">${memberList().map(m=>{
             const sentence=(sel.chapters[c]?.[m.id]||"").trim(), isOwn=m.id===currentMemberId, dropped=isDropout(sel,m.id);
             let disp;
-            if (!sentence) disp=`<span class="text-deep/35">${dropped?"완독 제외":"아직 기록 없음"}</span>`;
+            if (!sentence) disp=dropped?`<p class="text-sm text-deep/35 italic">이번 책은 쉬어가는 중이에요~ (다음 책에서 만나요 👋)</p>`:`<span class="text-deep/35">아직 기록 없음</span>`;
             else if (isOwn) disp=`<div class="sentence-view"><p class="text-sm text-deep/90 leading-relaxed">${escapeHtml(sentence)}</p><div class="mt-3 flex gap-2"><button class="btn-ghost !px-3 !py-1.5 !text-xs font-medium" onclick="editSentence(${c},'${m.id}','${escapeHtml(sentence)}')">수정</button><button class="btn-ghost !px-3 !py-1.5 !text-xs text-red-500 font-medium" onclick="deleteSentence(${c},'${m.id}')">삭제</button></div></div>`;
             else if (!blind) disp=`<p class="text-sm text-deep/90 leading-relaxed">${escapeHtml(sentence)}</p>`;
             else disp=`<p class="text-sm text-deep/35 italic">입력 완료~ (모두의 입력 대기 중...♡)</p>`;
-            return `<li class="rounded-xl border border-white/10 bg-white/90 px-4 py-3 shadow-sm" data-chapter="${c}" data-member="${m.id}"><p class="text-[11px] font-bold text-gold mb-1">${escapeHtml(m.display_name)}${dropped?`<span class="ml-1.5 rounded-full bg-deep/10 px-1.5 py-0.5 text-[10px] font-medium text-deep/50">완독 제외</span>`:""}</p><div class="mt-1">${disp}<div class="sentence-edit hidden mt-2"><textarea class="input-field text-sm" rows="2" id="edit-${c}-${m.id}">${escapeHtml(sentence)}</textarea><div class="mt-2 flex gap-2"><button class="btn-primary !px-3 !py-1.5 !text-xs font-medium" onclick="saveSentence(${c},'${m.id}')">저장</button><button class="btn-ghost !px-3 !py-1.5 !text-xs font-medium" onclick="cancelEdit(${c},'${m.id}')">취소</button></div></div></div></li>`;
+            return `<li class="rounded-xl border border-white/10 bg-white/90 px-4 py-3 shadow-sm" data-chapter="${c}" data-member="${m.id}"><p class="text-[11px] font-bold text-gold mb-1">${escapeHtml(m.display_name)}${dropped?`<span class="ml-1.5 rounded-full bg-deep/10 px-1.5 py-0.5 text-[10px] font-medium text-deep/50">☕ 쉬어가는 중</span>`:""}</p><div class="mt-1">${disp}<div class="sentence-edit hidden mt-2"><textarea class="input-field text-sm" rows="2" id="edit-${c}-${m.id}">${escapeHtml(sentence)}</textarea><div class="mt-2 flex gap-2"><button class="btn-primary !px-3 !py-1.5 !text-xs font-medium" onclick="saveSentence(${c},'${m.id}')">저장</button><button class="btn-ghost !px-3 !py-1.5 !text-xs font-medium" onclick="cancelEdit(${c},'${m.id}')">취소</button></div></div></div></li>`;
           }).join("")}</ul></section>`;
         }).join("");
         return `<main class="reading-tab-container mx-auto max-w-content pb-28">
@@ -832,7 +850,7 @@
             <div class="daily-reading-scroll space-y-3" id="daily-reading-comments"></div>
           </section>
           <div class="book-info-section"><section class="paper-panel rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50">
-            <div class="flex items-center justify-between gap-4"><div><p class="text-[11px] uppercase tracking-[0.2em] text-gold font-bold">이달의 책</p><h2 class="font-serif text-2xl font-bold text-deep mt-1">${escapeHtml(sel.title)}</h2><p class="mt-2"><span class="guide-badge">⭐ 길잡이: ${escapeHtml(memberNameById(sel.guideId))}</span></p>${isDropout(sel,currentMemberId)?`<p class="mt-2 text-xs text-deep/50">이 책은 완독 대상에서 제외되어 있어요. 기록은 자유롭게 남기셔도 됩니다.</p>`:""}</div><span class="text-sm font-bold text-gold bg-gold/10 px-3 py-1.5 rounded-full">${prog.done}/${prog.total} 완료</span></div>
+            <div class="flex items-center justify-between gap-4"><div><p class="text-[11px] uppercase tracking-[0.2em] text-gold font-bold">이달의 책</p><h2 class="font-serif text-2xl font-bold text-deep mt-1">${escapeHtml(sel.title)}</h2><p class="mt-2"><span class="guide-badge">⭐ 길잡이: ${escapeHtml(memberNameById(sel.guideId))}</span></p>${isDropout(sel,currentMemberId)?`<p class="mt-2 text-xs text-deep/50">이번 책은 쉬어가는 중이에요 ☕ 마음이 바뀌면 언제든 한 문장 남겨주세요~</p>`:""}</div><span class="text-sm font-bold text-gold bg-gold/10 px-3 py-1.5 rounded-full">${prog.done}/${prog.total} 완료</span></div>
             <div class="mt-4 h-3 overflow-hidden rounded-full bg-gray-200"><div class="h-full rounded-full bg-gradient-to-r from-gold to-accent transition-all duration-500" style="width:${prog.pct}%"></div></div>
             <form id="form-reading-input" class="mt-5 grid gap-3"><select class="input-field" name="chapter">${chapterOpts}</select><textarea class="input-field" rows="3" name="sentence" placeholder="기억에 남는 문장을 입력하세요" required></textarea><button class="btn-primary font-medium">문장 기록</button></form>
           </section></div>
@@ -1015,6 +1033,7 @@
         if(!confirm('이 문장을 삭제하시겠습니까?'))return;
         const sel=cache.books.find(b=>b.id===currentBookId);if(!sel)return;
         if(sel.chapters[c])delete sel.chapters[c][mid];
+        syncChapterCompletion(sel,c);   // 완료가 깨졌으면 완료일도 함께 지운다
         await persistBook(sel); await refreshFromDb(); renderApp(); showToast('문장이 삭제되었습니다.');
       };
       window.confirmDeleteBook=async function(bookId){
@@ -1135,6 +1154,10 @@
 
           // Daily reading 상호작용
           if(!document.getElementById('daily-reading-comments')?.contains(t)){document.querySelectorAll('.reaction-popup').forEach(p=>p.classList.add('hidden'));return;}
+          const foldBtn2=t.closest('.daily-fold-btn');
+          if(foldBtn2){dailyVisible=DAILY_PREVIEW_COUNT;renderDailyReadingComments();document.getElementById('daily-reading-input')?.scrollIntoView({behavior:'smooth',block:'center'});return;}
+          const moreBtn2=t.closest('.daily-more-btn');
+          if(moreBtn2){dailyVisible=Math.min(dailyReadingsCache.length,dailyVisible+DAILY_STEP);renderDailyReadingComments();return;}
           const rtBtn=t.closest('.reaction-toggle-btn');if(rtBtn){const p=document.querySelector(`.reaction-popup[data-reading-id="${rtBtn.dataset.readingId}"]`);if(p){p.classList.toggle('hidden');document.querySelectorAll('.reaction-popup').forEach(x=>x!==p&&x.classList.add('hidden'));}return;}
           const roBtn=t.closest('.reaction-option');if(roBtn){handleReactionToggle(roBtn.dataset.readingId,roBtn.dataset.emoji);document.querySelector(`.reaction-popup[data-reading-id="${roBtn.dataset.readingId}"]`)?.classList.add('hidden');return;}
           const editBtn2=t.closest('.edit-btn');if(editBtn2){const nc=prompt('내용을 수정하세요:',editBtn2.dataset.content);if(nc!==null){const r=dailyReadingsCache.find(x=>x.id===editBtn2.dataset.readingId);if(r){r.content=nc.trim();renderDailyReadingComments();}editDailyReading(editBtn2.dataset.readingId,nc).then(ok=>{if(ok)setTimeout(()=>loadDailyReadings().then(()=>renderDailyReadingComments()),500);else{showToast('수정하지 못했습니다. 잠시 후 다시 시도해주세요.');loadDailyReadings().then(()=>renderApp());}});}return;}
@@ -1240,8 +1263,8 @@
               book.guideId=form.elements.namedItem("guideId").value;
               const joined=Array.from(form.querySelectorAll('input[name="participant"]:checked')).map(el=>el.value);
               book.dropouts=memberList().filter(m=>!joined.includes(m.id)).map(m=>m.id);
-              // 하차 처리로 남은 회원 기준 완료가 성립할 수 있으므로 전 챕터를 다시 판정한다
-              for(let c=1;c<=book.totalChapters;c++) stampChapterCompletion(book,c);
+              // 참여 회원이 바뀌면 완료가 새로 성립하거나 깨질 수 있으므로 전 챕터를 다시 판정한다
+              for(let c=1;c<=book.totalChapters;c++) syncChapterCompletion(book,c);
               const next=Math.min(10,Math.max(1,parseInt(form.elements.namedItem("totalChapters").value,10)||1));
               book.totalChapters=next;book.chapters=alignChaptersToTotal(book.chapters,next);
               const cu=(form.elements.namedItem("coverUrl").value||"").trim();if(cu)book.coverUrl=cu;
@@ -1254,7 +1277,7 @@
               const b=cache.books.find(x=>x.id===currentBookId);if(!b||!chapter||!sentence)return;
               if(!b.chapters[chapter])b.chapters[chapter]=emptyChapterRecord();
               b.chapters[chapter][currentMemberId]=sentence;
-              const justDone=stampChapterCompletion(b,chapter);
+              const justDone=syncChapterCompletion(b,chapter);
               form.reset();await persistBook(b);await refreshFromDb();
               if(justDone)showToast(`Chapter ${chapter} 완료! 모두의 문장이 공개됐어요.`);
               return renderApp();
