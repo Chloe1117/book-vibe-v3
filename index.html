@@ -554,6 +554,7 @@
 
       // ── Daily Readings ──
       let dailyReadingsCache = [];
+      const DAILY_MAX_LEN = 100;             // 오늘의 읽기 한 줄 최대 길이
       const DAILY_PREVIEW_COUNT = 3;         // 기본으로 보여줄 최근 기록 수
       const DAILY_STEP = 5;                  // '더 보기' 한 번에 추가할 개수 (한꺼번에 다 펼치지 않는다)
       let dailyVisible = DAILY_PREVIEW_COUNT;
@@ -905,7 +906,7 @@
         return `<main class="reading-tab-container mx-auto max-w-content pb-28">
           <section class="paper-panel rounded-2xl border border-white/10 p-5 shadow-lg mb-6 bg-gradient-to-br from-white to-gray-50">
             <h3 class="font-serif text-xl font-bold text-deep mb-4">📖 오늘의 읽기</h3>
-            <div class="mb-4"><div class="flex gap-3"><input type="text" id="daily-reading-input" class="input-field flex-1 text-sm" placeholder="오늘의 독서 생각을 나눠보세요..." maxlength="50"><button id="daily-reading-post" class="btn-primary px-4 py-2.5 text-sm font-medium">게시</button></div><p class="mt-2 text-xs text-deep/50">${currentMemberName}님으로 게시됩니다</p></div>
+            <div class="mb-4"><div class="flex gap-3"><input type="text" id="daily-reading-input" class="input-field flex-1 text-sm" placeholder="오늘의 독서 생각을 나눠보세요..." maxlength="${DAILY_MAX_LEN}"><button id="daily-reading-post" class="btn-primary px-4 py-2.5 text-sm font-medium">게시</button></div><p class="mt-2 flex items-center justify-between text-xs text-deep/50"><span>${currentMemberName}님으로 게시됩니다</span><span id="daily-reading-count">0/${DAILY_MAX_LEN}</span></p></div>
             <div class="daily-reading-scroll space-y-3" id="daily-reading-comments"></div>
           </section>
           <div class="book-info-section"><section class="paper-panel rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50">
@@ -1198,7 +1199,7 @@
             return;
           }
 
-          if(t.id==="daily-reading-post"){const inp=document.getElementById('daily-reading-input');const ok=await postDailyReading(inp?.value||"");if(ok){if(inp)inp.value="";await loadDailyReadings();renderDailyReadingComments();}return;}
+          if(t.id==="daily-reading-post"){const inp=document.getElementById('daily-reading-input');const ok=await postDailyReading(inp?.value||"");if(ok){if(inp)inp.value="";const cnt=document.getElementById('daily-reading-count');if(cnt)cnt.textContent=`0/${DAILY_MAX_LEN}`;await loadDailyReadings();renderDailyReadingComments();}return;}
 
           const closeMBtn=t.closest&&t.closest("[data-close-modal]");if(closeMBtn){closeModal();return renderApp();}
           const openBookEl=t.closest&&t.closest("[data-open-book]");if(openBookEl){openModal("book-detail",{bookId:openBookEl.getAttribute("data-open-book")});return;}
@@ -1287,6 +1288,13 @@
             longPressTimer = null;
           }
           longPressTarget = null;
+        });
+
+        // 오늘의 읽기 글자수 카운터 (maxlength 만 두면 남은 글자를 알 수 없다)
+        document.addEventListener("input",(e)=>{
+          if(e.target?.id!=="daily-reading-input")return;
+          const el=document.getElementById("daily-reading-count");
+          if(el)el.textContent=`${e.target.value.length}/${DAILY_MAX_LEN}`;
         });
 
         document.addEventListener("change",(e)=>{
