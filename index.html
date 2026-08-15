@@ -192,6 +192,8 @@
       let longPressAt = 0;   // 롱프레스(누가 눌렀는지) 발동 시각 — 뒤따라오는 click 이 토글되지 않게 막는다
       let rtChannel = null;
       let debounceTimer = null;
+      let suppressRefreshUntil = 0;   // 보조 안전장치 — updated_at 을 남기지 않는 경로(일정·이달의 책)용
+      let lastWriteStamp = "";        // 내가 마지막에 쓴 books.updated_at. realtime 이 물고 온 값과 같으면 내 쓰기다
       let scheduleCalMonth = {};
       let imageViewerState = { isOpen: false, images: [], currentIndex: 0 };
 
@@ -260,7 +262,11 @@
       function memberList() { return members.length ? members : DEFAULT_MEMBERS; }
       function currentMember() { return memberList().find(m => m.id === currentMemberId) || null; }
       function memberNameById(id) { return memberList().find(m => m.id === id)?.display_name || "미선정"; }
-      function escapeHtml(s) { return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+      // 주의: 이 함수는 HTML 텍스트·속성값 이스케이프 전용이다.
+      // onclick="fn('...')" 같은 JS 코드 문자열 안에는 절대 끼워넣지 말 것 —
+      // HTML 파서가 속성값의 엔티티를 먼저 디코딩하므로 &#39; 를 넣어도 JS 에서는 ' 로 복원돼 문자열이 깨진다.
+      // 사용자 데이터는 data-* 속성 + 이벤트 위임으로 넘긴다.
+      function escapeHtml(s) { return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
       // update/delete 는 RLS 정책이 없거나 조건이 안 맞으면 에러 없이 0행으로 끝난다.
       // error 만 보면 실패를 성공으로 오판하므로, .select() 를 붙이고 이 함수로 반영 행수를 확인한다.
       // (insert 는 정책 위반 시 42501 에러가 나므로 error 검사만으로 충분하다)
@@ -501,7 +507,8 @@
       function showToast(msg) {
         toastMessage = msg;
         if (toastTimer) clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => { toastMessage=""; renderApp(); }, 2300);
+        // 토스트가 사라질 때 전체를 다시 그리면 화면이 한 번 더 깜빡인다 — 토스트 노드만 제거한다
+        toastTimer = setTimeout(() => { toastMessage=""; document.querySelector('.toast')?.remove(); }, 2300);
       }
 
       // ── 멤버 ──
@@ -749,9 +756,14 @@
         const botm = cache.books.find(b=>b.is_book_of_the_month);
         if (botm) currentBookId=botm.id;
         else if (!cache.books.find(b=>b.id===currentBookId)) currentBookId=cache.books[0]?.id||"b1";
+        // 방금 직접 갱신했으니 뒤따르는 realtime 은 건너뛴다.
+        // realtime 이 이 함수보다 먼저 도착해 재렌더가 이미 예약돼 있으면 그것도 취소한다(레이스 방지).
+        suppressRefreshUntil = Date.now() + 800;
+        clearTimeout(debounceTimer);
       }
       async function persistBook(book) {
         const row = bookToRow(book);
+        lastWriteStamp = row.updated_at;   // 이 값이 realtime 으로 되돌아오면 무시한다
         let { error } = await sb.from("books").upsert(row,{onConflict:"id"});
         if (error&&/guide_(id|name)/i.test(String(error.message||""))) {
           const f={...row}; delete f.guide_id; delete f.guide_name;
@@ -759,9 +771,20 @@
         }
         if (error) throw error;
       }
-      function scheduleRefresh() {
+      function scheduleRefresh(payload) {
+        // 내가 방금 저장해 되돌아온 realtime 이벤트까지 다시 그리면 화면이 두세 번 깜빡인다.
+        // 시간 창만으로는 못 막는다 — realtime 지연이 800ms 를 넘는 걸 실측했다(809ms·2316ms).
+        // updated_at 대조가 주 판별이고, 시간 창은 updated_at 을 남기지 않는 경로용 보조다.
+        // 문자열 비교는 안 된다 — JS 는 "...827Z", Postgres 회신은 "...827+00:00" 로 형식이 다르다(실측).
+        const ps = payload?.new?.updated_at;
+        const mine = !!(ps && lastWriteStamp && new Date(ps).getTime() === new Date(lastWriteStamp).getTime());
+        if (mine) return;
+        if (Date.now() < suppressRefreshUntil) return;
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(async()=>{ try{await refreshFromDb();renderApp();}catch(e){renderApp();} },140);
+        debounceTimer = setTimeout(async()=>{
+          if (Date.now() < suppressRefreshUntil) return;   // 대기 중에 내가 직접 갱신했으면 취소
+          try{await refreshFromDb();renderApp();}catch(e){renderApp();}
+        },140);
       }
       function subscribeRealtime() {
         if (rtChannel) sb.removeChannel(rtChannel);
@@ -862,7 +885,7 @@
             const sentence=(sel.chapters[c]?.[m.id]||"").trim(), isOwn=m.id===currentMemberId, dropped=isDropout(sel,m.id);
             let disp;
             if (!sentence) disp=dropped?`<p class="text-sm text-deep/35 italic">이번 책은 쉬어가는 중이에요~ (다음 책에서 만나요 👋)</p>`:`<span class="text-deep/35">아직 기록 없음</span>`;
-            else if (isOwn) disp=`<div class="sentence-view"><p class="text-sm text-deep/90 leading-relaxed">${escapeHtml(sentence)}</p><div class="mt-3 flex gap-2"><button class="btn-ghost !px-3 !py-1.5 !text-xs font-medium" onclick="editSentence(${c},'${m.id}','${escapeHtml(sentence)}')">수정</button><button class="btn-ghost !px-3 !py-1.5 !text-xs text-red-500 font-medium" onclick="deleteSentence(${c},'${m.id}')">삭제</button></div></div>`;
+            else if (isOwn) disp=`<div class="sentence-view"><p class="text-sm text-deep/90 leading-relaxed">${escapeHtml(sentence)}</p><div class="mt-3 flex gap-2"><button class="btn-ghost !px-3 !py-1.5 !text-xs font-medium" onclick="editSentence(${c},'${m.id}')">수정</button><button class="btn-ghost !px-3 !py-1.5 !text-xs text-red-500 font-medium" onclick="deleteSentence(${c},'${m.id}')">삭제</button></div></div>`;
             else if (!blind) disp=`<p class="text-sm text-deep/90 leading-relaxed">${escapeHtml(sentence)}</p>`;
             else disp=`<p class="text-sm text-deep/35 italic">입력 완료~ (모두의 입력 대기 중...♡)</p>`;
             return `<li class="rounded-xl border border-white/10 bg-white/90 px-4 py-3 shadow-sm" data-chapter="${c}" data-member="${m.id}"><p class="text-[11px] font-bold text-gold mb-1">${escapeHtml(m.display_name)}${dropped?`<span class="ml-1.5 rounded-full bg-deep/10 px-1.5 py-0.5 text-[10px] font-medium text-deep/50">☕ 쉬어가는 중</span>`:""}</p><div class="mt-1">${disp}<div class="sentence-edit hidden mt-2"><textarea class="input-field text-sm" rows="2" id="edit-${c}-${m.id}">${escapeHtml(sentence)}</textarea><div class="mt-2 flex gap-2"><button class="btn-primary !px-3 !py-1.5 !text-xs font-medium" onclick="saveSentence(${c},'${m.id}')">저장</button><button class="btn-ghost !px-3 !py-1.5 !text-xs font-medium" onclick="cancelEdit(${c},'${m.id}')">취소</button></div></div></div></li>`;
@@ -1019,7 +1042,7 @@
       }
       function renderSettingsTab() {
         const isAdmin=currentMemberId==='chloe';
-        const mgmt=isAdmin?`<section class="paper-panel mt-6 rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50"><h3 class="font-bold text-deep mb-4 text-lg">📚 사이트 관리</h3><div class="mb-4 text-sm text-deep/70 bg-gold/10 px-4 py-2 rounded-lg">현재 이달의 책: <span class="font-bold text-gold">${cache.books?.find(b=>b.is_book_of_the_month)?.title||'없음'}</span></div><div class="space-y-4">${(cache.books||[]).map(book=>`<div class="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/90 shadow-sm hover:shadow-md transition-shadow"><div class="flex-shrink-0 w-14 h-20">${book.coverUrl?`<img src="${escapeHtml(book.coverUrl)}" alt="${escapeHtml(book.title)}" class="w-full h-full object-cover rounded-lg"/>`:`<div class="w-full h-full bg-gradient-to-br from-deep/10 to-deep/20 rounded-lg flex items-center justify-center"><span class="text-xs text-deep/60 font-semibold">No Cover</span></div>`}</div><div class="flex-1"><p class="font-bold text-deep">${escapeHtml(book.title)}</p><p class="text-sm text-deep/70">${escapeHtml(book.author||"저자 미입력")} | ${book.totalChapters}챕터</p><p class="text-xs text-deep/50">길잡이: ${escapeHtml(memberNameById(book.guideId))}</p></div><div class="flex flex-col gap-2"><div class="flex gap-2"><button class="btn-ghost !px-3 !py-2 !text-xs font-medium" onclick="event.stopPropagation();window.openModal('edit-book',{bookId:'${book.id}'})">수정</button><button class="btn-ghost !px-3 !py-2 !text-xs text-red-500 font-medium" onclick="confirmDeleteBook('${book.id}')">삭제</button></div><button id="btn-set-book-month-${book.id}" class="btn-primary !px-3 !py-2 !text-xs w-full font-medium ${book.is_book_of_the_month?'!bg-gold !cursor-not-allowed':''}" onclick="setBookOfTheMonthDirect('${book.id}','${escapeHtml(book.title)}')" ${book.is_book_of_the_month?'disabled':''}>${book.is_book_of_the_month?'현재 이달의 책 ✓':'이달의 책으로 선정'}</button></div></div>`).join("")}</div></section>`:"";
+        const mgmt=isAdmin?`<section class="paper-panel mt-6 rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50"><h3 class="font-bold text-deep mb-4 text-lg">📚 사이트 관리</h3><div class="mb-4 text-sm text-deep/70 bg-gold/10 px-4 py-2 rounded-lg">현재 이달의 책: <span class="font-bold text-gold">${cache.books?.find(b=>b.is_book_of_the_month)?.title||'없음'}</span></div><div class="space-y-4">${(cache.books||[]).map(book=>`<div class="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/90 shadow-sm hover:shadow-md transition-shadow"><div class="flex-shrink-0 w-14 h-20">${book.coverUrl?`<img src="${escapeHtml(book.coverUrl)}" alt="${escapeHtml(book.title)}" class="w-full h-full object-cover rounded-lg"/>`:`<div class="w-full h-full bg-gradient-to-br from-deep/10 to-deep/20 rounded-lg flex items-center justify-center"><span class="text-xs text-deep/60 font-semibold">No Cover</span></div>`}</div><div class="flex-1"><p class="font-bold text-deep">${escapeHtml(book.title)}</p><p class="text-sm text-deep/70">${escapeHtml(book.author||"저자 미입력")} | ${book.totalChapters}챕터</p><p class="text-xs text-deep/50">길잡이: ${escapeHtml(memberNameById(book.guideId))}</p></div><div class="flex flex-col gap-2"><div class="flex gap-2"><button class="btn-ghost !px-3 !py-2 !text-xs font-medium" onclick="event.stopPropagation();window.openModal('edit-book',{bookId:'${book.id}'})">수정</button><button class="btn-ghost !px-3 !py-2 !text-xs text-red-500 font-medium" onclick="confirmDeleteBook('${book.id}')">삭제</button></div><button id="btn-set-book-month-${book.id}" class="btn-primary !px-3 !py-2 !text-xs w-full font-medium ${book.is_book_of_the_month?'!bg-gold !cursor-not-allowed':''}" onclick="setBookOfTheMonthDirect('${book.id}')" ${book.is_book_of_the_month?'disabled':''}>${book.is_book_of_the_month?'현재 이달의 책 ✓':'이달의 책으로 선정'}</button></div></div>`).join("")}</div></section>`:"";
         const adminAuth=isAdmin?`<section class="paper-panel mt-6 rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50"><h3 class="font-bold text-deep mb-4 text-lg">🛡️ 관리자 인증</h3>${isAdminAuthed?`<div class="text-sm text-deep/70 bg-green-50 px-4 py-3 rounded-lg mb-3">✅ 관리자로 인증됨 — 모임 기록 삭제가 가능합니다.</div><button id="btn-admin-logout" class="btn-ghost !text-sm font-medium">관리자 로그아웃</button>`:`<p class="text-sm text-deep/60 mb-3">모임 이벤트 삭제는 관리자 인증이 필요합니다.</p><form id="form-admin-login" class="grid gap-3"><input class="input-field" type="password" name="adminPassword" placeholder="관리자 비밀번호" autocomplete="current-password" required/><button class="btn-primary font-medium">관리자 로그인</button></form>`}</section>`:"";
         return `<main class="mx-auto max-w-content px-4 py-5 pb-28">${adminAuth}${mgmt}</main>`;
       }
@@ -1043,7 +1066,8 @@
       }
 
       // ── window 함수 ──
-      window.editSentence=function(c,mid,cur){const li=document.querySelector(`[data-chapter="${c}"][data-member="${mid}"]`);if(!li)return;li.querySelector('.sentence-view')?.classList.add('hidden');li.querySelector('.sentence-edit')?.classList.remove('hidden');const ta=li.querySelector(`#edit-${c}-${mid}`);if(ta){ta.value=cur;ta.focus();}};
+      // 문장 원문은 textarea 에 이미 렌더돼 있으므로 인자로 넘기지 않는다(아포스트로피가 onclick 을 깨뜨린다).
+      window.editSentence=function(c,mid){const li=document.querySelector(`[data-chapter="${c}"][data-member="${mid}"]`);if(!li)return;li.querySelector('.sentence-view')?.classList.add('hidden');li.querySelector('.sentence-edit')?.classList.remove('hidden');const ta=li.querySelector(`#edit-${c}-${mid}`);if(ta)ta.focus();};
       window.cancelEdit=function(c,mid){const li=document.querySelector(`[data-chapter="${c}"][data-member="${mid}"]`);if(!li)return;li.querySelector('.sentence-view')?.classList.remove('hidden');li.querySelector('.sentence-edit')?.classList.add('hidden');};
       window.saveSentence=async function(c,mid){
         if(mid!==currentMemberId){alert('자신의 문장만 수정할 수 있습니다.');return;}
@@ -1051,7 +1075,7 @@
         const val=li.querySelector(`#edit-${c}-${mid}`)?.value?.trim();if(!val){alert('문장을 입력해주세요.');return;}
         const sel=cache.books.find(b=>b.id===currentBookId);if(!sel)return;
         if(!sel.chapters[c])sel.chapters[c]=emptyChapterRecord();
-        sel.chapters[c][mid]=val; await persistBook(sel); await refreshFromDb(); renderApp(); showToast('문장이 수정되었습니다.');
+        sel.chapters[c][mid]=val; await persistBook(sel); await refreshFromDb(); showToast('문장이 수정되었습니다.');renderApp();
       };
       window.deleteSentence=async function(c,mid){
         if(mid!==currentMemberId){alert('자신의 문장만 삭제할 수 있습니다.');return;}
@@ -1059,17 +1083,18 @@
         const sel=cache.books.find(b=>b.id===currentBookId);if(!sel)return;
         if(sel.chapters[c])delete sel.chapters[c][mid];
         syncChapterCompletion(sel,c);   // 완료가 깨졌으면 완료일도 함께 지운다
-        await persistBook(sel); await refreshFromDb(); renderApp(); showToast('문장이 삭제되었습니다.');
+        await persistBook(sel); await refreshFromDb(); showToast('문장이 삭제되었습니다.');renderApp();
       };
       window.confirmDeleteBook=async function(bookId){
         if(currentMemberId!=='chloe')return;
         const book=cache.books.find(b=>b.id===bookId);if(!book)return;
         if(!confirm(`"${book.title}" 책을 삭제하시겠습니까?`))return;
-        if(!applied(await sb.from("books").delete().eq("id",bookId).select())){renderApp();showToast("책을 삭제하지 못했습니다. 권한을 확인해주세요.");return;}
-        await refreshFromDb();renderApp();showToast(`"${book.title}" 삭제됐습니다.`);
+        if(!applied(await sb.from("books").delete().eq("id",bookId).select())){showToast("책을 삭제하지 못했습니다. 권한을 확인해주세요.");renderApp();return;}
+        await refreshFromDb();showToast(`"${book.title}" 삭제됐습니다.`);renderApp();
       };
-      window.setBookOfTheMonthDirect=async function(bookId,bookTitle){
+      window.setBookOfTheMonthDirect=async function(bookId){
         if(currentMemberId!=='chloe'){showToast("관리자 기능에 접근할 수 없습니다.");return;}
+        const bookTitle=bookById(bookId)?.title||"";   // 제목은 캐시에서 읽는다 (onclick 인자로 넘기지 않는다)
         const btn=document.getElementById(`btn-set-book-month-${bookId}`);if(!btn||btn.disabled)return;
         const orig=btn.textContent;btn.disabled=true;btn.textContent='선정 중...';
         try{
@@ -1173,7 +1198,7 @@
             const mid=pickEl.getAttribute("data-member"), ch=parseInt(pickEl.getAttribute("data-chapter"),10);
             const txt=(b.chapters[ch]?.[mid]||"").trim(); if(!txt)return;
             if(!confirm(`${memberNameById(mid)}님의 Chapter ${ch} 문장을 「올해의 문장」으로 선정할까요?\n\n"${txt}"`))return;
-            if(await selectFinalSentence(b,mid,ch)){closeModal();renderApp();showToast("올해의 문장이 선정되었습니다.");}
+            if(await selectFinalSentence(b,mid,ch)){closeModal();showToast("올해의 문장이 선정되었습니다.");renderApp();}
             return;
           }
 
@@ -1303,7 +1328,7 @@
               const next=Math.min(10,Math.max(1,parseInt(form.elements.namedItem("totalChapters").value,10)||1));
               book.totalChapters=next;book.chapters=alignChaptersToTotal(book.chapters,next);
               const cu=(form.elements.namedItem("coverUrl").value||"").trim();if(cu)book.coverUrl=cu;
-              await persistBook(book);await refreshFromDb();closeModal();renderApp();showToast("책 정보가 업데이트되었습니다!");
+              await persistBook(book);await refreshFromDb();closeModal();showToast("책 정보가 업데이트되었습니다!");renderApp();
               return;
             }
             if(!isGatePassed||!currentMemberId)return;
