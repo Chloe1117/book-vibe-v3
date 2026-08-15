@@ -777,7 +777,9 @@
         // updated_at 대조가 주 판별이고, 시간 창은 updated_at 을 남기지 않는 경로용 보조다.
         // 문자열 비교는 안 된다 — JS 는 "...827Z", Postgres 회신은 "...827+00:00" 로 형식이 다르다(실측).
         const ps = payload?.new?.updated_at;
-        if (ps && lastWriteStamp && new Date(ps).getTime() === new Date(lastWriteStamp).getTime()) return;
+        const mine = !!(ps && lastWriteStamp && new Date(ps).getTime() === new Date(lastWriteStamp).getTime());
+        console.log('[rt] payload=', ps, '| last=', lastWriteStamp, '| 내쓰기=', mine);   // TODO(디버그): 확인 후 제거
+        if (mine) return;
         if (Date.now() < suppressRefreshUntil) return;
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(async()=>{
@@ -1052,6 +1054,7 @@
         return `<nav class="fixed bottom-0 left-0 right-0 z-30 border-t border-white/10 bg-white/90 backdrop-blur-lg shadow-lg"><div class="mx-auto flex max-w-content">${tabs.join('')}</div></nav>`;
       }
       function renderApp() {
+        console.log('[renderApp] ←', (new Error().stack||'').split('\n').slice(2,4).map(s=>s.trim().replace(/^at /,'')).join('  ←  '));   // TODO(디버그): 확인 후 제거
         const root=document.getElementById("app-root"); if (!root) return;
         const main=isGatePassed&&currentMemberId
           ? currentTab==="shelf" ? renderBookshelfTab()
