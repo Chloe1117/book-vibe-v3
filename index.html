@@ -63,12 +63,15 @@
       .cal-cell.is-end { outline: 2px solid rgba(26, 26, 46, 0.5); outline-offset: -2px; }
       .cal-cell.is-today { box-shadow: 0 0 0 2px #1a1a2e inset; }
       .cal-cell .cal-today-tag { position: absolute; bottom: 1px; font-size: 0.55rem; line-height: 1; }
+      .cal-cell .cal-done-mark { position: absolute; top: 1px; left: 3px; font-size: 0.6rem; line-height: 1; font-weight: 700; color: #00b894; }
+      .cal-cell.has-range .cal-done-mark { color: #ffffff; text-shadow: 0 0 2px rgba(0,0,0,0.4); }
       .cal-nav-btn { cursor: pointer; padding: 0.2rem 0.6rem; border-radius: 0.5rem; font-size: 0.9rem; color: #6c5ce7; }
       .cal-nav-btn:hover { background: rgba(108, 92, 231, 0.1); }
       .cal-legend { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
       .cal-legend-chip { display: flex; align-items: center; gap: 5px; font-size: 0.72rem; color: rgba(26, 26, 46, 0.65); cursor: pointer; padding: 0.2rem 0.5rem; border-radius: 999px; background: rgba(0,0,0,0.03); }
       .cal-legend-chip:hover { background: rgba(108, 92, 231, 0.1); }
       .cal-legend-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+      .cal-legend-done { color: #00b894; font-weight: 600; }
       .cal-thumbnails { position: absolute; top: 2px; right: 2px; display: flex; gap: 3px; z-index: 5; }
       .cal-thumbnail { width: 24px; height: 36px; border-radius: 4px; object-fit: cover; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3); transition: transform 0.2s; aspect-ratio: 2/3; }
       .cal-thumbnail:hover { transform: scale(1.3); z-index: 10; }
@@ -154,10 +157,11 @@
       const SUPABASE_ANON_KEY = "sb_publishable_fQ0No6cq6837PG0xo3SaSA_0x7R1nJI";
       const ADMIN_EMAIL = "kimmira1117@gmail.com"; // 관리자 삭제 권한 전용 Supabase Auth 계정
       const BOOK_TOTAL = 10;
+      // 인증은 ?key=<member_code> 매직링크 하나로 통일. password 는 더 이상 읽지도 쓰지도 않는다(F3).
       const DEFAULT_MEMBERS = [
-        { id:"mary",  display_name:"Mary",  sort_order:3, password:"", is_first_login:true, member_code:"mary2026" },
-        { id:"chad",  display_name:"Chad",  sort_order:1, password:"", is_first_login:true, member_code:"chad2026" },
-        { id:"chloe", display_name:"Chloe", sort_order:2, password:"", is_first_login:true, member_code:"chloe99"  },
+        { id:"mary",  display_name:"Mary",  sort_order:3, member_code:"mary2026" },
+        { id:"chad",  display_name:"Chad",  sort_order:1, member_code:"chad2026" },
+        { id:"chloe", display_name:"Chloe", sort_order:2, member_code:"chloe99"  },
       ];
 
       const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -174,7 +178,6 @@
       let meetingLoading     = false;
       let detailBookId = null;
       let uiModal = { type:null, error:"", meta:{} };
-      let pendingSecureAction = null;
       let isAdminAuthed = false; // Supabase Auth 로그인(관리자) 여부 — 모임 이벤트 삭제 권한
       let toastMessage = "";
       let toastTimer = null;
@@ -249,10 +252,33 @@
       function currentMember() { return memberList().find(m => m.id === currentMemberId) || null; }
       function memberNameById(id) { return memberList().find(m => m.id === id)?.display_name || "미선정"; }
       function escapeHtml(s) { return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+      // update/delete 는 RLS 정책이 없거나 조건이 안 맞으면 에러 없이 0행으로 끝난다.
+      // error 만 보면 실패를 성공으로 오판하므로, .select() 를 붙이고 이 함수로 반영 행수를 확인한다.
+      // (insert 는 정책 위반 시 42501 에러가 나므로 error 검사만으로 충분하다)
+      function applied(res) { if (res?.error) { console.error(res.error); return false; } return (res?.data||[]).length > 0; }
       function bookById(id) { return cache.books.find(b => b.id === id) || null; }
       function bookIdSortIndex(id) { const m = /^b(\d+)$/i.exec(String(id||"")); return m ? parseInt(m[1],10) : 1e9; }
       function sortRows(rows) { return (rows||[]).slice().sort((a,b) => bookIdSortIndex(a.id)-bookIdSortIndex(b.id)); }
       function emptyChapterRecord() { const o = {}; memberList().forEach(m => o[m.id] = ""); return o; }
+      // 완독을 포기한 회원(_meta.dropouts)은 블라인드 해제 조건과 진행률 계산에서 제외한다.
+      // 한 명이 안 쓰면 나머지가 서로의 문장을 영영 못 보고 진행률도 멈추기 때문이다.
+      // 기존 문장은 지우지 않고 그대로 보존·표시한다.
+      function isDropout(book, memberId) { return (book?.dropouts||[]).includes(memberId); }
+      function activeMembers(book) { return memberList().filter(m => !isDropout(book, m.id)); }
+      // 실제 완료일(_meta.completedAt): 활성 회원이 모두 문장을 채운 날을 챕터별로 남긴다.
+      // 목표 일정(schedules)은 계획이므로 덮어쓰지 않고 둘 다 보존한다.
+      // 한 번 찍힌 완료일은 이후 수정·삭제가 있어도 유지한다 — "처음 다 찬 날"이 사실이기 때문.
+      // 문장에 타임스탬프가 없어 과거 챕터는 소급 기록이 불가능하다(날짜 미기록으로 표시).
+      function isChapterComplete(book, c) {
+        const active = activeMembers(book);
+        return active.length > 0 && active.every(m => (book.chapters[c]?.[m.id]||"").trim());
+      }
+      function stampChapterCompletion(book, c) {
+        if (!book.completedAt) book.completedAt = {};
+        if (!isChapterComplete(book, c) || book.completedAt[c]) return false;
+        book.completedAt[c] = dayjs().format('YYYY-MM-DD');
+        return true;
+      }
       function alignChaptersToTotal(chapters, total) {
         const n = { ...(chapters||{}) };
         for (let c=1; c<=total; c++) if (!n[c]) n[c] = emptyChapterRecord();
@@ -270,7 +296,12 @@
           memberList().forEach(m => { rec[m.id] = typeof src[m.id]==="string" ? src[m.id] : ""; });
           chapters[c] = rec;
         }
-        return { chapters, total, guideIdInMeta: typeof meta.guideId==="string" ? meta.guideId : "" };
+        const dropouts = Array.isArray(meta.dropouts) ? meta.dropouts.filter(x => typeof x==="string") : [];
+        const completedAt = {};
+        if (meta.completedAt && typeof meta.completedAt === "object") {
+          for (let c=1; c<=total; c++) { const d = meta.completedAt[c] ?? meta.completedAt[String(c)]; if (typeof d==="string" && d) completedAt[c] = d; }
+        }
+        return { chapters, total, dropouts, completedAt, guideIdInMeta: typeof meta.guideId==="string" ? meta.guideId : "" };
       }
       function normalizeBook(row, idx) {
         const norm = normalizeMilestones(row.milestones);
@@ -281,6 +312,7 @@
           id: row.id || `b${idx+1}`, title: row.title || `2026 독서 ${idx+1}`,
           author: row.author||"", coverUrl: row.cover_url||"", guideId, guide_id: guideId,
           chapters: alignChaptersToTotal(norm.chapters, totalChapters), totalChapters,
+          dropouts: norm.dropouts, completedAt: norm.completedAt,
           final_sentence_text: row.final_sentence_text||"",
           final_sentence_member_id: row.final_sentence_member_id||"",
           final_sentence_chapter: row.final_sentence_chapter||null,
@@ -290,7 +322,7 @@
         };
       }
       function serializeMilestones(book) {
-        const p = { _meta: { totalChapters: book.totalChapters, guideId: book.guideId } };
+        const p = { _meta: { totalChapters: book.totalChapters, guideId: book.guideId, dropouts: book.dropouts||[], completedAt: book.completedAt||{} } };
         for (let c=1; c<=book.totalChapters; c++) p[c] = book.chapters[c] || emptyChapterRecord();
         return p;
       }
@@ -304,15 +336,18 @@
           schedules:book.schedules||{}, updated_at:new Date().toISOString() };
       }
       function chapterProgress(book) {
+        const active = activeMembers(book);
         const done = Array.from({length:book.totalChapters},(_,i)=>i+1)
-          .filter(c => memberList().every(m => (book.chapters[c]?.[m.id]||"").trim())).length;
+          .filter(c => active.length && active.every(m => (book.chapters[c]?.[m.id]||"").trim())).length;
         return { done, total:book.totalChapters, pct:Math.round((done/Math.max(1,book.totalChapters))*100) };
       }
 
-      // ★ 핵심 블라인드 판별 함수 — 두 탭에서 공통 사용
+      // ★ 핵심 블라인드 판별 함수 — 두 탭에서 공통 사용 (완독 포기 회원은 조건에서 제외)
       function isChapterBlind(book, chapterNum) {
-        const submittedCount = memberList().filter(m => (book.chapters[chapterNum]?.[m.id]||"").trim()).length;
-        return submittedCount < memberList().length;
+        const active = activeMembers(book);
+        if (!active.length) return false;
+        const submittedCount = active.filter(m => (book.chapters[chapterNum]?.[m.id]||"").trim()).length;
+        return submittedCount < active.length;
       }
 
       // ── 챕터별 목표 일정: 구간 계산 & 달력 렌더 ──
@@ -406,11 +441,21 @@
             thumbnailHtml += '</div>';
           }
           
-          cells += `<div class="cal-cell ${g?g.color+' has-range':''} ${isEnd?'is-end':''} ${isToday?'is-today':''}">${d}${isToday?'<span class="cal-today-tag">오늘</span>':''}${thumbnailHtml}</div>`;
+          const doneChs = Object.keys(book.completedAt||{}).filter(c => book.completedAt[c] === dateStr);
+          const doneMark = doneChs.length ? `<span class="cal-done-mark" title="Chapter ${doneChs.join(', ')} 실제 완료">✓</span>` : '';
+
+          cells += `<div class="cal-cell ${g?g.color+' has-range':''} ${isEnd?'is-end':''} ${isToday?'is-today':''}">${d}${isToday?'<span class="cal-today-tag">오늘</span>':''}${doneMark}${thumbnailHtml}</div>`;
         }
         const legend = validGroups.map(g => {
           const label = g.chapters.length>1 ? `Ch${g.chapters[0]}-${g.chapters[g.chapters.length-1]}` : `Ch${g.chapters[0]}`;
-          return `<span class="cal-legend-chip" data-jump-month="${dayjs(g.end).format('YYYY-MM')}" data-book="${book.id}"><span class="cal-legend-dot ${g.color}"></span>${label} · ${dayjs(g.end).format('M/D')}</span>`;
+          // 목표일은 그대로 두고 실제 완료일을 옆에 병기한다 (덮어쓰지 않는다)
+          const doneAt = (book.completedAt||{})[g.chapters[g.chapters.length-1]];
+          let doneTxt = '';
+          if (doneAt) {
+            const gap = dayjs(doneAt).diff(dayjs(g.end),'day');
+            doneTxt = ` <span class="cal-legend-done">→ ${dayjs(doneAt).format('M/D')} (${gap>0?`+${gap}일`:gap<0?`${gap}일`:'정시'})</span>`;
+          }
+          return `<span class="cal-legend-chip" data-jump-month="${dayjs(g.end).format('YYYY-MM')}" data-book="${book.id}"><span class="cal-legend-dot ${g.color}"></span>${label} · ${dayjs(g.end).format('M/D')}${doneTxt}</span>`;
         }).join('');
         const unsetLine = unsetChapters.length ? `<p class="mt-2 text-xs text-deep/40">일정 미정: ${unsetChapters.map(c=>`Chapter ${c}`).join(', ')}</p>` : '';
         return `<div class="schedule-calendar">
@@ -430,7 +475,7 @@
       function ensureBook(id) {
         const hit = bookById(id); if (hit) return hit;
         const g = memberList()[0]?.id||""; const tc=4;
-        return { id, title:id, author:"", coverUrl:"", guideId:g,
+        return { id, title:id, author:"", coverUrl:"", guideId:g, dropouts:[], completedAt:{},
           chapters:alignChaptersToTotal({},tc), totalChapters:tc,
           final_sentence_text:"", final_sentence_member_id:"", final_sentence_chapter:null, finalAt:null };
       }
@@ -451,16 +496,15 @@
       // ── 멤버 ──
       async function loadMembers() {
         const { data, error } = await sb.from("club_members")
-          .select("id,display_name,sort_order,password,is_first_login,member_code")
+          .select("id,display_name,sort_order,member_code")   // password 는 조회하지 않는다(F3)
           .order("sort_order",{ascending:true});
         if (error) throw error;
         members = (data||[]).map(m => ({
           id:m.id, display_name:m.display_name, sort_order:m.sort_order,
-          password:m.password||"", is_first_login:!!m.is_first_login,
           member_code:m.member_code||generateMemberCode(m.id)
         }));
         if (!members.length) {
-          await sb.from("club_members").insert(DEFAULT_MEMBERS.map(m=>({...m,password:"",member_code:m.member_code})));
+          await sb.from("club_members").insert(DEFAULT_MEMBERS);
           return loadMembers();
         }
         return members;
@@ -528,25 +572,18 @@
           // Update counts for all emojis that have reactions
           const allEmojis = [...new Set([...REACTION_EMOJIS, ...Object.keys(existingReactions)])];
           allEmojis.forEach(e => { updated[e]=Math.max(0,(counts||[]).filter(r=>r.emoji===e).length); });
-          await sb.from('daily_readings').update({reactions:updated}).eq('id',readingId);
-          return true;
+          return applied(await sb.from('daily_readings').update({reactions:updated}).eq('id',readingId).select());
         } catch(e) { console.error(e); return false; }
       }
-      // ※ delete/update 는 RLS 정책이 없어도 에러 없이 0행으로 끝난다.
-      //    error 만 보면 실패를 성공으로 오판하므로 .select() 로 실제 반영 행수를 확인한다.
       async function editDailyReading(id, content) {
         if (!currentMemberId||!content?.trim()) return false;
-        const { data, error } = await sb.from('daily_readings').update({content:content.trim()}).eq('id',id).eq('member_id',currentMemberId).select();
-        if (error) { console.error(error); return false; }
-        return (data||[]).length > 0;
+        return applied(await sb.from('daily_readings').update({content:content.trim()}).eq('id',id).eq('member_id',currentMemberId).select());
       }
       async function deleteDailyReading(id) {
         if (!currentMemberId) return false;
-        const { error: rxErr } = await sb.from('reading_reactions').delete().eq('reading_id',id);
-        if (rxErr) { console.error(rxErr); return false; }
-        const { data, error } = await sb.from('daily_readings').delete().eq('id',id).eq('member_id',currentMemberId).select();
-        if (error) { console.error(error); return false; }
-        return (data||[]).length > 0;
+        const rx = await sb.from('reading_reactions').delete().eq('reading_id',id);
+        if (rx.error) { console.error(rx.error); return false; }   // 0행은 정상 — 리액션이 없는 댓글도 있다
+        return applied(await sb.from('daily_readings').delete().eq('id',id).eq('member_id',currentMemberId).select());
       }
       function formatTimeAgo(d) {
         const m = Math.floor((Date.now()-new Date(d))/60000);
@@ -644,15 +681,14 @@
       }
       async function deleteMeetingPost(postId, eventId) {
         if (!currentMemberId||!confirm("기록을 삭제하시겠습니까?")) return false;
-        const { error } = await sb.from("meeting_posts").delete().eq("id",postId).eq("member_id",currentMemberId);
-        if (error) { console.error(error); return false; }
+        if (!applied(await sb.from("meeting_posts").delete().eq("id",postId).eq("member_id",currentMemberId).select())) return false;
         await loadMeetingPosts(eventId); return true;
       }
       async function deleteMeetingEvent(eventId) {
         if (!isAdminAuthed) { showToast("모임 삭제는 설정 탭에서 관리자 로그인 후 가능합니다."); return false; }
         if (!confirm("모임 기록 전체를 삭제하시겠습니까? 하위 기록도 모두 삭제됩니다.")) return false;
-        const { error } = await sb.from("meeting_events").delete().eq("id",eventId);
-        if (error) { console.error(error); showToast("삭제 실패: "+error.message); return false; }
+        const res = await sb.from("meeting_events").delete().eq("id",eventId).select();
+        if (!applied(res)) { showToast(res.error ? "삭제 실패: "+res.error.message : "삭제되지 않았습니다. 관리자 권한을 확인해주세요."); return false; }
         await loadAllMeetingData(); return true;
       }
 
@@ -710,10 +746,10 @@
             const blind = isChapterBlind(book, c);
             const memberItems = memberList().map(m => {
               const txt=(book.chapters[c]?.[m.id]||"").trim();
-              const isOwn = m.id === currentMemberId;
+              const isOwn = m.id === currentMemberId, dropped = isDropout(book, m.id);
               let displayContent;
               if (!txt) {
-                displayContent = `<span class="text-deep/35">기록 없음</span>`;
+                displayContent = `<span class="text-deep/35">${dropped?"완독 제외":"기록 없음"}</span>`;
               } else if (isOwn || !blind) {
                 // 본인이거나, 챕터 블라인드 해제된 경우 → 텍스트 + 최종선택 버튼
                 displayContent = `<p class="text-sm text-deep/85">${escapeHtml(txt)}</p>${canSelect?`<div class="mt-1.5 text-right"><button type="button" class="btn-ghost !px-2.5 !py-1 !text-[11px]" data-select-final="1" data-book="${book.id}" data-member="${m.id}" data-chapter="${c}">최종 선택</button></div>`:''}`;
@@ -721,9 +757,12 @@
                 // 블라인드 중 + 타인
                 displayContent = `<p class="text-sm text-deep/35 italic">입력 완료~ (모두의 입력 대기 중...♡)</p>`;
               }
-              return `<li class="rounded-md border border-deep/10 px-2 py-2"><span class="text-[11px] font-semibold text-deep/55">${escapeHtml(m.display_name)}</span><div class="mt-1">${displayContent}</div></li>`;
+              return `<li class="rounded-md border border-deep/10 px-2 py-2"><span class="text-[11px] font-semibold text-deep/55">${escapeHtml(m.display_name)}</span>${dropped?`<span class="ml-1.5 rounded-full bg-deep/10 px-1.5 py-0.5 text-[10px] font-medium text-deep/50">완독 제외</span>`:""}<div class="mt-1">${displayContent}</div></li>`;
             }).join("");
-            return `<section class="mt-3 rounded-lg border border-deep/10 bg-white/70 p-3"><h4 class="font-semibold text-sm text-deep">Chapter ${c}</h4><ul class="mt-2 space-y-2">${memberItems}</ul></section>`;
+            const dAt = book.completedAt?.[c];
+            const dTxt = dAt ? `<span class="ml-2 text-[11px] font-medium text-sage">✓ ${dayjs(dAt).format('M/D')} 완료</span>`
+                             : (isChapterComplete(book,c) ? `<span class="ml-2 text-[11px] text-deep/35">완료 · 날짜 미기록</span>` : "");
+            return `<section class="mt-3 rounded-lg border border-deep/10 bg-white/70 p-3"><h4 class="font-semibold text-sm text-deep">Chapter ${c}${dTxt}</h4><ul class="mt-2 space-y-2">${memberItems}</ul></section>`;
           }).join("");
           content.innerHTML=`<div class="paper-panel max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-deep/12 p-5 shadow-2xl"><div class="mb-3 flex items-start justify-between gap-3"><div><h3 class="font-serif text-xl text-deep">${escapeHtml(book.title)}</h3><p class="text-sm text-deep/55">${escapeHtml(book.author||"저자 미입력")}</p><p class="mt-1"><span class="guide-badge">🚩 이번 책의 길잡이: ${escapeHtml(memberNameById(book.guideId))}</span></p></div><button class="btn-ghost !py-1.5 !text-xs" data-close-modal="1">닫기</button></div><p class="text-xs text-deep/60">${canSelect?"최종 선택은 모두가 입력한 챕터에서만 가능합니다.":"길잡이만 최종 문장을 선택할 수 있습니다."}</p>${rows}</div>`;
 
@@ -741,10 +780,10 @@
         } else if (type==="edit-book"||type==="book-settings") {
           const selId=meta.bookId||""; const selBook=bookById(selId);
           const opts=cache.books.map(b=>`<option value="${b.id}" ${selId===b.id?"selected":""}>${b.id} · ${escapeHtml(b.title)}</option>`).join("");
-          content.innerHTML=`<div class="paper-panel max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-2xl border border-deep/12 p-5 shadow-2xl sm:rounded-2xl"><div class="sticky top-0 z-10 -mx-5 -mt-5 mb-4 flex items-center justify-between border-b border-deep/10 bg-[#f7f1e5]/95 px-5 py-3 backdrop-blur"><h2 class="font-serif text-xl">책 정보 설정(관리자)</h2><button type="button" class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><form id="form-book-settings" class="grid gap-3"><div><label class="text-xs text-deep/60">책 선택</label><select class="input-field mt-1" name="bookPick"><option value="">새 ID 사용</option>${opts}</select></div><div><label class="text-xs text-deep/60">새 ID (예: b11)</label><input class="input-field mt-1" name="bookId" value="${selBook?"":escapeHtml(selId)}" placeholder="b1"/></div><div><label class="text-xs text-deep/60">책 제목</label><input class="input-field mt-1" name="title" value="${escapeHtml(selBook?.title||"")}" required/></div><div><label class="text-xs text-deep/60">저자</label><input class="input-field mt-1" name="author" value="${escapeHtml(selBook?.author||"")}"/></div><div><label class="text-xs text-deep/60">총 챕터 수</label><input class="input-field mt-1" type="number" min="1" max="10" name="totalChapters" value="${selBook?.totalChapters||4}" required/></div><div><label class="text-xs text-deep/60">길잡이 지정</label><select class="input-field mt-1" name="guideId">${memberList().map(m=>`<option value="${m.id}" ${selBook?.guideId===m.id?"selected":""}>${escapeHtml(m.display_name)}</option>`).join("")}</select></div><div><label class="text-xs text-deep/60">표지 이미지 URL</label><input class="input-field mt-1" name="coverUrl" value="${escapeHtml(selBook?.coverUrl||"")}" placeholder="https://..."/></div><button class="btn-primary w-full">저장</button></form></div>`;
+          content.innerHTML=`<div class="paper-panel max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-2xl border border-deep/12 p-5 shadow-2xl sm:rounded-2xl"><div class="sticky top-0 z-10 -mx-5 -mt-5 mb-4 flex items-center justify-between border-b border-deep/10 bg-[#f7f1e5]/95 px-5 py-3 backdrop-blur"><h2 class="font-serif text-xl">책 정보 설정(관리자)</h2><button type="button" class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><form id="form-book-settings" class="grid gap-3"><div><label class="text-xs text-deep/60">책 선택</label><select class="input-field mt-1" name="bookPick"><option value="">새 ID 사용</option>${opts}</select></div><div><label class="text-xs text-deep/60">새 ID (예: b11)</label><input class="input-field mt-1" name="bookId" value="${selBook?"":escapeHtml(selId)}" placeholder="b1"/></div><div><label class="text-xs text-deep/60">책 제목</label><input class="input-field mt-1" name="title" value="${escapeHtml(selBook?.title||"")}" required/></div><div><label class="text-xs text-deep/60">저자</label><input class="input-field mt-1" name="author" value="${escapeHtml(selBook?.author||"")}"/></div><div><label class="text-xs text-deep/60">총 챕터 수</label><input class="input-field mt-1" type="number" min="1" max="10" name="totalChapters" value="${selBook?.totalChapters||4}" required/></div><div><label class="text-xs text-deep/60">길잡이 지정</label><select class="input-field mt-1" name="guideId">${memberList().map(m=>`<option value="${m.id}" ${selBook?.guideId===m.id?"selected":""}>${escapeHtml(m.display_name)}</option>`).join("")}</select></div><div><label class="text-xs text-deep/60">완독 참여 회원</label><div class="mt-1.5 flex flex-wrap gap-3">${memberList().map(m=>`<label class="flex items-center gap-1.5 text-sm text-deep/80"><input type="checkbox" name="participant" value="${m.id}" ${(selBook?.dropouts||[]).includes(m.id)?"":"checked"}/>${escapeHtml(m.display_name)}</label>`).join("")}</div><p class="mt-1 text-[11px] text-deep/40">체크를 해제한 회원은 이 책의 진행률·문장 공개 조건에서 빠집니다. 이미 남긴 문장은 그대로 보존됩니다.</p></div><div><label class="text-xs text-deep/60">표지 이미지 URL</label><input class="input-field mt-1" name="coverUrl" value="${escapeHtml(selBook?.coverUrl||"")}" placeholder="https://..."/></div><button class="btn-primary w-full">저장</button></form></div>`;
 
         } else {
-          content.innerHTML = renderAuthModal();
+          content.innerHTML = "";
         }
       }
       function closeModal() {
@@ -770,15 +809,20 @@
         const chapterOpts=Array.from({length:sel.totalChapters},(_,i)=>i+1).map(n=>`<option value="${n}" ${n===defaultChapter?'selected':''}>Chapter ${n}</option>`).join("");
         const rows=Array.from({length:sel.totalChapters},(_,i)=>i+1).map(c=>{
           const blind=isChapterBlind(sel,c);
-          const sub=memberList().filter(m=>(sel.chapters[c]?.[m.id]||"").trim()).length;
-          return `<section class="mt-4 rounded-2xl border border-white/10 bg-white/80 p-4 shadow-sm hover:shadow-md transition-shadow"><div class="mb-3 flex items-center justify-between"><h4 class="font-bold text-deep text-lg">Chapter ${c}</h4><span class="text-xs font-medium text-gold bg-gold/10 px-2 py-1 rounded-full">${sub}/${memberList().length} 작성</span></div><ul class="space-y-3">${memberList().map(m=>{
-            const sentence=(sel.chapters[c]?.[m.id]||"").trim(), isOwn=m.id===currentMemberId;
+          const active=activeMembers(sel);
+          const sub=active.filter(m=>(sel.chapters[c]?.[m.id]||"").trim()).length;
+          const doneAt=sel.completedAt?.[c];
+          const doneBadge=doneAt
+            ?`<span class="text-xs font-medium text-sage bg-sage/10 px-2 py-1 rounded-full whitespace-nowrap">✓ ${dayjs(doneAt).format('M/D')} 완료</span>`
+            :(isChapterComplete(sel,c)?`<span class="text-xs font-medium text-deep/35 bg-deep/5 px-2 py-1 rounded-full whitespace-nowrap">완료 · 날짜 미기록</span>`:"");
+          return `<section class="mt-4 rounded-2xl border border-white/10 bg-white/80 p-4 shadow-sm hover:shadow-md transition-shadow"><div class="mb-3 flex items-center justify-between gap-2"><h4 class="font-bold text-deep text-lg">Chapter ${c}</h4><div class="flex items-center gap-1.5">${doneBadge}<span class="text-xs font-medium text-gold bg-gold/10 px-2 py-1 rounded-full whitespace-nowrap">${sub}/${active.length} 작성</span></div></div><ul class="space-y-3">${memberList().map(m=>{
+            const sentence=(sel.chapters[c]?.[m.id]||"").trim(), isOwn=m.id===currentMemberId, dropped=isDropout(sel,m.id);
             let disp;
-            if (!sentence) disp=`<span class="text-deep/35">아직 기록 없음</span>`;
+            if (!sentence) disp=`<span class="text-deep/35">${dropped?"완독 제외":"아직 기록 없음"}</span>`;
             else if (isOwn) disp=`<div class="sentence-view"><p class="text-sm text-deep/90 leading-relaxed">${escapeHtml(sentence)}</p><div class="mt-3 flex gap-2"><button class="btn-ghost !px-3 !py-1.5 !text-xs font-medium" onclick="editSentence(${c},'${m.id}','${escapeHtml(sentence)}')">수정</button><button class="btn-ghost !px-3 !py-1.5 !text-xs text-red-500 font-medium" onclick="deleteSentence(${c},'${m.id}')">삭제</button></div></div>`;
             else if (!blind) disp=`<p class="text-sm text-deep/90 leading-relaxed">${escapeHtml(sentence)}</p>`;
             else disp=`<p class="text-sm text-deep/35 italic">입력 완료~ (모두의 입력 대기 중...♡)</p>`;
-            return `<li class="rounded-xl border border-white/10 bg-white/90 px-4 py-3 shadow-sm" data-chapter="${c}" data-member="${m.id}"><p class="text-[11px] font-bold text-gold mb-1">${escapeHtml(m.display_name)}</p><div class="mt-1">${disp}<div class="sentence-edit hidden mt-2"><textarea class="input-field text-sm" rows="2" id="edit-${c}-${m.id}">${escapeHtml(sentence)}</textarea><div class="mt-2 flex gap-2"><button class="btn-primary !px-3 !py-1.5 !text-xs font-medium" onclick="saveSentence(${c},'${m.id}')">저장</button><button class="btn-ghost !px-3 !py-1.5 !text-xs font-medium" onclick="cancelEdit(${c},'${m.id}')">취소</button></div></div></div></li>`;
+            return `<li class="rounded-xl border border-white/10 bg-white/90 px-4 py-3 shadow-sm" data-chapter="${c}" data-member="${m.id}"><p class="text-[11px] font-bold text-gold mb-1">${escapeHtml(m.display_name)}${dropped?`<span class="ml-1.5 rounded-full bg-deep/10 px-1.5 py-0.5 text-[10px] font-medium text-deep/50">완독 제외</span>`:""}</p><div class="mt-1">${disp}<div class="sentence-edit hidden mt-2"><textarea class="input-field text-sm" rows="2" id="edit-${c}-${m.id}">${escapeHtml(sentence)}</textarea><div class="mt-2 flex gap-2"><button class="btn-primary !px-3 !py-1.5 !text-xs font-medium" onclick="saveSentence(${c},'${m.id}')">저장</button><button class="btn-ghost !px-3 !py-1.5 !text-xs font-medium" onclick="cancelEdit(${c},'${m.id}')">취소</button></div></div></div></li>`;
           }).join("")}</ul></section>`;
         }).join("");
         return `<main class="reading-tab-container mx-auto max-w-content pb-28">
@@ -788,7 +832,7 @@
             <div class="daily-reading-scroll space-y-3" id="daily-reading-comments"></div>
           </section>
           <div class="book-info-section"><section class="paper-panel rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50">
-            <div class="flex items-center justify-between gap-4"><div><p class="text-[11px] uppercase tracking-[0.2em] text-gold font-bold">이달의 책</p><h2 class="font-serif text-2xl font-bold text-deep mt-1">${escapeHtml(sel.title)}</h2><p class="mt-2"><span class="guide-badge">⭐ 길잡이: ${escapeHtml(memberNameById(sel.guideId))}</span></p></div><span class="text-sm font-bold text-gold bg-gold/10 px-3 py-1.5 rounded-full">${prog.done}/${prog.total} 완료</span></div>
+            <div class="flex items-center justify-between gap-4"><div><p class="text-[11px] uppercase tracking-[0.2em] text-gold font-bold">이달의 책</p><h2 class="font-serif text-2xl font-bold text-deep mt-1">${escapeHtml(sel.title)}</h2><p class="mt-2"><span class="guide-badge">⭐ 길잡이: ${escapeHtml(memberNameById(sel.guideId))}</span></p>${isDropout(sel,currentMemberId)?`<p class="mt-2 text-xs text-deep/50">이 책은 완독 대상에서 제외되어 있어요. 기록은 자유롭게 남기셔도 됩니다.</p>`:""}</div><span class="text-sm font-bold text-gold bg-gold/10 px-3 py-1.5 rounded-full">${prog.done}/${prog.total} 완료</span></div>
             <div class="mt-4 h-3 overflow-hidden rounded-full bg-gray-200"><div class="h-full rounded-full bg-gradient-to-r from-gold to-accent transition-all duration-500" style="width:${prog.pct}%"></div></div>
             <form id="form-reading-input" class="mt-5 grid gap-3"><select class="input-field" name="chapter">${chapterOpts}</select><textarea class="input-field" rows="3" name="sentence" placeholder="기억에 남는 문장을 입력하세요" required></textarea><button class="btn-primary font-medium">문장 기록</button></form>
           </section></div>
@@ -932,17 +976,9 @@
       }
       function renderSettingsTab() {
         const isAdmin=currentMemberId==='chloe';
-        const acct=`<section class="paper-panel rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50"><h3 class="font-bold text-deep mb-4 text-lg">🔐 계정 설정</h3><form id="form-change-password" class="mt-3 grid gap-3"><input class="input-field" type="password" name="currentPassword" placeholder="현재 비밀번호" required/><input class="input-field" type="password" name="newPassword" placeholder="새 비밀번호" required/><input class="input-field" type="password" name="confirmPassword" placeholder="새 비밀번호 확인" required/><button class="btn-primary font-medium">변경하기</button></form></section>`;
         const mgmt=isAdmin?`<section class="paper-panel mt-6 rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50"><h3 class="font-bold text-deep mb-4 text-lg">📚 사이트 관리</h3><div class="mb-4 text-sm text-deep/70 bg-gold/10 px-4 py-2 rounded-lg">현재 이달의 책: <span class="font-bold text-gold">${cache.books?.find(b=>b.is_book_of_the_month)?.title||'없음'}</span></div><div class="space-y-4">${(cache.books||[]).map(book=>`<div class="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-white/90 shadow-sm hover:shadow-md transition-shadow"><div class="flex-shrink-0 w-14 h-20">${book.coverUrl?`<img src="${escapeHtml(book.coverUrl)}" alt="${escapeHtml(book.title)}" class="w-full h-full object-cover rounded-lg"/>`:`<div class="w-full h-full bg-gradient-to-br from-deep/10 to-deep/20 rounded-lg flex items-center justify-center"><span class="text-xs text-deep/60 font-semibold">No Cover</span></div>`}</div><div class="flex-1"><p class="font-bold text-deep">${escapeHtml(book.title)}</p><p class="text-sm text-deep/70">${escapeHtml(book.author||"저자 미입력")} | ${book.totalChapters}챕터</p><p class="text-xs text-deep/50">길잡이: ${escapeHtml(memberNameById(book.guideId))}</p></div><div class="flex flex-col gap-2"><div class="flex gap-2"><button class="btn-ghost !px-3 !py-2 !text-xs font-medium" onclick="event.stopPropagation();window.openModal('edit-book',{bookId:'${book.id}'})">수정</button><button class="btn-ghost !px-3 !py-2 !text-xs text-red-500 font-medium" onclick="confirmDeleteBook('${book.id}')">삭제</button></div><button id="btn-set-book-month-${book.id}" class="btn-primary !px-3 !py-2 !text-xs w-full font-medium ${book.is_book_of_the_month?'!bg-gold !cursor-not-allowed':''}" onclick="setBookOfTheMonthDirect('${book.id}','${escapeHtml(book.title)}')" ${book.is_book_of_the_month?'disabled':''}>${book.is_book_of_the_month?'현재 이달의 책 ✓':'이달의 책으로 선정'}</button></div></div>`).join("")}</div></section>`:"";
-        const memMgmt=isAdmin?`<section class="paper-panel mt-6 rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50"><h3 class="font-bold text-deep mb-4 text-lg">👥 멤버 관리</h3><div class="space-y-4">${memberList().map(m=>`<div class="rounded-xl border border-white/10 bg-white/90 p-4 shadow-sm"><p class="text-sm font-bold text-deep">${escapeHtml(m.display_name)}</p><p class="mt-2 text-xs text-deep/60">is_first_login: ${m.is_first_login?"true":"false"}</p><form class="mt-3 grid gap-3 sm:grid-cols-2" data-member-reset="${m.id}"><button class="btn-ghost !text-xs font-medium">최초 로그인 초기화</button><input class="input-field" type="password" name="newPassword" placeholder="임시 비밀번호(선택)"/></form></div>`).join("")}</div></section>`:"";
         const adminAuth=isAdmin?`<section class="paper-panel mt-6 rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50"><h3 class="font-bold text-deep mb-4 text-lg">🛡️ 관리자 인증</h3>${isAdminAuthed?`<div class="text-sm text-deep/70 bg-green-50 px-4 py-3 rounded-lg mb-3">✅ 관리자로 인증됨 — 모임 기록 삭제가 가능합니다.</div><button id="btn-admin-logout" class="btn-ghost !text-sm font-medium">관리자 로그아웃</button>`:`<p class="text-sm text-deep/60 mb-3">모임 이벤트 삭제는 관리자 인증이 필요합니다.</p><form id="form-admin-login" class="grid gap-3"><input class="input-field" type="password" name="adminPassword" placeholder="관리자 비밀번호" autocomplete="current-password" required/><button class="btn-primary font-medium">관리자 로그인</button></form>`}</section>`:"";
-        return `<main class="mx-auto max-w-content px-4 py-5 pb-28">${acct}${adminAuth}${mgmt}${memMgmt}</main>`;
-      }
-      function renderAuthModal() {
-        if (!uiModal.type) return "";
-        if (uiModal.type==="first-login") return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><h2 class="font-serif text-xl">처음 오셨네요!</h2><p class="mt-2 text-sm text-deep/60">앞으로 사용할 비밀번호를 설정해주세요.</p><form id="form-first-password" class="mt-4 space-y-3"><input type="password" name="password" class="input-field" placeholder="새 비밀번호" required/><input type="password" name="confirmPassword" class="input-field" placeholder="새 비밀번호 확인" required/><button class="btn-primary w-full">저장</button></form>${uiModal.error?`<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>`:""}</div></div>`;
-        if (uiModal.type==="secure-confirm") return `<div class="modal-bg fixed inset-0 z-50 flex items-center justify-center p-5"><div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/10 p-6 shadow-2xl"><h2 class="font-serif text-xl">본인 인증</h2><p class="mt-2 text-sm text-deep/60">${escapeHtml(uiModal.meta.message||"")}</p><form id="form-secure-confirm" class="mt-4 space-y-3"><input type="password" name="password" class="input-field" placeholder="개인 비밀번호" required/><button class="btn-primary w-full">확인</button></form>${uiModal.error?`<p class="mt-2 text-xs text-red-700">${escapeHtml(uiModal.error)}</p>`:""}</div></div>`;
-        return "";
+        return `<main class="mx-auto max-w-content px-4 py-5 pb-28">${adminAuth}${mgmt}</main>`;
       }
       function renderBottomTabs() {
         const tab=(id,label)=>`<button type="button" class="flex-1 py-4 text-center text-[12px] font-semibold transition-all duration-200 ${currentTab===id?"text-gold":"text-deep/50 hover:text-deep/80"}" data-tab="${id}">${label}</button>`;
@@ -985,7 +1021,7 @@
         if(currentMemberId!=='chloe')return;
         const book=cache.books.find(b=>b.id===bookId);if(!book)return;
         if(!confirm(`"${book.title}" 책을 삭제하시겠습니까?`))return;
-        const{error}=await sb.from("books").delete().eq("id",bookId);if(error)throw error;
+        if(!applied(await sb.from("books").delete().eq("id",bookId).select())){renderApp();showToast("책을 삭제하지 못했습니다. 권한을 확인해주세요.");return;}
         await refreshFromDb();renderApp();showToast(`"${book.title}" 삭제됐습니다.`);
       };
       window.setBookOfTheMonthDirect=async function(bookId,bookTitle){
@@ -993,34 +1029,23 @@
         const btn=document.getElementById(`btn-set-book-month-${bookId}`);if(!btn||btn.disabled)return;
         const orig=btn.textContent;btn.disabled=true;btn.textContent='선정 중...';
         try{
-          await sb.from("books").update({is_book_of_the_month:false}).neq('id','nonexistent');
-          await sb.from("books").update({is_book_of_the_month:true}).eq("id",bookId);
+          const off=await sb.from("books").update({is_book_of_the_month:false}).neq('id','nonexistent');
+          if(off.error)throw off.error;   // 전체 해제 — 0행이 정상일 수 있어 행수는 보지 않는다
+          if(!applied(await sb.from("books").update({is_book_of_the_month:true}).eq("id",bookId).select()))throw new Error("이달의 책이 반영되지 않았습니다.");
           currentBookId=bookId;await refreshFromDb();renderApp();closeModal();
           showToast(`"${bookTitle}"이(가) 이달의 책으로 선정되었습니다.`);
         }catch(e){showToast('이달의 책 선정에 실패했습니다.');btn.disabled=false;btn.textContent=orig;}
       };
 
-      // ── 보안 ──
-      function askSecure(action,msg){pendingSecureAction=action;openModal("secure-confirm",{message:msg});}
-      async function executeSecureAction(){
-        if(!pendingSecureAction)return;
-        if(pendingSecureAction.type==="final-select"){
-          const{bookId,memberId,chapter}=pendingSecureAction.payload;
-          const b=cache.books.find(x=>x.id===bookId);if(!b)return;
-          const txt=(b.chapters[chapter]?.[memberId]||"").trim();if(!txt)return;
-          b.final_sentence_text=txt;b.final_sentence_member_id=memberId;b.final_sentence_chapter=chapter;b.finalAt=new Date().toISOString();
-          await persistBook(b);await refreshFromDb();
-        } else if(pendingSecureAction.type==="book-edit"){
-          const{bookId,payload}=pendingSecureAction.payload;
-          const b=cache.books.find(x=>x.id===bookId);if(!b)return;
-          b.title=payload.title||b.title;b.author=payload.author||"";b.coverUrl=payload.coverUrl||"";
-          if(currentMemberId==='chloe'&&payload.guideId)b.guideId=payload.guideId;
-          const next=Math.min(10,Math.max(1,parseInt(payload.totalChapters,10)||1));
-          if(next>b.totalChapters)for(let c=b.totalChapters+1;c<=next;c++)b.chapters[c]=emptyChapterRecord();
-          if(next<b.totalChapters)for(let c=b.totalChapters;c>next;c--)delete b.chapters[c];
-          b.totalChapters=next;await persistBook(b);await refreshFromDb();
-        }
-        pendingSecureAction=null;
+      // ── 최종 문장 선정 ──
+      // 비밀번호 재확인은 걷어냈다. ?key= 매직링크로 신원이 이미 확정돼 있고 isGuideFor() 로 길잡이를 검증한다.
+      // (게다가 password 는 anon 이 평문으로 읽을 수 있어 방어 효과가 없었고, 회원들이 비번을 기억하지 못해
+      //  선정 자체가 막히는 마찰만 만들었다 — 2026-08-15)
+      async function selectFinalSentence(book, memberId, chapter) {
+        const txt=(book.chapters[chapter]?.[memberId]||"").trim(); if(!txt) return false;
+        book.final_sentence_text=txt; book.final_sentence_member_id=memberId;
+        book.final_sentence_chapter=chapter; book.finalAt=new Date().toISOString();
+        await persistBook(book); await refreshFromDb(); return true;
       }
 
       // ── 이벤트 바인딩 ──
@@ -1101,8 +1126,11 @@
           if(pickEl){
             const b=cache.books.find(x=>x.id===pickEl.getAttribute("data-book"));
             if(!b||!isGuideFor(b))return alert("길잡이만 최종 문장을 선택할 수 있습니다.");
-            askSecure({type:"final-select",payload:{bookId:pickEl.getAttribute("data-book"),memberId:pickEl.getAttribute("data-member"),chapter:parseInt(pickEl.getAttribute("data-chapter"),10)}},"길잡이 본인 인증을 위해 비밀번호를 다시 입력하세요.");
-            return renderApp();
+            const mid=pickEl.getAttribute("data-member"), ch=parseInt(pickEl.getAttribute("data-chapter"),10);
+            const txt=(b.chapters[ch]?.[mid]||"").trim(); if(!txt)return;
+            if(!confirm(`${memberNameById(mid)}님의 Chapter ${ch} 문장을 「올해의 문장」으로 선정할까요?\n\n"${txt}"`))return;
+            if(await selectFinalSentence(b,mid,ch)){closeModal();renderApp();showToast("올해의 문장이 선정되었습니다.");}
+            return;
           }
 
           // Daily reading 상호작용
@@ -1190,13 +1218,6 @@
               else{alert(res.message||"로그인 실패");}
               return;
             }
-            if(form.id==="form-first-password"){
-              const pw=form.elements.namedItem("password").value.trim(), cf=form.elements.namedItem("confirmPassword").value.trim();
-              if(!pw||pw!==cf){openModal("first-login",uiModal.meta,"비밀번호가 일치하지 않습니다.");return renderApp();}
-              const{error}=await sb.from('club_members').update({password:pw,is_first_login:false}).eq('id',currentMemberId).select();
-              if(error){alert("Save failed: "+error.message);return;}
-              await loadMembers();await refreshFromDb();subscribeRealtime();closeModal();return renderApp();
-            }
             if(form.id==="form-schedule-settings"){
               if(currentMemberId!=='chloe'){alert("관리자 기능에 접근할 수 없습니다.");return;}
               const bookId=form.elements.namedItem("bookId").value, book=cache.books.find(b=>b.id===bookId);if(!book)return;
@@ -1204,8 +1225,8 @@
               const startVal=form.elements.namedItem("startDate")?.value;
               if(startVal)schedules._start=startVal;
               for(let i=1;i<=book.totalChapters;i++){const d=form.elements.namedItem(`schedule-${i}`);if(d?.value)schedules[i]=d.value;}
-              const{error}=await sb.from('books').update({schedules}).eq('id',bookId).select();
-              if(error){alert("일정 저장 실패: "+error.message);return;}
+              const resSch=await sb.from('books').update({schedules}).eq('id',bookId).select();
+              if(!applied(resSch)){alert(resSch.error?("일정 저장 실패: "+resSch.error.message):"일정이 저장되지 않았습니다. 권한을 확인해주세요.");return;}
               delete scheduleCalMonth[bookId];
               await refreshFromDb();closeModal();return renderApp();
             }
@@ -1217,16 +1238,15 @@
               book.title=(form.elements.namedItem("title").value||"").trim()||book.title;
               book.author=(form.elements.namedItem("author").value||"").trim();
               book.guideId=form.elements.namedItem("guideId").value;
+              const joined=Array.from(form.querySelectorAll('input[name="participant"]:checked')).map(el=>el.value);
+              book.dropouts=memberList().filter(m=>!joined.includes(m.id)).map(m=>m.id);
+              // 하차 처리로 남은 회원 기준 완료가 성립할 수 있으므로 전 챕터를 다시 판정한다
+              for(let c=1;c<=book.totalChapters;c++) stampChapterCompletion(book,c);
               const next=Math.min(10,Math.max(1,parseInt(form.elements.namedItem("totalChapters").value,10)||1));
               book.totalChapters=next;book.chapters=alignChaptersToTotal(book.chapters,next);
               const cu=(form.elements.namedItem("coverUrl").value||"").trim();if(cu)book.coverUrl=cu;
               await persistBook(book);await refreshFromDb();closeModal();renderApp();showToast("책 정보가 업데이트되었습니다!");
               return;
-            }
-            if(form.id==="form-secure-confirm"){
-              const me=currentMember();const pw=form.elements.namedItem("password").value;
-              if(!me||(me.password||"")!==pw){openModal("secure-confirm",uiModal.meta,"비밀번호가 일치하지 않습니다.");return renderApp();}
-              await executeSecureAction();closeModal();return renderApp();
             }
             if(!isGatePassed||!currentMemberId)return;
             if(form.id==="form-reading-input"){
@@ -1234,22 +1254,10 @@
               const b=cache.books.find(x=>x.id===currentBookId);if(!b||!chapter||!sentence)return;
               if(!b.chapters[chapter])b.chapters[chapter]=emptyChapterRecord();
               b.chapters[chapter][currentMemberId]=sentence;
-              form.reset();await persistBook(b);await refreshFromDb();return renderApp();
-            }
-            if(form.id==="form-change-password"){
-              const me=currentMember();if(!me)return;
-              const cur=form.elements.namedItem("currentPassword").value, next=form.elements.namedItem("newPassword").value, conf=form.elements.namedItem("confirmPassword").value;
-              if((me.password||"")!==cur)return alert("현재 비밀번호가 일치하지 않습니다.");
-              if(!next||next!==conf)return alert("새 비밀번호 확인이 일치하지 않습니다.");
-              await sb.from("club_members").update({password:next,is_first_login:false}).eq("id",me.id);
-              await loadMembers();form.reset();return alert("비밀번호가 변경되었습니다.");
-            }
-            const resetId=form.getAttribute("data-member-reset");
-            if(resetId&&currentMemberId==='chloe'){
-              const temp=form.elements.namedItem("newPassword").value.trim();
-              const patch=temp?{password:temp,is_first_login:false}:{password:null,is_first_login:true};
-              await sb.from("club_members").update(patch).eq("id",resetId);
-              await loadMembers();renderApp();return alert("멤버 상태가 업데이트되었습니다.");
+              const justDone=stampChapterCompletion(b,chapter);
+              form.reset();await persistBook(b);await refreshFromDb();
+              if(justDone)showToast(`Chapter ${chapter} 완료! 모두의 문장이 공개됐어요.`);
+              return renderApp();
             }
           }catch(err){alert(err.message||String(err));}
         });
