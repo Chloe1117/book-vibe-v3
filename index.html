@@ -532,16 +532,21 @@
           return true;
         } catch(e) { console.error(e); return false; }
       }
+      // ※ delete/update 는 RLS 정책이 없어도 에러 없이 0행으로 끝난다.
+      //    error 만 보면 실패를 성공으로 오판하므로 .select() 로 실제 반영 행수를 확인한다.
       async function editDailyReading(id, content) {
         if (!currentMemberId||!content?.trim()) return false;
-        const { error } = await sb.from('daily_readings').update({content:content.trim()}).eq('id',id).eq('member_id',currentMemberId);
-        return !error;
+        const { data, error } = await sb.from('daily_readings').update({content:content.trim()}).eq('id',id).eq('member_id',currentMemberId).select();
+        if (error) { console.error(error); return false; }
+        return (data||[]).length > 0;
       }
       async function deleteDailyReading(id) {
         if (!currentMemberId) return false;
-        await sb.from('reading_reactions').delete().eq('reading_id',id);
-        const { error } = await sb.from('daily_readings').delete().eq('id',id).eq('member_id',currentMemberId);
-        return !error;
+        const { error: rxErr } = await sb.from('reading_reactions').delete().eq('reading_id',id);
+        if (rxErr) { console.error(rxErr); return false; }
+        const { data, error } = await sb.from('daily_readings').delete().eq('id',id).eq('member_id',currentMemberId).select();
+        if (error) { console.error(error); return false; }
+        return (data||[]).length > 0;
       }
       function formatTimeAgo(d) {
         const m = Math.floor((Date.now()-new Date(d))/60000);
@@ -1104,8 +1109,8 @@
           if(!document.getElementById('daily-reading-comments')?.contains(t)){document.querySelectorAll('.reaction-popup').forEach(p=>p.classList.add('hidden'));return;}
           const rtBtn=t.closest('.reaction-toggle-btn');if(rtBtn){const p=document.querySelector(`.reaction-popup[data-reading-id="${rtBtn.dataset.readingId}"]`);if(p){p.classList.toggle('hidden');document.querySelectorAll('.reaction-popup').forEach(x=>x!==p&&x.classList.add('hidden'));}return;}
           const roBtn=t.closest('.reaction-option');if(roBtn){handleReactionToggle(roBtn.dataset.readingId,roBtn.dataset.emoji);document.querySelector(`.reaction-popup[data-reading-id="${roBtn.dataset.readingId}"]`)?.classList.add('hidden');return;}
-          const editBtn2=t.closest('.edit-btn');if(editBtn2){const nc=prompt('내용을 수정하세요:',editBtn2.dataset.content);if(nc!==null){const r=dailyReadingsCache.find(x=>x.id===editBtn2.dataset.readingId);if(r){r.content=nc.trim();renderDailyReadingComments();}editDailyReading(editBtn2.dataset.readingId,nc).then(ok=>{if(ok)setTimeout(()=>loadDailyReadings().then(()=>renderDailyReadingComments()),500);else loadDailyReadings().then(()=>renderDailyReadingComments());});}return;}
-          const delBtn2=t.closest('.delete-btn');if(delBtn2){if(confirm('정말로 삭제하시겠습니까?')){const idx=dailyReadingsCache.findIndex(x=>x.id===delBtn2.dataset.readingId);if(idx>-1){dailyReadingsCache.splice(idx,1);renderDailyReadingComments();}deleteDailyReading(delBtn2.dataset.readingId).then(ok=>{if(!ok)loadDailyReadings().then(()=>renderDailyReadingComments());});}return;}
+          const editBtn2=t.closest('.edit-btn');if(editBtn2){const nc=prompt('내용을 수정하세요:',editBtn2.dataset.content);if(nc!==null){const r=dailyReadingsCache.find(x=>x.id===editBtn2.dataset.readingId);if(r){r.content=nc.trim();renderDailyReadingComments();}editDailyReading(editBtn2.dataset.readingId,nc).then(ok=>{if(ok)setTimeout(()=>loadDailyReadings().then(()=>renderDailyReadingComments()),500);else{showToast('수정하지 못했습니다. 잠시 후 다시 시도해주세요.');loadDailyReadings().then(()=>renderApp());}});}return;}
+          const delBtn2=t.closest('.delete-btn');if(delBtn2){if(confirm('정말로 삭제하시겠습니까?')){const idx=dailyReadingsCache.findIndex(x=>x.id===delBtn2.dataset.readingId);if(idx>-1){dailyReadingsCache.splice(idx,1);renderDailyReadingComments();}deleteDailyReading(delBtn2.dataset.readingId).then(ok=>{if(!ok){showToast('삭제하지 못했습니다. 잠시 후 다시 시도해주세요.');loadDailyReadings().then(()=>renderApp());}});}return;}
         });
 
         // Long press handler for reaction chips
