@@ -192,7 +192,8 @@
       let longPressAt = 0;   // 롱프레스(누가 눌렀는지) 발동 시각 — 뒤따라오는 click 이 토글되지 않게 막는다
       let rtChannel = null;
       let debounceTimer = null;
-      let suppressRefreshUntil = 0;   // 직접 갱신한 직후 되돌아오는 realtime 이벤트를 건너뛸 시각
+      let suppressRefreshUntil = 0;   // 보조 안전장치 — updated_at 을 남기지 않는 경로(일정·이달의 책)용
+      let lastWriteStamp = "";        // 내가 마지막에 쓴 books.updated_at. realtime 이 물고 온 값과 같으면 내 쓰기다
       let scheduleCalMonth = {};
       let imageViewerState = { isOpen: false, images: [], currentIndex: 0 };
 
@@ -762,6 +763,7 @@
       }
       async function persistBook(book) {
         const row = bookToRow(book);
+        lastWriteStamp = row.updated_at;   // 이 값이 realtime 으로 되돌아오면 무시한다
         let { error } = await sb.from("books").upsert(row,{onConflict:"id"});
         if (error&&/guide_(id|name)/i.test(String(error.message||""))) {
           const f={...row}; delete f.guide_id; delete f.guide_name;
@@ -769,9 +771,11 @@
         }
         if (error) throw error;
       }
-      function scheduleRefresh() {
+      function scheduleRefresh(payload) {
         // 내가 방금 저장해 되돌아온 realtime 이벤트까지 다시 그리면 화면이 두세 번 깜빡인다.
-        // 직접 갱신한 직후 짧은 창은 건너뛴다 — 그 사이 남의 변경을 놓쳐도 다음 이벤트나 탭 전환에서 따라잡는다.
+        // 시간 창만으로는 못 막는다 — realtime 지연이 800ms 를 넘는 걸 실측했다(809ms·2316ms).
+        // updated_at 대조가 주 판별이고, 시간 창은 updated_at 을 남기지 않는 경로용 보조다.
+        if (payload?.new?.updated_at && payload.new.updated_at === lastWriteStamp) return;
         if (Date.now() < suppressRefreshUntil) return;
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(async()=>{
