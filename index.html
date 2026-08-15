@@ -177,6 +177,7 @@
       let members = [];
       let currentTab = "reading";
       let currentBookId = "b3";
+      let userPickedBook = false;   // 회원이 직접 다른 책을 골랐는가(이달의 책을 쉬고 다음 책을 미리 읽는 경우)
       let currentMemberId   = localStorage.getItem("currentMemberId")   || "";
       let currentMemberName = localStorage.getItem("currentMemberName") || "";
       let isGatePassed  = localStorage.getItem("isGatePassed")  === "true";
@@ -755,8 +756,9 @@
         }
         cache.books = sorted.map((r,i)=>normalizeBook(r,i));
         const botm = cache.books.find(b=>b.is_book_of_the_month);
-        if (botm) currentBookId=botm.id;
-        else if (!cache.books.find(b=>b.id===currentBookId)) currentBookId=cache.books[0]?.id||"b1";
+        // 회원이 직접 고른 책은 존중한다 — 안 그러면 저장할 때마다 이달의 책으로 튕긴다
+        if (!userPickedBook && botm) currentBookId=botm.id;
+        if (!cache.books.find(b=>b.id===currentBookId)) currentBookId=botm?.id||cache.books[0]?.id||"b1";
         // 방금 직접 갱신했으니 뒤따르는 realtime 은 건너뛴다.
         // realtime 이 이 함수보다 먼저 도착해 재렌더가 이미 예약돼 있으면 그것도 취소한다(레이스 방지).
         suppressRefreshUntil = Date.now() + 800;
@@ -910,7 +912,8 @@
             <div class="daily-reading-scroll space-y-3" id="daily-reading-comments"></div>
           </section>
           <div class="book-info-section"><section class="paper-panel rounded-2xl border border-white/10 p-5 shadow-lg bg-gradient-to-br from-white to-gray-50">
-            <div class="flex items-center justify-between gap-4"><div><p class="text-[11px] uppercase tracking-[0.2em] text-gold font-bold">이달의 책</p><h2 class="font-serif text-2xl font-bold text-deep mt-1">${escapeHtml(sel.title)}</h2><p class="mt-2"><span class="guide-badge">⭐ 길잡이: ${escapeHtml(memberNameById(sel.guideId))}</span></p>${isDropout(sel,currentMemberId)?`<p class="mt-2 text-xs text-deep/50">이번 책은 쉬어가는 중이에요 ☕ 마음이 바뀌면 언제든 한 문장 남겨주세요~</p>`:""}</div><span class="text-sm font-bold text-gold bg-gold/10 px-3 py-1.5 rounded-full">${prog.done}/${prog.total} 완료</span></div>
+            <div class="mb-3 flex items-center gap-2"><label for="reading-book-pick" class="text-[11px] font-semibold text-deep/45 whitespace-nowrap">읽는 중</label><select id="reading-book-pick" class="input-field !py-1.5 !text-sm">${cache.books.map(b=>`<option value="${b.id}" ${b.id===sel.id?"selected":""}>${escapeHtml(b.title)}${b.is_book_of_the_month?" · 이달의 책":""}</option>`).join("")}</select></div>
+            <div class="flex items-center justify-between gap-4"><div><p class="text-[11px] uppercase tracking-[0.2em] text-gold font-bold">${sel.is_book_of_the_month?"이달의 책":"📖 미리 읽는 중"}</p><h2 class="font-serif text-2xl font-bold text-deep mt-1">${escapeHtml(sel.title)}</h2><p class="mt-2"><span class="guide-badge">⭐ 길잡이: ${escapeHtml(memberNameById(sel.guideId))}</span></p>${isDropout(sel,currentMemberId)?`<p class="mt-2 text-xs text-deep/50">이번 책은 쉬어가는 중이에요 ☕ 마음이 바뀌면 언제든 한 문장 남겨주세요~</p>`:""}</div><span class="text-sm font-bold text-gold bg-gold/10 px-3 py-1.5 rounded-full">${prog.done}/${prog.total} 완료</span></div>
             <div class="mt-4 h-3 overflow-hidden rounded-full bg-gray-200"><div class="h-full rounded-full bg-gradient-to-r from-gold to-accent transition-all duration-500" style="width:${prog.pct}%"></div></div>
             <form id="form-reading-input" class="mt-5 grid gap-3"><select class="input-field" name="chapter">${chapterOpts}</select><textarea class="input-field" rows="3" name="sentence" placeholder="기억에 남는 문장을 입력하세요" required></textarea><button class="btn-primary font-medium">문장 기록</button></form>
           </section></div>
@@ -1113,7 +1116,8 @@
           const off=await sb.from("books").update({is_book_of_the_month:false}).neq('id','nonexistent');
           if(off.error)throw off.error;   // 전체 해제 — 0행이 정상일 수 있어 행수는 보지 않는다
           if(!applied(await sb.from("books").update({is_book_of_the_month:true}).eq("id",bookId).select()))throw new Error("이달의 책이 반영되지 않았습니다.");
-          currentBookId=bookId;await refreshFromDb();renderApp();closeModal();
+          // 이달의 책이 바뀌면 개인 선택은 해제한다
+          currentBookId=bookId;userPickedBook=false;await refreshFromDb();renderApp();closeModal();
           showToast(`"${bookTitle}"이(가) 이달의 책으로 선정되었습니다.`);
         }catch(e){showToast('이달의 책 선정에 실패했습니다.');btn.disabled=false;btn.textContent=orig;}
       };
@@ -1299,6 +1303,8 @@
 
         document.addEventListener("change",(e)=>{
           if(e.target?.name==="bookPick"&&uiModal.type==="book-settings"){openModal("book-settings",{bookId:(e.target.value||"").trim()});renderApp();}
+          // 이달의 책을 쉬는 회원이 다음 책을 미리 읽고 기록할 수 있게 한다
+          if(e.target?.id==="reading-book-pick"){currentBookId=e.target.value;userPickedBook=true;renderApp();}
         });
 
         document.addEventListener("submit",async(e)=>{
