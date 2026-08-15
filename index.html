@@ -192,6 +192,7 @@
       let longPressAt = 0;   // 롱프레스(누가 눌렀는지) 발동 시각 — 뒤따라오는 click 이 토글되지 않게 막는다
       let rtChannel = null;
       let debounceTimer = null;
+      let suppressRefreshUntil = 0;   // 직접 갱신한 직후 되돌아오는 realtime 이벤트를 건너뛸 시각
       let scheduleCalMonth = {};
       let imageViewerState = { isOpen: false, images: [], currentIndex: 0 };
 
@@ -505,7 +506,8 @@
       function showToast(msg) {
         toastMessage = msg;
         if (toastTimer) clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => { toastMessage=""; renderApp(); }, 2300);
+        // 토스트가 사라질 때 전체를 다시 그리면 화면이 한 번 더 깜빡인다 — 토스트 노드만 제거한다
+        toastTimer = setTimeout(() => { toastMessage=""; document.querySelector('.toast')?.remove(); }, 2300);
       }
 
       // ── 멤버 ──
@@ -753,6 +755,7 @@
         const botm = cache.books.find(b=>b.is_book_of_the_month);
         if (botm) currentBookId=botm.id;
         else if (!cache.books.find(b=>b.id===currentBookId)) currentBookId=cache.books[0]?.id||"b1";
+        suppressRefreshUntil = Date.now() + 800;   // 방금 직접 갱신했으니 뒤따르는 realtime 은 건너뛴다
       }
       async function persistBook(book) {
         const row = bookToRow(book);
@@ -764,6 +767,9 @@
         if (error) throw error;
       }
       function scheduleRefresh() {
+        // 내가 방금 저장해 되돌아온 realtime 이벤트까지 다시 그리면 화면이 두세 번 깜빡인다.
+        // 직접 갱신한 직후 짧은 창은 건너뛴다 — 그 사이 남의 변경을 놓쳐도 다음 이벤트나 탭 전환에서 따라잡는다.
+        if (Date.now() < suppressRefreshUntil) return;
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(async()=>{ try{await refreshFromDb();renderApp();}catch(e){renderApp();} },140);
       }
