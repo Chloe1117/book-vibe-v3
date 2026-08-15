@@ -775,7 +775,9 @@
         // 내가 방금 저장해 되돌아온 realtime 이벤트까지 다시 그리면 화면이 두세 번 깜빡인다.
         // 시간 창만으로는 못 막는다 — realtime 지연이 800ms 를 넘는 걸 실측했다(809ms·2316ms).
         // updated_at 대조가 주 판별이고, 시간 창은 updated_at 을 남기지 않는 경로용 보조다.
-        if (payload?.new?.updated_at && payload.new.updated_at === lastWriteStamp) return;
+        // 문자열 비교는 안 된다 — JS 는 "...827Z", Postgres 회신은 "...827+00:00" 로 형식이 다르다(실측).
+        const ps = payload?.new?.updated_at;
+        if (ps && lastWriteStamp && new Date(ps).getTime() === new Date(lastWriteStamp).getTime()) return;
         if (Date.now() < suppressRefreshUntil) return;
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(async()=>{
