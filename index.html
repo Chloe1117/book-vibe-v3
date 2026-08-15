@@ -143,9 +143,13 @@
       /* 펼친 상태에서는 목록 위에도 접기를 둔다 — 끝까지 내려가야 접히는 불편(2026-08-15 VOC) */
       .daily-fold-top { margin-bottom: 0.25rem; background: rgba(108, 92, 231, 0.05); }
       /* Reaction Popup Layout */
-      .reaction-popup { flex-wrap: wrap; max-width: 280px; gap: 4px; }
-      .reaction-popup .flex { flex-wrap: wrap; }
-      .reaction-option { flex: 0 0 calc(33.33% - 4px); }
+      /* Reaction Popup — 이모지 + 라벨 2열. 라벨이 없으면 🔖 이 무슨 뜻인지 알 수 없고,
+         주 사용 환경이 폰이라 툴팁(title)은 보이지 않는다. */
+      .reaction-option { display: flex; align-items: center; gap: 0.4rem; width: 100%; padding: 0.45rem 0.5rem;
+        border: none; background: transparent; cursor: pointer; border-radius: 0.5rem;
+        font-size: 0.75rem; color: rgba(26, 26, 46, 0.8); white-space: nowrap; text-align: left; }
+      .reaction-option:hover { background: rgba(108, 92, 231, 0.1); }
+      .reaction-option .ro-emoji { font-size: 1.05rem; line-height: 1; }
     </style>
   </head>
   <body class="app-bg min-h-screen antialiased">
@@ -185,6 +189,7 @@
       let isAdminAuthed = false; // Supabase Auth 로그인(관리자) 여부 — 모임 이벤트 삭제 권한
       let toastMessage = "";
       let toastTimer = null;
+      let longPressAt = 0;   // 롱프레스(누가 눌렀는지) 발동 시각 — 뒤따라오는 click 이 토글되지 않게 막는다
       let rtChannel = null;
       let debounceTimer = null;
       let scheduleCalMonth = {};
@@ -545,7 +550,19 @@
       const DAILY_PREVIEW_COUNT = 3;         // 기본으로 보여줄 최근 기록 수
       const DAILY_STEP = 5;                  // '더 보기' 한 번에 추가할 개수 (한꺼번에 다 펼치지 않는다)
       let dailyVisible = DAILY_PREVIEW_COUNT;
-      const REACTION_EMOJIS = ['❤️','👍','🔥','👏','😄','😢','😡','🤔','🤣','🎉'];
+      // 독서클럽 전용 리액션. 범용 SNS 세트(👍👏🎉)는 의미가 겹쳐 실제로 3~4개만 쓰였다.
+      // 이모지는 Emoji 12.0(2019) 이하에서만 고른다 — 🫠 같은 Emoji 14 는 Windows 10 에서 두부 박스로 뜬다.
+      const REACTIONS = [
+        { emoji:'🔖', label:'밑줄 각'    },
+        { emoji:'💡', label:'나도 그생각' },
+        { emoji:'💗', label:'마음 몽글'   },
+        { emoji:'🤯', label:'머리 띵'    },
+        { emoji:'☕', label:'얘기해요'   },
+        { emoji:'🐢', label:'아직 여기'   },
+        { emoji:'🔥', label:'완독 응원'   },
+        { emoji:'🤣', label:'빵 터짐'    },
+      ];
+      const REACTION_EMOJIS = REACTIONS.map(r => r.emoji);
       async function loadDailyReadings() {
         try {
           const { data, error } = await sb.from('daily_readings')
@@ -568,11 +585,19 @@
       async function toggleReaction(readingId, emoji) {
         if (!currentMemberId) return false;
         try {
+          // .single() 은 0행일 때뿐 아니라 2행 이상일 때도 PGRST116 을 낸다.
+          // 그걸 "행 없음"으로만 해석하면 중복이 쌓인 리액션은 취소 대신 insert 가 되어 영원히 안 지워진다.
+          // → single() 을 쓰지 않고 전부 조회해, 있으면 중복까지 한 번에 지운다(자가 치유).
           const { data:ex, error:fe } = await sb.from('reading_reactions').select('id')
-            .eq('reading_id',readingId).eq('member_id',currentMemberId).eq('emoji',emoji).single();
-          if (fe&&fe.code!=='PGRST116') throw fe;
-          if (ex) await sb.from('reading_reactions').delete().eq('id',ex.id);
-          else await sb.from('reading_reactions').insert({reading_id:readingId,member_id:currentMemberId,emoji});
+            .eq('reading_id',readingId).eq('member_id',currentMemberId).eq('emoji',emoji);
+          if (fe) throw fe;
+          if (ex && ex.length) {
+            const { error:de } = await sb.from('reading_reactions').delete().in('id', ex.map(x=>x.id));
+            if (de) throw de;
+          } else {
+            const { error:ie } = await sb.from('reading_reactions').insert({reading_id:readingId,member_id:currentMemberId,emoji});
+            if (ie) throw ie;
+          }
           const { data:counts } = await sb.from('reading_reactions').select('emoji').eq('reading_id',readingId);
           // Get existing reactions to preserve history
           const { data:reading } = await sb.from('daily_readings').select('reactions').eq('id',readingId).single();
@@ -632,7 +657,7 @@
               <div class="relative">
                 <button class="reaction-toggle-btn px-3 py-1 bg-deep/10 hover:bg-deep/20 rounded-full text-xs" data-reading-id="${r.id}">+ 반응</button>
                 <div class="reaction-popup hidden absolute right-0 top-full mt-1 z-10 bg-white border border-deep/20 rounded-lg p-2 shadow-lg" style="width:max-content;max-width:calc(100vw - 2.5rem);" data-reading-id="${r.id}">
-                  <div class="grid gap-0.5" style="grid-template-columns:repeat(${Math.ceil(REACTION_EMOJIS.length/2)},minmax(0,1fr));">${REACTION_EMOJIS.map(e=>`<button class="reaction-option px-2 py-1.5 hover:bg-deep/10 rounded text-base" data-emoji="${e}" data-reading-id="${r.id}">${e}</button>`).join('')}</div>
+                  <div class="grid gap-0.5" style="grid-template-columns:repeat(2,minmax(0,1fr));">${REACTIONS.map(x=>`<button type="button" class="reaction-option" data-emoji="${x.emoji}" data-reading-id="${r.id}"><span class="ro-emoji">${x.emoji}</span>${x.label}</button>`).join('')}</div>
                 </div>
               </div>
             </div>
@@ -1160,6 +1185,14 @@
           if(moreBtn2){dailyVisible=Math.min(dailyReadingsCache.length,dailyVisible+DAILY_STEP);renderDailyReadingComments();return;}
           const rtBtn=t.closest('.reaction-toggle-btn');if(rtBtn){const p=document.querySelector(`.reaction-popup[data-reading-id="${rtBtn.dataset.readingId}"]`);if(p){p.classList.toggle('hidden');document.querySelectorAll('.reaction-popup').forEach(x=>x!==p&&x.classList.add('hidden'));}return;}
           const roBtn=t.closest('.reaction-option');if(roBtn){handleReactionToggle(roBtn.dataset.readingId,roBtn.dataset.emoji);document.querySelector(`.reaction-popup[data-reading-id="${roBtn.dataset.readingId}"]`)?.classList.add('hidden');return;}
+          // 달린 칩을 눌러도 토글되게 한다. cursor-pointer 라 누르면 될 것처럼 보이는데
+          // 그동안 클릭 핸들러가 없어 "취소가 안 된다"로 보였다(2026-08-15).
+          const chipEl=t.closest('.reaction-chip');
+          if(chipEl){
+            if(Date.now()-longPressAt < 700) return;   // 롱프레스로 알림을 띄운 직후의 click 은 무시
+            handleReactionToggle(chipEl.dataset.readingId,chipEl.dataset.emoji);
+            return;
+          }
           const editBtn2=t.closest('.edit-btn');if(editBtn2){const nc=prompt('내용을 수정하세요:',editBtn2.dataset.content);if(nc!==null){const r=dailyReadingsCache.find(x=>x.id===editBtn2.dataset.readingId);if(r){r.content=nc.trim();renderDailyReadingComments();}editDailyReading(editBtn2.dataset.readingId,nc).then(ok=>{if(ok)setTimeout(()=>loadDailyReadings().then(()=>renderDailyReadingComments()),500);else{showToast('수정하지 못했습니다. 잠시 후 다시 시도해주세요.');loadDailyReadings().then(()=>renderApp());}});}return;}
           const delBtn2=t.closest('.delete-btn');if(delBtn2){if(confirm('정말로 삭제하시겠습니까?')){const idx=dailyReadingsCache.findIndex(x=>x.id===delBtn2.dataset.readingId);if(idx>-1){dailyReadingsCache.splice(idx,1);renderDailyReadingComments();}deleteDailyReading(delBtn2.dataset.readingId).then(ok=>{if(!ok){showToast('삭제하지 못했습니다. 잠시 후 다시 시도해주세요.');loadDailyReadings().then(()=>renderApp());}});}return;}
         });
@@ -1175,6 +1208,7 @@
             longPressTarget = chip;
             longPressTimer = setTimeout(() => {
               const attribution = chip.dataset.attribution;
+              longPressAt = Date.now();
               if (attribution) alert(attribution);
               longPressTarget = null;
             }, LONG_PRESS_DURATION);
@@ -1204,6 +1238,7 @@
             longPressTarget = chip;
             longPressTimer = setTimeout(() => {
               const attribution = chip.dataset.attribution;
+              longPressAt = Date.now();
               if (attribution) alert(attribution);
               longPressTarget = null;
             }, LONG_PRESS_DURATION);
