@@ -764,6 +764,19 @@
         suppressRefreshUntil = Date.now() + 800;
         clearTimeout(debounceTimer);
       }
+      // ── 문장 셀 단위 저장 (F7) ──
+      // persistBook 은 책 전체 milestones 를 통째 upsert 하므로, 두 사람이 비슷한 시각에 저장하면
+      // 나중 저장이 상대의 문장을 덮어썼다(낡은 캐시로 전체를 덮어쓰기 때문).
+      // set_chapter_sentence RPC 는 행을 잠그고 해당 칸만 바꾸므로 유실이 구조적으로 불가능하다.
+      // 완료일 판정도 서버에서 하므로 syncChapterCompletion 과 결과가 같다.
+      async function saveSentenceRemote(book, chapter, memberId, text) {
+        const { data, error } = await sb.rpc('set_chapter_sentence', {
+          p_book_id: book.id, p_chapter: chapter, p_member: memberId, p_text: text ?? ''
+        });
+        if (error) throw error;
+        lastWriteStamp = data?.updated_at || "";   // 되돌아올 realtime 을 자기 쓰기로 판별하기 위해
+        return data?.milestones || null;
+      }
       async function persistBook(book) {
         const row = bookToRow(book);
         lastWriteStamp = row.updated_at;   // 이 값이 realtime 으로 되돌아오면 무시한다
@@ -1089,16 +1102,18 @@
         const li=document.querySelector(`[data-chapter="${c}"][data-member="${mid}"]`);if(!li)return;
         const val=li.querySelector(`#edit-${c}-${mid}`)?.value?.trim();if(!val){alert('문장을 입력해주세요.');return;}
         const sel=cache.books.find(b=>b.id===currentBookId);if(!sel)return;
-        if(!sel.chapters[c])sel.chapters[c]=emptyChapterRecord();
-        sel.chapters[c][mid]=val; await persistBook(sel); await refreshFromDb(); showToast('문장이 수정되었습니다.');renderApp();
+        try{ await saveSentenceRemote(sel,c,mid,val); }
+        catch(e){ console.error(e); showToast('저장하지 못했습니다. 잠시 후 다시 시도해주세요.'); renderApp(); return; }
+        await refreshFromDb(); showToast('문장이 수정되었습니다.');renderApp();
       };
       window.deleteSentence=async function(c,mid){
         if(mid!==currentMemberId){alert('자신의 문장만 삭제할 수 있습니다.');return;}
         if(!confirm('이 문장을 삭제하시겠습니까?'))return;
         const sel=cache.books.find(b=>b.id===currentBookId);if(!sel)return;
-        if(sel.chapters[c])delete sel.chapters[c][mid];
-        syncChapterCompletion(sel,c);   // 완료가 깨졌으면 완료일도 함께 지운다
-        await persistBook(sel); await refreshFromDb(); showToast('문장이 삭제되었습니다.');renderApp();
+        // 빈 문자열을 넘기면 서버가 해당 셀을 지우고 완료일도 함께 정리한다
+        try{ await saveSentenceRemote(sel,c,mid,''); }
+        catch(e){ console.error(e); showToast('삭제하지 못했습니다. 잠시 후 다시 시도해주세요.'); renderApp(); return; }
+        await refreshFromDb(); showToast('문장이 삭제되었습니다.');renderApp();
       };
       window.confirmDeleteBook=async function(bookId){
         if(currentMemberId!=='chloe')return;
@@ -1364,11 +1379,11 @@
             if(form.id==="form-reading-input"){
               const chapter=parseInt(form.elements.namedItem("chapter").value,10), sentence=form.elements.namedItem("sentence").value.trim();
               const b=cache.books.find(x=>x.id===currentBookId);if(!b||!chapter||!sentence)return;
-              if(!b.chapters[chapter])b.chapters[chapter]=emptyChapterRecord();
-              b.chapters[chapter][currentMemberId]=sentence;
-              const justDone=syncChapterCompletion(b,chapter);
-              form.reset();await persistBook(b);await refreshFromDb();
-              if(justDone)showToast(`Chapter ${chapter} 완료! 모두의 문장이 공개됐어요.`);
+              const wasDone=!!b.completedAt?.[chapter];   // 완료 판정은 서버가 하므로 전/후를 비교한다
+              form.reset();
+              await saveSentenceRemote(b,chapter,currentMemberId,sentence);
+              await refreshFromDb();
+              if(!wasDone&&bookById(b.id)?.completedAt?.[chapter])showToast(`Chapter ${chapter} 완료! 모두의 문장이 공개됐어요.`);
               return renderApp();
             }
           }catch(err){alert(err.message||String(err));}
