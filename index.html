@@ -152,7 +152,7 @@
       .reaction-option .ro-emoji { font-size: 1.05rem; line-height: 1; }
       /* 책벌레 마스코트 — app-root 밖에 둔다. renderApp 이 app-root 를 통째로 다시 그려서
          안에 두면 실시간 갱신마다 애니메이션이 처음부터 다시 시작된다.
-         이모지는 Emoji 12.0 이하만(reaction-plan.md): 🐛📖 1.0 · 🦋 3.0 · 🙈 1.0 */
+         이모지는 Emoji 12.0 이하만(reaction-plan.md): 🐛📖 1.0 · 🦋 3.0 · 🐾👀 1.0 */
       #mascot { position: fixed; right: 0.9rem; bottom: 4.6rem; z-index: 25; display: flex; flex-direction: column; align-items: flex-end;
         transition: transform 0.35s ease, opacity 0.35s ease; pointer-events: none; }
       #mascot.hidden { display: none; }
@@ -185,36 +185,32 @@
       #mascot-bubble.has-more { cursor: pointer; }
       #mascot-bubble .mb-more { display: block; margin-top: 0.25rem; font-size: 0.68rem; color: rgba(26,26,46,0.45); }
       #mascot-bubble.expanded { max-width: min(320px, calc(100vw - 2rem)); max-height: 50vh; overflow-y: auto; cursor: pointer; }
-      /* 이스터에그: 헤더 로고 5연타 → 고양이가 나타나 그루밍한다 */
+      /* 이스터에그: 헤더 로고 5연타 → 두나 산책(아래 #duna-peek) */
       [data-logo] { user-select: none; -webkit-tap-highlight-color: transparent; cursor: default; }
       [data-logo].logo-tap { animation: logo-tap 0.25s ease; }
       @keyframes logo-tap { 50% { transform: scale(0.96) rotate(-1deg); } }
-      /* 이스터에그 고양이 '두나'(미라님 댁 고양이, 2026-10-23 사진 기반) — 뒷다리를 번쩍 든 '첼로 자세'로 엉덩이 그루밍.
-         두나 특징: 흰 몸 + 고등어 태비 무늬(머리 캡·등·허벅지), 이마 가운데 흰 줄, 초록 눈, 분홍 코 옆 갈색 점, 검은 줄무늬 꼬리.
-         흰 고양이라 흰 화면 위에서 묻히지 않게 연한 테두리·그림자를 둘렀다.
-         110px 로 키우면서(64px 은 디테일이 점으로 뭉갰다) 헤더 밑에서는 이름 배지·로그아웃을 가려
-         자리를 왼쪽 아래 탭바 위로 옮겼다 — 오른쪽 아래 책벌레와 양쪽에 하나씩 앉는다.
-         SVG 원본은 생성 스크립트로 그렸다. 좌표를 손으로 고칠 땐 viewBox 0 0 120 120 기준이다 */
-      #nap-cat { position: fixed; z-index: 26; width: 110px; height: 110px; cursor: pointer; user-select: none;
-        -webkit-tap-highlight-color: transparent; animation: cat-arrive 0.6s ease-out; transition: transform 1.1s ease-in, opacity 1.1s ease-in; }
-      #nap-cat.hidden { display: none; }
-      #nap-cat svg { display: block; width: 110px; height: 110px; overflow: visible; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.18)); }
-      #nap-cat .cat-head { transform-box: view-box; transform-origin: 50px 62px; animation: cat-lick 4s ease-in-out infinite; }
-      #nap-cat .cat-tongue { opacity: 0; animation: cat-tongue 4s ease-in-out infinite; }
-      #nap-cat .eyes-open { opacity: 0; animation: cat-eyes-open 4s ease-in-out infinite; }
-      #nap-cat .eyes-closed { animation: cat-eyes-closed 4s ease-in-out infinite; }
-      #nap-cat .cat-leg { transform-box: view-box; transform-origin: 77px 88px; animation: cat-leg 4s ease-in-out infinite; }
-      #nap-cat .cat-tail { transform-box: view-box; transform-origin: 34px 104px; animation: cat-tail 1.8s ease-in-out infinite; }
-      #nap-cat.leave { transform: translateX(-120vw); opacity: 0; }
-      @keyframes cat-arrive { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
-      /* 한 사이클(4초): 할짝할짝 세 번(고개를 허벅지에 묻는다) → 고개 들고 초록 눈으로 빤히 쳐다봄(사진 속 그 표정) → 다시 그루밍 */
-      @keyframes cat-lick { 0%, 36%, 92%, 100% { transform: none; } 6%, 18%, 30% { transform: translate(6px, 10px) rotate(16deg); }
-        12%, 24% { transform: translate(4px, 7px) rotate(9deg); } 46%, 82% { transform: translate(-2px, -3px) rotate(-26deg); } }
-      @keyframes cat-tongue { 0%, 3%, 34%, 100% { opacity: 0; } 6%, 18%, 30% { opacity: 1; } 12%, 24% { opacity: 0.15; } }
-      @keyframes cat-eyes-open { 0%, 42%, 86%, 100% { opacity: 0; } 47%, 81% { opacity: 1; } }
-      @keyframes cat-eyes-closed { 0%, 42%, 86%, 100% { opacity: 1; } 47%, 81% { opacity: 0; } }
-      @keyframes cat-leg { 0%, 100% { transform: rotate(0deg); } 18% { transform: rotate(3deg); } 60% { transform: rotate(-2deg); } }
-      @keyframes cat-tail { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-14deg); } }
+      /* 이스터에그 '두나 산책'(2026-10-23) — 로고 5연타 → 🐾 발자국이 로고 밑에서 왼쪽 아래로 걸어 내려가고,
+         끝에서 두나(미라님 댁 고양이)가 하단 탭바 뒤에서 빼꼼 고개를 내민다. 탭하면 눈이 동그래지며 쏙 숨는다.
+         손으로 그린 SVG 고양이는 퀄리티 한계가 있어(2026-10-23 VOC) 실사 사진으로 바꿨다.
+         사진 3장 중 ①정면 응시(흰 벽, 가장 선명) = 기본 표정, ③눈 동그래진 사진 = 들켰을 때 표정.
+         얼굴만 원형으로 잘라 data URI 로 넣었다(각 5KB) — 배포가 index.html 한 장 업로드라 파일을 따로 두지 않는다 */
+      .paw-print { position: fixed; z-index: 26; font-size: 18px; line-height: 1; pointer-events: none; opacity: 0;
+        animation: paw-step 2.2s ease-out forwards; }
+      @keyframes paw-step { 0% { opacity: 0; transform: var(--rot) scale(0.4); } 12% { opacity: 0.9; transform: var(--rot) scale(1.15); }
+        22% { transform: var(--rot) scale(1); } 70% { opacity: 0.75; transform: var(--rot) scale(1); } 100% { opacity: 0; transform: var(--rot) scale(1); } }
+      /* 컨테이너 아래 끝 = 탭바 윗선. overflow 로 잘라 탭바 뒤에서 솟아오르는 것처럼 보인다 */
+      #duna-peek { position: fixed; z-index: 29; width: 108px; height: 100px; overflow: hidden; pointer-events: none; }
+      #duna-peek.hidden { display: none; }
+      #duna-peek .duna-face { position: absolute; left: 6px; bottom: -10px; width: 96px; height: 96px; border-radius: 50%;
+        background: #e9e6ff center / cover no-repeat; border: 3px solid #ffffff; box-shadow: 0 4px 14px rgba(26,26,46,0.28);
+        cursor: pointer; pointer-events: auto; -webkit-tap-highlight-color: transparent; transform-origin: 50% 90%;
+        transform: translateY(110%); transition: transform 0.55s cubic-bezier(.34,1.56,.64,1); }
+      #duna-peek.up .duna-face { transform: translateY(0); animation: duna-tilt 3.4s ease-in-out 0.7s infinite; }
+      #duna-peek.surprised .duna-face { animation: duna-jump 0.4s ease; }
+      #duna-peek.down .duna-face { transform: translateY(115%); transition: transform 0.35s ease-in; animation: none; }
+      /* 갸웃 — 사진이 정지 이미지라 고개 기울이기로 살아 있는 느낌을 준다 */
+      @keyframes duna-tilt { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-10deg); } 55% { transform: rotate(6deg); } }
+      @keyframes duna-jump { 45% { transform: translateY(-12px) scale(1.08); } }
       /* 챕터 공개 축하 — 위에서 🔖📖💗✨ 가 흩날린다. 노드는 3.5초 뒤 스스로 지운다 */
       .confetti-piece { position: fixed; top: -40px; z-index: 9000; pointer-events: none; line-height: 1;
         animation: confetti-fall var(--dur, 2.8s) cubic-bezier(.25,.6,.45,1) var(--delay, 0s) forwards; }
@@ -234,15 +230,15 @@
       @media (prefers-reduced-motion: reduce) {
         .confetti-piece, .reaction-float { display: none; }
         .reaction-chip.chip-pop { animation: none; }
-        #mascot-body .mascot-critter, #nap-cat, #nap-cat .cat-head, #nap-cat .cat-tongue, #nap-cat .eyes-open, #nap-cat .eyes-closed, #nap-cat .cat-leg, #nap-cat .cat-tail, [data-logo].logo-tap { animation: none !important; }
-        #mascot, #nap-cat { transition: none; }
+        #mascot-body .mascot-critter, .paw-print, #duna-peek .duna-face, [data-logo].logo-tap { animation: none !important; }
+        #mascot, #duna-peek .duna-face { transition: none; }
       }
     </style>
   </head>
   <body class="app-bg min-h-screen antialiased">
     <div id="app-root"></div>
     <div id="mascot" class="hidden"><div id="mascot-bubble" role="status"></div><button id="mascot-body" type="button" aria-label="책벌레"><span class="mascot-book">📖</span><span class="mascot-critter">🐛</span></button></div>
-    <div id="nap-cat" class="hidden" role="img" aria-label="그루밍하는 고양이 두나"><svg viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="duna-fur" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="0.65" stop-color="#fbf8f4"/><stop offset="1" stop-color="#ece5dc"/></linearGradient><linearGradient id="duna-tab" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a8937c"/><stop offset="1" stop-color="#8f7b66"/></linearGradient><radialGradient id="duna-eye" cx="0.45" cy="0.55" r="0.6"><stop offset="0" stop-color="#d9e86a"/><stop offset="0.7" stop-color="#9dbf35"/><stop offset="1" stop-color="#6f8f22"/></radialGradient><clipPath id="duna-hc"><path d="M-15 -3 C-15 -14 -8 -17 0 -17 C8 -17 15 -14 15 -3 C15 7 9 13 0 13 C-9 13 -15 7 -15 -3 Z"/></clipPath><clipPath id="duna-bc"><path d="M40 55 C24 62 17 84 24 99 C30 110 58 112 74 106 C86 100 84 80 75 70 C67 61 54 51 40 55 Z"/></clipPath><clipPath id="duna-tc"><path d="M58 97 C53 83 63 69 77 72 C90 75 92 92 84 101 C77 108 63 106 58 97 Z"/></clipPath></defs><ellipse cx="58" cy="111" rx="38" ry="4.5" fill="rgba(40,30,60,0.18)"/><g class="cat-tail"><path d="M34 104 C20 110 6 106 6 94 C6 86 12 82 16 80" fill="none" stroke="#c9bfb2" stroke-width="11" stroke-linecap="round"/><path d="M34 104 C20 110 6 106 6 94 C6 86 12 82 16 80" fill="none" stroke="#8f7b66" stroke-width="9" stroke-linecap="round"/><path d="M34 104 C20 110 6 106 6 94 C6 86 12 82 16 80" fill="none" stroke="#2f2925" stroke-width="9" stroke-dasharray="4.2 4.6" stroke-dashoffset="2"/><circle cx="16" cy="80" r="4.6" fill="#2f2925"/></g><path d="M60 104 C64 101 72 102 74 106 C74 110 62 111 60 108 Z" fill="url(#duna-fur)" stroke="#c9bfb2" stroke-width="1"/><path d="M40 55 C24 62 17 84 24 99 C30 110 58 112 74 106 C86 100 84 80 75 70 C67 61 54 51 40 55 Z" fill="url(#duna-fur)" stroke="#c9bfb2" stroke-width="1.3"/><g clip-path="url(#duna-bc)"><path d="M38 54 C24 61 18 76 20 92 C27 88 32 80 41 75 C49 71 55 64 52 56 Z" fill="url(#duna-tab)"/><path d="M27 66 C31 69 32 73 31 77 M33 61 C37 64 38 68 37 72 M23 77 C27 79 28 83 27 87 M43 58 C46 61 46 65 45 68" fill="none" stroke="#5b4b3d" stroke-width="1.7" stroke-linecap="round"/><path d="M52 92 C58 96 64 98 70 97" fill="none" stroke="#ece5dc" stroke-width="2" stroke-linecap="round"/></g><path d="M58 97 C53 83 63 69 77 72 C90 75 92 92 84 101 C77 108 63 106 58 97 Z" fill="url(#duna-tab)" stroke="#c9bfb2" stroke-width="1.2"/><g clip-path="url(#duna-tc)"><path d="M64 76 C68 80 69 86 67 91 M71 74 C75 79 76 85 74 90 M79 76 C82 81 83 87 81 93 M60 92 C65 95 70 97 76 97" fill="none" stroke="#5b4b3d" stroke-width="1.8" stroke-linecap="round"/><path d="M60 100 C66 105 76 105 84 100 L86 110 L58 110 Z" fill="url(#duna-fur)"/></g><g class="cat-leg"><path d="M69 90 C73 76 79 62 84 51 C88 42 91 32 94 21 C97 19 100 19 103 22 C101 31 98.5 39 96.5 45.5 C95.5 50 96.2 54.5 93.4 59.5 C90 67 87 78 85 92 Z" fill="url(#duna-fur)" stroke="#c9bfb2" stroke-width="1.2" stroke-linejoin="round"/><path d="M95.2 30 C94 37 92.4 43 91 48 M91.6 62 C89.6 68 88 75 87 82" fill="none" stroke="#ece5dc" stroke-width="2" stroke-linecap="round"/><path d="M96.4 47.5 l2 1.2 l-1.8 1 l2 1.4 l-2.2 0.6" fill="none" stroke="#c9bfb2" stroke-width="0.8" stroke-linejoin="round"/><g transform="translate(99 13) rotate(-18)"><path d="M-8 2 C-9 -5 -4 -9 1 -9 C6 -9 9 -5 8 1 C7 5 -6 6 -8 2 Z" fill="url(#duna-fur)" stroke="#c9bfb2" stroke-width="1.1"/><ellipse cx="0" cy="-1" rx="3.2" ry="2.6" fill="#f3a6b2"/><circle cx="-4.4" cy="-5" r="1.4" fill="#f3a6b2"/><circle cx="-1.2" cy="-6.6" r="1.4" fill="#f3a6b2"/><circle cx="2.4" cy="-6.4" r="1.4" fill="#f3a6b2"/><circle cx="5.2" cy="-4.2" r="1.3" fill="#f3a6b2"/></g></g><path d="M44 76 C43 86 42 96 41 104" fill="none" stroke="#c9bfb2" stroke-width="10" stroke-linecap="round"/><path d="M44 76 C43 86 42 96 41 104" fill="none" stroke="url(#duna-fur)" stroke-width="8" stroke-linecap="round"/><path d="M53 78 C53 88 52 97 52 104" fill="none" stroke="#c9bfb2" stroke-width="10" stroke-linecap="round"/><path d="M53 78 C53 88 52 97 52 104" fill="none" stroke="#ffffff" stroke-width="8" stroke-linecap="round"/><path d="M36 106 C36 102 46 101 46 106 C46 109 36 109 36 106 Z" fill="#ffffff" stroke="#c9bfb2" stroke-width="1"/><path d="M47 106 C47 102 57 101 57 106 C57 109 47 109 47 106 Z" fill="#ffffff" stroke="#c9bfb2" stroke-width="1"/><path d="M39.5 108.2 v-1.6 M42.5 108.4 v-1.8 M50.5 108.2 v-1.6 M53.5 108.4 v-1.8" stroke="#c9bfb2" stroke-width="0.7" stroke-linecap="round"/><g class="cat-head"><g transform="translate(60 60) rotate(22)"><path d="M-14 -7 L-16 -27 L-3 -16 Z" fill="url(#duna-tab)" stroke="#c9bfb2" stroke-width="1" stroke-linejoin="round"/><path d="M-12.4 -10 L-13.6 -22.5 L-5.6 -15.6 Z" fill="#f3a6b2"/><path d="M-12.6 -12 l1.6 -4 M-10.6 -11.4 l1.4 -3.4" stroke="#ffffff" stroke-width="0.7" stroke-linecap="round"/><path d="M3 -16 L16 -27 L14 -7 Z" fill="url(#duna-tab)" stroke="#c9bfb2" stroke-width="1" stroke-linejoin="round"/><path d="M5.6 -15.6 L13.6 -22.5 L12.4 -10 Z" fill="#f3a6b2"/><path d="M11 -11.4 l-1.4 -3.4 M13 -12 l-1.6 -4" stroke="#ffffff" stroke-width="0.7" stroke-linecap="round"/><path d="M-15 -3 C-15 -14 -8 -17 0 -17 C8 -17 15 -14 15 -3 C15 7 9 13 0 13 C-9 13 -15 7 -15 -3 Z" fill="url(#duna-fur)" stroke="#c9bfb2" stroke-width="1.2"/><path d="M-15 1 l-3.2 2.2 l3.4 0.6 l-2.6 2.4 l3.6 -0.2 M15 1 l3.2 2.2 l-3.4 0.6 l2.6 2.4 l-3.6 -0.2" fill="#ffffff" stroke="#c9bfb2" stroke-width="0.8" stroke-linejoin="round"/><g clip-path="url(#duna-hc)"><path d="M-17 -19 H17 V-1.5 C13 -3.5 9 -3.6 5.4 -0.6 C4.4 -6.5 2.4 -12 0 -15.5 C-2.4 -12 -4.4 -6.5 -5.4 -0.6 C-9 -3.6 -13 -3.5 -17 -1.5 Z" fill="url(#duna-tab)"/><path d="M-8.6 -14.6 l1.6 3.2 M-5.4 -16.2 l0.9 3 M8.6 -14.6 l-1.6 3.2 M5.4 -16.2 l-0.9 3 M-14.2 -7.6 l3.6 1 M-14.6 -4.4 l3.4 0.4 M14.2 -7.6 l-3.6 1 M14.6 -4.4 l-3.4 0.4" stroke="#5b4b3d" stroke-width="1.2" stroke-linecap="round"/></g><g class="eyes-closed"><path d="M-10.2 -2.2 Q-6.4 1.2 -2.6 -2.2 M2.6 -2.2 Q6.4 1.2 10.2 -2.2" fill="none" stroke="#2f2925" stroke-width="1.4" stroke-linecap="round"/></g><g class="eyes-open"><path d="M-10.4 -2.4 Q-6.6 -7.4 -2.6 -2.6 Q-6.6 1.4 -10.4 -2.4 Z" fill="url(#duna-eye)" stroke="#2f2925" stroke-width="0.9"/><path d="M2.6 -2.6 Q6.6 -7.4 10.4 -2.4 Q6.6 1.4 2.6 -2.6 Z" fill="url(#duna-eye)" stroke="#2f2925" stroke-width="0.9"/><ellipse cx="-6.5" cy="-2.6" rx="1" ry="2.7" fill="#2f2925"/><ellipse cx="6.5" cy="-2.6" rx="1" ry="2.7" fill="#2f2925"/><circle cx="-5.4" cy="-3.9" r="0.85" fill="#ffffff"/><circle cx="7.6" cy="-3.9" r="0.85" fill="#ffffff"/></g><path d="M-2.4 3 C-2.4 2.2 2.4 2.2 2.4 3 C2.2 4.4 0.8 5.6 0 5.8 C-0.8 5.6 -2.2 4.4 -2.4 3 Z" fill="#f3a6b2" stroke="#e98a9c" stroke-width="0.5"/><ellipse cx="3.9" cy="6.6" rx="1.5" ry="1.15" fill="#a9763f" transform="rotate(-15 3.9 6.6)"/><path d="M0 5.8 V7 M0 7 C-1 8.6 -3 8.8 -4.2 7.6 M0 7 C1 8.6 3 8.8 4.2 7.6" fill="none" stroke="#b3a699" stroke-width="0.7" stroke-linecap="round"/><path d="M-5 5 L-16 3 M-5 6.4 L-16 7.2 M-4.6 7.8 L-14.6 11 M5 5 L16 3 M5 6.4 L16 7.2 M4.6 7.8 L14.6 11" stroke="#bdb3a7" stroke-width="0.5" stroke-linecap="round"/><path class="cat-tongue" d="M-2.2 8.4 C-2.2 12.6 2.2 12.6 2.2 8.4 Z" fill="#ef7d93" stroke="#d9667e" stroke-width="0.4"/></g></g></svg></div>
+    <div id="duna-peek" class="hidden"><div class="duna-face" role="img" aria-label="빼꼼 고개 내민 고양이 두나"></div></div>
     <div id="modal-overlay" class="hidden" style="position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;">
       <div class="modal-bg" style="position:absolute;inset:0;"></div>
       <div id="modal-content" class="relative" style="pointer-events:auto;"></div>
@@ -318,7 +314,7 @@
         currentMemberId = ""; currentMemberName = ""; isAdminMode = false; isGatePassed = false;
         ["currentMemberId","currentMemberName","isAdminMode","isGatePassed"].forEach(k => localStorage.removeItem(k));
       }
-      function logout() { clearMemberSession(); adminLogout(); showAccessDenied(); mascotSync(); catLeave(); }
+      function logout() { clearMemberSession(); adminLogout(); showAccessDenied(); mascotSync(); dunaLeave(); }
 
       // ── 관리자 인증 (Supabase Auth: 모임 이벤트 삭제 권한) ──
       async function refreshAdminAuth() {
@@ -1171,7 +1167,7 @@
         if (currentMemberId==='chloe') tabs.push(tab("settings","설정"));
         return `<nav class="fixed bottom-0 left-0 right-0 z-30 border-t border-white/10 bg-white/90 backdrop-blur-lg shadow-lg"><div class="mx-auto flex max-w-content">${tabs.join('')}</div></nav>`;
       }
-      // ── 책벌레 마스코트 & 그루밍 고양이(이스터에그) ──
+      // ── 책벌레 마스코트 & 두나 산책(이스터에그) ──
       // 둘 다 app-root 밖의 고정 노드라 renderApp 이 다시 그려도 상태가 유지된다.
       // 말풍선 문구는 여기만 고치면 된다. {pct} = 이달의 책 클럽 진도(모두 입력을 마친 챕터 비율)
       const MASCOT_LINES = {
@@ -1179,9 +1175,9 @@
         mid:   ["냠냠, 벌써 {pct}% 먹었어요", "저도 아직 여기예요 🐢 천천히 가요", "밑줄 그은 문장, 저도 보고 싶어요", "오늘 한 줄, 남기셨어요?"],
         near:  ["거의 다 먹었어요! 등이 근질근질…", "곧 뭔가 될 것 같아요 ✨"],
         done:  ["다 먹고 나비가 됐어요 🦋", "완독 축하해요! 다음 책은 뭐예요?"],
-        cat:   ["쉿… 두나 그루밍 중이에요 🙈", "두나가 저를 쳐다봐요… 👀"],
+        cat:   ["두나다! 👀", "쉿… 두나가 구경 중이에요", "두나야 안녕~"],
       };
-      let mascotBubbleTimer=null, mascotLastLine="", mascotScrollTimer=null, logoTaps=[], catTimer=null;
+      let mascotBubbleTimer=null, mascotLastLine="", mascotScrollTimer=null, logoTaps=[], catTimer=null, dunaTimers=[];
       function mascotStage(pct) { return pct>=100?'done':pct>=70?'near':pct>0?'mid':'start'; }
       // 블라인드가 풀린 챕터의 문장만 꺼낸다 — 마스코트가 블라인드 중인 문장을 흘리면 안 된다
       function mascotQuotePool() {
@@ -1233,7 +1229,7 @@
       function mascotTap() {
         const body=document.getElementById('mascot-body');
         body.classList.remove('bounce'); void body.offsetWidth; body.classList.add('bounce');
-        if(!document.getElementById('nap-cat').classList.contains('hidden')) return mascotSay(MASCOT_LINES.cat[Math.floor(Math.random()*MASCOT_LINES.cat.length)]);
+        if(document.getElementById('duna-peek').classList.contains('up')) return mascotSay(MASCOT_LINES.cat[Math.floor(Math.random()*MASCOT_LINES.cat.length)]);
         const pct=+document.getElementById('mascot').dataset.pct||0, pool=mascotQuotePool();
         // 40% 확률로 클럽이 남긴 문장 하나를 낭독한다
         if(pool.length&&Math.random()<0.4){
@@ -1249,24 +1245,54 @@
       function logoTap(logo) {
         logo.classList.remove('logo-tap'); void logo.offsetWidth; logo.classList.add('logo-tap');
         const now=Date.now(); logoTaps=logoTaps.filter(t=>now-t<2500); logoTaps.push(now);
-        if(logoTaps.length>=5){ logoTaps=[]; catGroom(); }
+        if(logoTaps.length>=5){ logoTaps=[]; dunaWalk(); }
       }
-      function catGroom() {
+      // 두나 얼굴 사진(원형 크롭 200px WebP). curious = 정면 응시, surprised = 들켜서 눈 동그래짐
+      const DUNA_FACE = {
+        curious: "data:image/webp;base64,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",
+        surprised: "data:image/webp;base64,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",
+      };
+      function dunaWalk() {
         // logo 는 탭 직후 renderApp 이 헤더를 다시 그리면 떨어져 나간 노드일 수 있다 → 위치는 지금 문서에서 다시 찾는다
-        const cat=document.getElementById('nap-cat'), nav=document.querySelector('nav');
-        if(!nav) return;
-        clearTimeout(catTimer); cat.classList.remove('hidden','leave');
-        // 왼쪽 아래, 하단 탭바 윗선에 앉힌다. 110px 중 발바닥(그림자) 선이 위에서 102px 지점이다.
-        // PC 에서는 본문(최대 1100px) 왼쪽 끝에 맞춘다
-        const navTop=nav.getBoundingClientRect().top;
-        cat.style.left=Math.max(10,(window.innerWidth-1100)/2+12)+'px';
-        cat.style.top=(navTop-104)+'px';
-        catTimer=setTimeout(catLeave,12000);
+        const nav=document.querySelector('nav'), logo=document.querySelector('[data-logo]'), peek=document.getElementById('duna-peek');
+        if(!nav||!logo||!peek) return;
+        clearTimeout(catTimer); dunaTimers.forEach(clearTimeout); dunaTimers=[]; peek.className='hidden';
+        // PC 에서는 본문(최대 1100px) 왼쪽 끝에 맞춘다. 오른쪽 아래는 책벌레 자리다
+        const lr=logo.getBoundingClientRect(), navTop=nav.getBoundingClientRect().top, left=Math.max(10,(window.innerWidth-1100)/2+12);
+        // 로고 밑에서 출발해 두나가 고개 내밀 자리 바로 위까지 지그재그로 걷는다
+        const x0=lr.left+24, y0=lr.bottom+18, x1=left+54, y1=navTop-112, steps=9, gap=260;
+        const dx=x1-x0, dy=y1-y0, len=Math.hypot(dx,dy)||1;
+        // 🐾 글리프는 대략 위를 향하므로 진행 방향 + 90°
+        const ang=Math.atan2(dy,dx)*180/Math.PI+90;
+        for(let i=0;i<steps;i++){
+          const t=i/(steps-1), side=i%2?1:-1;
+          const x=x0+dx*t+side*10*(-dy/len), y=y0+dy*t+side*10*(dx/len);
+          dunaTimers.push(setTimeout(()=>{
+            const p=document.createElement('span'); p.className='paw-print'; p.textContent='🐾';
+            p.style.left=x+'px'; p.style.top=y+'px'; p.style.setProperty('--rot',`translate(-50%,-50%) rotate(${ang}deg)`);
+            document.body.appendChild(p); setTimeout(()=>p.remove(),2400);
+          },i*gap));
+        }
+        dunaTimers.push(setTimeout(()=>mascotSay("누가 지나갔어요?! 🐾"),gap*3));
+        dunaTimers.push(setTimeout(()=>{
+          peek.style.left=left+'px'; peek.style.top=(navTop-100)+'px';
+          peek.querySelector('.duna-face').style.backgroundImage=`url(${DUNA_FACE.curious})`;
+          // hidden 을 벗긴 직후 한 프레임 쉬어야 아래에서 솟아오르는 전환이 보인다
+          peek.className=''; void peek.offsetWidth; peek.className='up';
+        },steps*gap+150));
+        catTimer=setTimeout(dunaLeave,steps*gap+12000);
       }
-      function catLeave() {
-        const cat=document.getElementById('nap-cat'); if(!cat||cat.classList.contains('hidden')) return;
-        clearTimeout(catTimer); cat.classList.add('leave');
-        catTimer=setTimeout(()=>cat.classList.add('hidden'),1100);
+      function dunaTap() {
+        const peek=document.getElementById('duna-peek'); if(!peek.classList.contains('up')) return;
+        peek.querySelector('.duna-face').style.backgroundImage=`url(${DUNA_FACE.surprised})`;
+        peek.classList.add('surprised'); clearTimeout(catTimer);
+        catTimer=setTimeout(dunaLeave,750);
+      }
+      function dunaLeave() {
+        const peek=document.getElementById('duna-peek'); if(!peek||peek.classList.contains('hidden')) return;
+        dunaTimers.forEach(clearTimeout); dunaTimers=[]; clearTimeout(catTimer);
+        peek.classList.add('down');
+        catTimer=setTimeout(()=>{ peek.className='hidden'; },400);
       }
 
       // ── 챕터 공개 축하 ──
@@ -1401,7 +1427,7 @@
           const t=e.target;
           if(t.closest&&t.closest('#mascot-body')){mascotTap();return;}
           if(t.closest&&t.closest('#mascot-bubble')){mascotBubbleTap();return;}
-          if(t.closest&&t.closest('#nap-cat')){catLeave();return;}
+          if(t.closest&&t.closest('.duna-face')){dunaTap();return;}
           const logoEl=t.closest&&t.closest('[data-logo]');
           if(logoEl){logoTap(logoEl);return;}
           const tabEl=t.closest&&t.closest("[data-tab]");
