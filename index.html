@@ -150,10 +150,80 @@
         font-size: 0.75rem; color: rgba(26, 26, 46, 0.8); white-space: nowrap; text-align: left; }
       .reaction-option:hover { background: rgba(108, 92, 231, 0.1); }
       .reaction-option .ro-emoji { font-size: 1.05rem; line-height: 1; }
+      /* 책벌레 마스코트 — app-root 밖에 둔다. renderApp 이 app-root 를 통째로 다시 그려서
+         안에 두면 실시간 갱신마다 애니메이션이 처음부터 다시 시작된다.
+         이모지는 Emoji 12.0 이하만(reaction-plan.md): 🐛📖 1.0 · 🦋 3.0 · 🐈💤 1.0 */
+      #mascot { position: fixed; right: 0.9rem; bottom: 4.6rem; z-index: 25; display: flex; flex-direction: column; align-items: flex-end;
+        transition: transform 0.35s ease, opacity 0.35s ease; pointer-events: none; }
+      #mascot.hidden { display: none; }
+      #mascot.peek { transform: translateY(55%); opacity: 0.45; }
+      #mascot-body { pointer-events: auto; position: relative; width: 56px; height: 56px; border: none; background: transparent; cursor: pointer;
+        -webkit-tap-highlight-color: transparent; user-select: none; }
+      #mascot-body .mascot-book { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); font-size: 30px; line-height: 1;
+        filter: drop-shadow(0 3px 4px rgba(0,0,0,0.25)); }
+      #mascot-body .mascot-critter { position: absolute; left: 50%; bottom: 18px; font-size: 22px; line-height: 1; display: inline-block;
+        transform-origin: 50% 100%; transform: translateX(-50%) scale(var(--grow, 1)); animation: mascot-wiggle 2.6s ease-in-out infinite; }
+      #mascot.is-butterfly .mascot-critter { animation: mascot-flutter 1.4s ease-in-out infinite; bottom: 24px; }
+      #mascot-body.bounce .mascot-critter { animation: mascot-bounce 0.5s ease; }
+      @keyframes mascot-wiggle {
+        0%, 100% { transform: translateX(-50%) scale(var(--grow, 1)) rotate(0deg); }
+        30% { transform: translateX(-56%) scale(var(--grow, 1)) rotate(-6deg); }
+        60% { transform: translateX(-44%) scale(var(--grow, 1)) rotate(5deg); } }
+      @keyframes mascot-flutter {
+        0%, 100% { transform: translateX(-50%) translateY(0) scale(var(--grow, 1)); }
+        50% { transform: translateX(-50%) translateY(-7px) scale(var(--grow, 1)) rotate(-4deg); } }
+      @keyframes mascot-bounce {
+        0%, 100% { transform: translateX(-50%) translateY(0) scale(var(--grow, 1)); }
+        40% { transform: translateX(-50%) translateY(-14px) scale(calc(var(--grow, 1) * 1.15)); } }
+      #mascot-bubble { pointer-events: auto; max-width: min(260px, calc(100vw - 2rem)); margin-bottom: 0.35rem; padding: 0.6rem 0.8rem;
+        background: #ffffff; color: #1a1a2e; border-radius: 1rem 1rem 0.25rem 1rem; box-shadow: 0 6px 20px rgba(26,26,46,0.18);
+        font-size: 0.8rem; line-height: 1.45; opacity: 0; transform: translateY(6px) scale(0.96); transform-origin: 100% 100%;
+        transition: opacity 0.25s ease, transform 0.25s ease; visibility: hidden; word-break: keep-all; }
+      #mascot-bubble.show { opacity: 1; transform: none; visibility: visible; }
+      #mascot-bubble .mb-src { display: block; margin-top: 0.3rem; font-size: 0.68rem; color: #6c5ce7; font-weight: 600; }
+      /* 이스터에그: 헤더 로고 5연타 → 고양이가 제목 위에서 잠든다 */
+      [data-logo] { user-select: none; -webkit-tap-highlight-color: transparent; cursor: default; }
+      [data-logo].logo-tap { animation: logo-tap 0.25s ease; }
+      @keyframes logo-tap { 50% { transform: scale(0.96) rotate(-1deg); } }
+      #nap-cat { position: fixed; z-index: 26; font-size: 30px; line-height: 1; cursor: pointer; user-select: none;
+        -webkit-tap-highlight-color: transparent; animation: cat-arrive 0.6s ease-out; transition: transform 1.1s ease-in, opacity 1.1s ease-in; }
+      #nap-cat.hidden { display: none; }
+      #nap-cat .cat-body { display: inline-block; animation: cat-breathe 2.4s ease-in-out infinite; transform-origin: 50% 100%; }
+      #nap-cat .cat-zzz { position: absolute; left: 70%; top: -10px; font-size: 15px; animation: cat-zzz 2.4s ease-out infinite; }
+      #nap-cat.leave { transform: translateX(110vw); opacity: 0; }
+      #nap-cat.leave .cat-zzz { display: none; }
+      @keyframes cat-arrive { from { transform: translateY(-30px); opacity: 0; } to { transform: none; opacity: 1; } }
+      @keyframes cat-breathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.92) scaleX(1.04); } }
+      @keyframes cat-zzz { 0% { transform: translate(0, 0) scale(0.6); opacity: 0; } 30% { opacity: 1; }
+        100% { transform: translate(14px, -22px) scale(1.1); opacity: 0; } }
+      /* 챕터 공개 축하 — 위에서 🔖📖💗✨ 가 흩날린다. 노드는 3.5초 뒤 스스로 지운다 */
+      .confetti-piece { position: fixed; top: -40px; z-index: 9000; pointer-events: none; line-height: 1;
+        animation: confetti-fall var(--dur, 2.8s) cubic-bezier(.25,.6,.45,1) var(--delay, 0s) forwards; }
+      @keyframes confetti-fall {
+        0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+        85% { opacity: 1; }
+        100% { transform: translate(var(--dx, 0px), 105vh) rotate(var(--rot, 360deg)); opacity: 0; } }
+      /* 리액션 팝 — 누른 이모지가 칩에서 톡 튀어 오른다 */
+      .reaction-float { position: fixed; z-index: 9000; pointer-events: none; line-height: 1; font-size: 18px;
+        animation: reaction-float 0.9s ease-out forwards; }
+      @keyframes reaction-float {
+        0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+        20% { transform: translate(-50%, -90%) scale(1.5); opacity: 1; }
+        100% { transform: translate(calc(-50% + var(--dx, 0px)), -260%) scale(1); opacity: 0; } }
+      .reaction-chip.chip-pop { animation: chip-pop 0.35s ease; }
+      @keyframes chip-pop { 40% { transform: scale(1.25); } }
+      @media (prefers-reduced-motion: reduce) {
+        .confetti-piece, .reaction-float { display: none; }
+        .reaction-chip.chip-pop { animation: none; }
+        #mascot-body .mascot-critter, #nap-cat, #nap-cat .cat-body, #nap-cat .cat-zzz, [data-logo].logo-tap { animation: none !important; }
+        #mascot, #nap-cat { transition: none; }
+      }
     </style>
   </head>
   <body class="app-bg min-h-screen antialiased">
     <div id="app-root"></div>
+    <div id="mascot" class="hidden"><div id="mascot-bubble" role="status"></div><button id="mascot-body" type="button" aria-label="책벌레"><span class="mascot-book">📖</span><span class="mascot-critter">🐛</span></button></div>
+    <div id="nap-cat" class="hidden" role="img" aria-label="잠든 고양이"><span class="cat-body">🐈</span><span class="cat-zzz">💤</span></div>
     <div id="modal-overlay" class="hidden" style="position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;">
       <div class="modal-bg" style="position:absolute;inset:0;"></div>
       <div id="modal-content" class="relative" style="pointer-events:auto;"></div>
@@ -229,7 +299,7 @@
         currentMemberId = ""; currentMemberName = ""; isAdminMode = false; isGatePassed = false;
         ["currentMemberId","currentMemberName","isAdminMode","isGatePassed"].forEach(k => localStorage.removeItem(k));
       }
-      function logout() { clearMemberSession(); adminLogout(); showAccessDenied(); }
+      function logout() { clearMemberSession(); adminLogout(); showAccessDenied(); mascotSync(); catLeave(); }
 
       // ── 관리자 인증 (Supabase Auth: 모임 이벤트 삭제 권한) ──
       async function refreshAdminAuth() {
@@ -687,6 +757,8 @@
             (r.reading_reactions=r.reading_reactions||[]).push({member_id:currentMemberId,emoji});
           }
           renderDailyReadingComments();
+          // 누를 때만 튀어 오른다. 취소할 때는 조용히
+          if (!has) reactionPop(readingId, emoji);
         }
         toggleReaction(readingId,emoji).then(ok => {
           if (ok) setTimeout(()=>loadDailyReadings().then(()=>renderDailyReadingComments()),500);
@@ -889,7 +961,7 @@
 
       // ── 렌더 ──
       function renderHeader() {
-        return `<header class="sticky top-0 z-20 border-b border-white/10 bg-white/80 backdrop-blur-lg shadow-sm"><div class="mx-auto flex max-w-content items-center justify-between px-4 py-4"><div><p class="text-[10px] uppercase tracking-[0.2em] text-gold font-semibold">Stair</p><h1 class="font-serif text-xl font-bold text-deep">2026 Book Club</h1></div><div class="flex items-center gap-3"><span class="rounded-full bg-gradient-to-r from-gold to-accent px-3 py-1.5 text-[11px] font-semibold text-white shadow-md">${escapeHtml(currentMemberName)}</span><button id="btn-logout" class="btn-ghost !px-4 !py-2 !text-xs font-medium">로그아웃</button></div></div></header>`;
+        return `<header class="sticky top-0 z-20 border-b border-white/10 bg-white/80 backdrop-blur-lg shadow-sm"><div class="mx-auto flex max-w-content items-center justify-between px-4 py-4"><div data-logo><p class="text-[10px] uppercase tracking-[0.2em] text-gold font-semibold">Stair</p><h1 class="font-serif text-xl font-bold text-deep">2026 Book Club</h1></div><div class="flex items-center gap-3"><span class="rounded-full bg-gradient-to-r from-gold to-accent px-3 py-1.5 text-[11px] font-semibold text-white shadow-md">${escapeHtml(currentMemberName)}</span><button id="btn-logout" class="btn-ghost !px-4 !py-2 !text-xs font-medium">로그아웃</button></div></div></header>`;
       }
 
       function renderReadingTab() {
@@ -1080,6 +1152,128 @@
         if (currentMemberId==='chloe') tabs.push(tab("settings","설정"));
         return `<nav class="fixed bottom-0 left-0 right-0 z-30 border-t border-white/10 bg-white/90 backdrop-blur-lg shadow-lg"><div class="mx-auto flex max-w-content">${tabs.join('')}</div></nav>`;
       }
+      // ── 책벌레 마스코트 & 낮잠 고양이(이스터에그) ──
+      // 둘 다 app-root 밖의 고정 노드라 renderApp 이 다시 그려도 상태가 유지된다.
+      // 말풍선 문구는 여기만 고치면 된다. {pct} = 이달의 책 클럽 진도(모두 입력을 마친 챕터 비율)
+      const MASCOT_LINES = {
+        start: ["새 책 냄새… 킁킁, 좋다!", "1챕터부터 같이 갉아먹어요", "아직 한 입도 안 먹었어요. 배고파요…"],
+        mid:   ["냠냠, 벌써 {pct}% 먹었어요", "저도 아직 여기예요 🐢 천천히 가요", "밑줄 그은 문장, 저도 보고 싶어요", "오늘 한 줄, 남기셨어요?"],
+        near:  ["거의 다 먹었어요! 등이 근질근질…", "곧 뭔가 될 것 같아요 ✨"],
+        done:  ["다 먹고 나비가 됐어요 🦋", "완독 축하해요! 다음 책은 뭐예요?"],
+        cat:   ["쉿… 고양이 자요 💤"],
+      };
+      let mascotBubbleTimer=null, mascotLastLine="", mascotScrollTimer=null, logoTaps=[], catTimer=null;
+      function mascotStage(pct) { return pct>=100?'done':pct>=70?'near':pct>0?'mid':'start'; }
+      // 블라인드가 풀린 챕터의 문장만 꺼낸다 — 마스코트가 블라인드 중인 문장을 흘리면 안 된다
+      function mascotQuotePool() {
+        const ids=memberList().map(m=>m.id), pool=[];
+        cache.books.forEach(b=>{
+          for(let c=1;c<=b.totalChapters;c++){
+            if(isChapterBlind(b,c)) continue;
+            ids.forEach(id=>{ const s=(b.chapters[c]?.[id]||"").trim(); if(s&&s.length<=120) pool.push({text:s,src:`${memberNameById(id)} · 《${b.title}》 Ch.${c}`}); });
+          }
+        });
+        return pool;
+      }
+      function mascotSync() {
+        const el=document.getElementById('mascot'); if(!el) return;
+        const book=cache.books.find(b=>b.id===currentBookId);
+        const on=!!(isGatePassed&&currentMemberId&&book);
+        el.classList.toggle('hidden',!on); if(!on) return;
+        const pct=chapterProgress(book).pct, fly=pct>=100;
+        el.classList.toggle('is-butterfly',fly); el.dataset.pct=pct;
+        const critter=el.querySelector('.mascot-critter'), glyph=fly?'🦋':'🐛';
+        if(critter.textContent!==glyph) critter.textContent=glyph;
+        // 진도 0% → 0.85배, 99% → 1.3배. 100% 면 나비
+        critter.style.setProperty('--grow',fly?'1.15':(0.85+pct/100*0.45).toFixed(2));
+      }
+      function mascotSay(text, src) {
+        const b=document.getElementById('mascot-bubble'); if(!b) return;
+        b.innerHTML=escapeHtml(text)+(src?`<span class="mb-src">— ${escapeHtml(src)}</span>`:"");
+        b.classList.add('show'); clearTimeout(mascotBubbleTimer);
+        mascotBubbleTimer=setTimeout(()=>b.classList.remove('show'),src?6500:4000);
+      }
+      function mascotTap() {
+        const body=document.getElementById('mascot-body');
+        body.classList.remove('bounce'); void body.offsetWidth; body.classList.add('bounce');
+        if(!document.getElementById('nap-cat').classList.contains('hidden')) return mascotSay(MASCOT_LINES.cat[0]);
+        const pct=+document.getElementById('mascot').dataset.pct||0, pool=mascotQuotePool();
+        // 40% 확률로 클럽이 남긴 문장 하나를 낭독한다
+        if(pool.length&&Math.random()<0.4){ const q=pool[Math.floor(Math.random()*pool.length)]; return mascotSay(`"${q.text}"`,q.src); }
+        const lines=MASCOT_LINES[mascotStage(pct)];
+        let line; do { line=lines[Math.floor(Math.random()*lines.length)]; } while(lines.length>1&&line===mascotLastLine);
+        mascotLastLine=line; mascotSay(line.replace('{pct}',pct));
+      }
+      function logoTap(logo) {
+        logo.classList.remove('logo-tap'); void logo.offsetWidth; logo.classList.add('logo-tap');
+        const now=Date.now(); logoTaps=logoTaps.filter(t=>now-t<2500); logoTaps.push(now);
+        if(logoTaps.length>=5){ logoTaps=[]; catNap(logo); }
+      }
+      function catNap(logo) {
+        const cat=document.getElementById('nap-cat'), r=(logo.querySelector('h1')||logo).getBoundingClientRect();
+        clearTimeout(catTimer); cat.classList.remove('hidden','leave');
+        // 제목 끝자락에 걸터앉게 둔다. 헤더가 sticky 라 스크롤해도 위치가 맞는다
+        cat.style.left=Math.min(r.right-22,window.innerWidth-44)+'px';
+        cat.style.top=Math.max(2,r.top-24)+'px';
+        catTimer=setTimeout(catLeave,12000);
+      }
+      function catLeave() {
+        const cat=document.getElementById('nap-cat'); if(!cat||cat.classList.contains('hidden')) return;
+        clearTimeout(catTimer); cat.classList.add('leave');
+        catTimer=setTimeout(()=>cat.classList.add('hidden'),1100);
+      }
+
+      // ── 챕터 공개 축하 ──
+      // 블라인드가 풀린(모두 입력한) 챕터 목록을 기기에 기억해 두고, 새로 늘어난 챕터가 있으면 축하한다.
+      // 내 저장이든 남의 저장(realtime)이든, 자리 비운 사이에 풀린 것이든 renderApp 한 곳에서 다 잡힌다.
+      // 기기별 편의 기록이라 localStorage 로 충분하다. 처음 보는 기기는 조용히 기록만 한다.
+      const SEEN_COMPLETE_KEY = "seenCompleteChapters";
+      function completedChapterKeys() {
+        const keys=[];
+        cache.books.forEach(b=>{ for(let c=1;c<=b.totalChapters;c++) if(isChapterComplete(b,c)) keys.push(`${b.id}:${c}`); });
+        return keys;
+      }
+      function celebrateCheck() {
+        if(!isGatePassed||!currentMemberId||!cache.books.length) return;
+        const now=completedChapterKeys();
+        let seen=null; try { seen=JSON.parse(localStorage.getItem(SEEN_COMPLETE_KEY)||"null"); } catch(e) {}
+        try { localStorage.setItem(SEEN_COMPLETE_KEY, JSON.stringify(now)); } catch(e) {}
+        if(!Array.isArray(seen)) return;
+        const fresh=now.filter(k=>!seen.includes(k)); if(!fresh.length) return;
+        const [bid,ch]=fresh[0].split(':'), book=cache.books.find(b=>b.id===bid);
+        const more=fresh.length>1?` 외 ${fresh.length-1}개`:"";
+        celebrate(`🎉 《${book?.title||''}》 Chapter ${ch}${more} 공개! 서로의 문장을 확인해 보세요`);
+      }
+      function celebrate(msg) {
+        const glyphs=['🔖','📖','💗','✨','🔖','💗'];
+        for(let i=0;i<28;i++){
+          const p=document.createElement('span'); p.className='confetti-piece';
+          p.textContent=glyphs[i%glyphs.length];
+          p.style.left=(Math.random()*100)+'vw'; p.style.fontSize=(14+Math.random()*14)+'px';
+          p.style.setProperty('--dx',(Math.random()*120-60)+'px');
+          p.style.setProperty('--rot',(Math.random()*720-360)+'deg');
+          p.style.setProperty('--delay',(Math.random()*0.6)+'s');
+          p.style.setProperty('--dur',(2.2+Math.random()*1.2)+'s');
+          document.body.appendChild(p); setTimeout(()=>p.remove(),4000);
+        }
+        // 토스트 대신 마스코트가 알려준다. 렌더 도중에 불리므로 한 틱 미룬다
+        setTimeout(()=>{ mascotSay(msg); const b=document.getElementById('mascot-body'); b?.classList.remove('bounce'); void b?.offsetWidth; b?.classList.add('bounce'); },300);
+      }
+
+      // ── 리액션 팝 ──
+      function reactionPop(readingId, emoji) {
+        const chip=[...document.querySelectorAll('.reaction-chip')].find(x=>x.dataset.readingId===String(readingId)&&x.dataset.emoji===emoji);
+        if(!chip) return;
+        chip.classList.add('chip-pop');
+        const r=chip.getBoundingClientRect();
+        [-14,0,14].forEach((dx,i)=>{
+          const f=document.createElement('span'); f.className='reaction-float'; f.textContent=emoji;
+          f.style.left=(r.left+r.width/2)+'px'; f.style.top=(r.top+r.height/2)+'px';
+          f.style.setProperty('--dx',dx+'px'); f.style.animationDelay=(i*70)+'ms';
+          document.body.appendChild(f); setTimeout(()=>f.remove(),1200);
+        });
+      }
+
       function renderApp() {
         const root=document.getElementById("app-root"); if (!root) return;
         const main=isGatePassed&&currentMemberId
@@ -1091,6 +1285,7 @@
           : `<main class="min-h-screen"></main>`;
         root.innerHTML=`${isGatePassed&&currentMemberId?renderHeader():""}${main}${isGatePassed&&currentMemberId?renderBottomTabs():""}${toastMessage?`<div class="toast">${escapeHtml(toastMessage)}</div>`:""}`;
         if (isGatePassed&&currentMemberId&&currentTab==="reading") setTimeout(()=>renderDailyReadingComments(),100);
+        mascotSync(); celebrateCheck();
       }
 
       // ── window 함수 ──
@@ -1150,8 +1345,18 @@
 
       // ── 이벤트 바인딩 ──
       function bindEvents(){
+        // 스크롤 중에는 마스코트가 아래로 쏙 숨어 본문을 가리지 않는다
+        window.addEventListener("scroll",()=>{
+          const m=document.getElementById('mascot'); if(!m) return;
+          m.classList.add('peek'); clearTimeout(mascotScrollTimer);
+          mascotScrollTimer=setTimeout(()=>m.classList.remove('peek'),700);
+        },{passive:true});
         document.addEventListener("click", async(e)=>{
           const t=e.target;
+          if(t.closest&&t.closest('#mascot-body')){mascotTap();return;}
+          if(t.closest&&t.closest('#nap-cat')){catLeave();return;}
+          const logoEl=t.closest&&t.closest('[data-logo]');
+          if(logoEl){logoTap(logoEl);return;}
           const tabEl=t.closest&&t.closest("[data-tab]");
           if(tabEl){
             currentTab=tabEl.getAttribute("data-tab");
