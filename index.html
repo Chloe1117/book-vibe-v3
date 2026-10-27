@@ -3,8 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BookVibe 2026</title>
+    <title>보다 · 2026 Book Club</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <!-- 클럽 이름 '보다' 로고 글꼴(개구 Bold, 2026-10-28 글꼴 시안 10종 중 선택). text= 로 두 글자만 받아 ~5KB -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@700&text=%EB%B3%B4%EB%8B%A4&display=swap" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
@@ -185,6 +187,8 @@
       #mascot-bubble.has-more { cursor: pointer; }
       #mascot-bubble .mb-more { display: block; margin-top: 0.25rem; font-size: 0.68rem; color: rgba(26,26,46,0.45); }
       #mascot-bubble.expanded { max-width: min(320px, calc(100vw - 2rem)); max-height: 50vh; overflow-y: auto; cursor: pointer; }
+      /* 헤더 클럽 이름 '보다' — 글꼴을 못 받아도 굵은 고딕으로 같은 자리를 지킨다 */
+      .boda-logo { font-family: "Gaegu", "Pretendard", sans-serif; font-weight: 700; font-size: 26px; letter-spacing: -0.1em; }
       /* 이스터에그: 헤더 로고 5연타 → 두나 산책(아래 #duna-peek) */
       [data-logo] { user-select: none; -webkit-tap-highlight-color: transparent; cursor: default; }
       [data-logo].logo-tap { animation: logo-tap 0.25s ease; }
@@ -300,7 +304,7 @@
       }
       function showAccessDenied() {
         const root = document.getElementById("app-root");
-        if (root) root.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#f7f1e5 0%,#e8dcc4 100%);font-family:'Georgia',serif;"><div style="background:white;padding:3rem;border-radius:1rem;box-shadow:0 10px 30px rgba(0,0,0,0.1);text-align:center;max-width:400px;"><h1 style="color:#0c1f18;margin-bottom:1rem;font-size:2rem;">📚 BookVibe 2026</h1><p style="color:#666;margin-bottom:2rem;line-height:1.6;">Private Reading Club<br>Access by invitation only</p><div style="background:#f8f9fa;padding:1.5rem;border-radius:0.5rem;margin-bottom:1.5rem;border-left:4px solid #c4a35a;"><p style="color:#333;font-size:0.9rem;margin:0;">Please check your invitation email for your personal access link</p></div><p style="color:#999;font-size:0.8rem;">Questions? Contact your book club administrator</p></div></div>`;
+        if (root) root.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#f7f1e5 0%,#e8dcc4 100%);font-family:'Georgia',serif;"><div style="background:white;padding:3rem;border-radius:1rem;box-shadow:0 10px 30px rgba(0,0,0,0.1);text-align:center;max-width:400px;"><h1 style="color:#0c1f18;margin-bottom:1rem;font-size:2rem;">📚 보다</h1><p style="color:#666;margin-bottom:2rem;line-height:1.6;"><i>more than books</i> · 2026 Book Club<br>Access by invitation only</p><div style="background:#f8f9fa;padding:1.5rem;border-radius:0.5rem;margin-bottom:1.5rem;border-left:4px solid #c4a35a;"><p style="color:#333;font-size:0.9rem;margin:0;">Please check your invitation email for your personal access link</p></div><p style="color:#999;font-size:0.8rem;">Questions? Contact your book club administrator</p></div></div>`;
       }
       function setMemberSession(m) {
         currentMemberId = m.id; currentMemberName = m.display_name;
@@ -746,10 +750,10 @@
               ${isOwner?`<div class="flex gap-1"><button class="edit-btn text-xs text-deep/60 hover:text-deep px-2 py-1 hover:bg-deep/10 rounded" data-reading-id="${r.id}" data-content="${escapeHtml(r.content)}">수정</button><button class="delete-btn text-xs text-red-600 px-2 py-1 hover:bg-red-50 rounded" data-reading-id="${r.id}">삭제</button></div>`:''}
             </div>
             <div class="text-sm text-deep/85 mb-3">${escapeHtml(r.content)}</div>
-            <div class="flex items-center justify-between relative">
-              <div class="flex gap-1">${chips||'<span class="text-xs text-deep/30">반응 없음</span>'}</div>
-              <div class="relative">
-                <button class="reaction-toggle-btn px-3 py-1 bg-deep/10 hover:bg-deep/20 rounded-full text-xs" data-reading-id="${r.id}">+ 반응</button>
+            <div class="flex items-start justify-between gap-2 relative">
+              <div class="flex flex-wrap gap-1 min-w-0">${chips||'<span class="text-xs text-deep/30">반응 없음</span>'}</div>
+              <div class="relative shrink-0">
+                <button class="reaction-toggle-btn shrink-0 whitespace-nowrap px-3 py-1 bg-deep/10 hover:bg-deep/20 rounded-full text-xs" data-reading-id="${r.id}">+ 반응</button>
                 <div class="reaction-popup hidden absolute right-0 top-full mt-1 z-10 bg-white border border-deep/20 rounded-lg p-2 shadow-lg" style="width:max-content;max-width:calc(100vw - 2.5rem);" data-reading-id="${r.id}">
                   <div class="grid gap-0.5" style="grid-template-columns:repeat(2,minmax(0,1fr));">${REACTIONS.map(x=>`<button type="button" class="reaction-option" data-emoji="${x.emoji}" data-reading-id="${r.id}"><span class="ro-emoji">${x.emoji}</span>${x.label}</button>`).join('')}</div>
                 </div>
@@ -976,7 +980,7 @@
 
       // ── 렌더 ──
       function renderHeader() {
-        return `<header class="sticky top-0 z-20 border-b border-white/10 bg-white/80 backdrop-blur-lg shadow-sm"><div class="mx-auto flex max-w-content items-center justify-between px-4 py-4"><div data-logo><p class="text-[10px] uppercase tracking-[0.2em] text-gold font-semibold">Stair</p><h1 class="font-serif text-xl font-bold text-deep">2026 Book Club</h1></div><div class="flex items-center gap-3"><span class="rounded-full bg-gradient-to-r from-gold to-accent px-3 py-1.5 text-[11px] font-semibold text-white shadow-md">${escapeHtml(currentMemberName)}</span><button id="btn-logout" class="btn-ghost !px-4 !py-2 !text-xs font-medium">로그아웃</button></div></div></header>`;
+        return `<header class="sticky top-0 z-20 border-b border-white/10 bg-white/80 backdrop-blur-lg shadow-sm"><div class="mx-auto flex max-w-content items-center justify-between px-4 py-4"><div data-logo><p class="leading-none text-gold"><span class="boda-logo">보다</span><span class="ml-3 text-[10px] font-medium italic text-gold/70">more than books</span></p><h1 class="font-serif text-xl font-bold text-deep">2026 Book Club</h1></div><div class="flex items-center gap-3"><span class="rounded-full bg-gradient-to-r from-gold to-accent px-3 py-1.5 text-[11px] font-semibold text-white shadow-md">${escapeHtml(currentMemberName)}</span><button id="btn-logout" class="btn-ghost !px-4 !py-2 !text-xs font-medium">로그아웃</button></div></div></header>`;
       }
 
       function renderReadingTab() {
