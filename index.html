@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>보다 · 2026 Book Club</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <!-- 클럽 이름 '보다' 로고 글꼴(개구 Bold, 2026-10-28 글꼴 시안 10종 중 선택). text= 로 두 글자만 받아 ~5KB -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@700&text=%EB%B3%B4%EB%8B%A4&display=swap" />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
@@ -185,6 +187,8 @@
       #mascot-bubble.has-more { cursor: pointer; }
       #mascot-bubble .mb-more { display: block; margin-top: 0.25rem; font-size: 0.68rem; color: rgba(26,26,46,0.45); }
       #mascot-bubble.expanded { max-width: min(320px, calc(100vw - 2rem)); max-height: 50vh; overflow-y: auto; cursor: pointer; }
+      /* 헤더 클럽 이름 '보다' — 글꼴을 못 받아도 굵은 고딕으로 같은 자리를 지킨다 */
+      .boda-logo { font-family: "Gaegu", "Pretendard", sans-serif; font-weight: 700; font-size: 26px; letter-spacing: -0.1em; }
       /* 이스터에그: 헤더 로고 5연타 → 두나 산책(아래 #duna-peek) */
       [data-logo] { user-select: none; -webkit-tap-highlight-color: transparent; cursor: default; }
       [data-logo].logo-tap { animation: logo-tap 0.25s ease; }
@@ -976,7 +980,7 @@
 
       // ── 렌더 ──
       function renderHeader() {
-        return `<header class="sticky top-0 z-20 border-b border-white/10 bg-white/80 backdrop-blur-lg shadow-sm"><div class="mx-auto flex max-w-content items-center justify-between px-4 py-4"><div data-logo><p class="text-[12px] leading-tight tracking-[0.04em] text-gold font-bold">보다<span class="ml-1.5 text-[10px] font-medium italic tracking-normal text-gold/70">more than books</span></p><h1 class="font-serif text-xl font-bold text-deep">2026 Book Club</h1></div><div class="flex items-center gap-3"><span class="rounded-full bg-gradient-to-r from-gold to-accent px-3 py-1.5 text-[11px] font-semibold text-white shadow-md">${escapeHtml(currentMemberName)}</span><button id="btn-logout" class="btn-ghost !px-4 !py-2 !text-xs font-medium">로그아웃</button></div></div></header>`;
+        return `<header class="sticky top-0 z-20 border-b border-white/10 bg-white/80 backdrop-blur-lg shadow-sm"><div class="mx-auto flex max-w-content items-center justify-between px-4 py-4"><div data-logo><p class="leading-none text-gold"><span class="boda-logo">보다</span><span class="ml-3 text-[10px] font-medium italic text-gold/70">more than books</span></p><h1 class="font-serif text-xl font-bold text-deep">2026 Book Club</h1></div><div class="flex items-center gap-3"><span class="rounded-full bg-gradient-to-r from-gold to-accent px-3 py-1.5 text-[11px] font-semibold text-white shadow-md">${escapeHtml(currentMemberName)}</span><button id="btn-logout" class="btn-ghost !px-4 !py-2 !text-xs font-medium">로그아웃</button></div></div></header>`;
       }
 
       function renderReadingTab() {
