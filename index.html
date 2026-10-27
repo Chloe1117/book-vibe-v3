@@ -750,10 +750,10 @@
               ${isOwner?`<div class="flex gap-1"><button class="edit-btn text-xs text-deep/60 hover:text-deep px-2 py-1 hover:bg-deep/10 rounded" data-reading-id="${r.id}" data-content="${escapeHtml(r.content)}">수정</button><button class="delete-btn text-xs text-red-600 px-2 py-1 hover:bg-red-50 rounded" data-reading-id="${r.id}">삭제</button></div>`:''}
             </div>
             <div class="text-sm text-deep/85 mb-3">${escapeHtml(r.content)}</div>
-            <div class="flex items-center justify-between relative">
-              <div class="flex gap-1">${chips||'<span class="text-xs text-deep/30">반응 없음</span>'}</div>
-              <div class="relative">
-                <button class="reaction-toggle-btn px-3 py-1 bg-deep/10 hover:bg-deep/20 rounded-full text-xs" data-reading-id="${r.id}">+ 반응</button>
+            <div class="flex items-start justify-between gap-2 relative">
+              <div class="flex flex-wrap gap-1 min-w-0">${chips||'<span class="text-xs text-deep/30">반응 없음</span>'}</div>
+              <div class="relative shrink-0">
+                <button class="reaction-toggle-btn shrink-0 whitespace-nowrap px-3 py-1 bg-deep/10 hover:bg-deep/20 rounded-full text-xs" data-reading-id="${r.id}">+ 반응</button>
                 <div class="reaction-popup hidden absolute right-0 top-full mt-1 z-10 bg-white border border-deep/20 rounded-lg p-2 shadow-lg" style="width:max-content;max-width:calc(100vw - 2.5rem);" data-reading-id="${r.id}">
                   <div class="grid gap-0.5" style="grid-template-columns:repeat(2,minmax(0,1fr));">${REACTIONS.map(x=>`<button type="button" class="reaction-option" data-emoji="${x.emoji}" data-reading-id="${r.id}"><span class="ro-emoji">${x.emoji}</span>${x.label}</button>`).join('')}</div>
                 </div>
