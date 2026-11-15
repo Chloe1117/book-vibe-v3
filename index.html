@@ -983,6 +983,35 @@
         return `<header class="sticky top-0 z-20 border-b border-white/10 bg-white/80 backdrop-blur-lg shadow-sm"><div class="mx-auto flex max-w-content items-center justify-between px-4 py-4"><div data-logo><p class="leading-none text-gold"><span class="boda-logo">보다</span><span class="ml-3 text-[10px] font-medium italic text-gold/70">more than books</span></p><h1 class="font-serif text-xl font-bold text-deep">2026 Book Club</h1></div><div class="flex items-center gap-3"><span class="rounded-full bg-gradient-to-r from-gold to-accent px-3 py-1.5 text-[11px] font-semibold text-white shadow-md">${escapeHtml(currentMemberName)}</span><button id="btn-logout" class="btn-ghost !px-4 !py-2 !text-xs font-medium">로그아웃</button></div></div></header>`;
       }
 
+      // 이달의 책 진행 현황: 회원별로 몇 장까지 썼는지와 '내 다음 목표'를 보여준다.
+      // 재촉이 아니라 함께 읽는 감각을 주는 카드라 지난 목표일·늦음 같은 표현은 쓰지 않는다(운영 W47).
+      function renderProgressCard(book) {
+        if (!book?.is_book_of_the_month || book.finalAt) return "";
+        const total=book.totalChapters, chs=Array.from({length:total},(_,i)=>i+1);
+        const has=(c,id)=>!!(book.chapters[c]?.[id]||"").trim();
+        // 하차 회원은 칩에서 뺀다(진행률·블라인드 계산과 같은 기준)
+        const chips=activeMembers(book).map(m=>{
+          const n=chs.filter(c=>has(c,m.id)).length, me=m.id===currentMemberId, name=escapeHtml(m.display_name);
+          const label=n===total?`✓ ${name} 완독`:`${name} ${n}/${total}장`;
+          const tone=n===total?"bg-sage/10 text-sage":"bg-deep/5 text-deep/60";
+          return `<span class="rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap ${tone}${me?" ring-1 ring-gold/60":""}">${label}</span>`;
+        }).join("");
+        let mine="";
+        if (currentMemberId && !isDropout(book,currentMemberId)) {
+          const first=chs.find(c=>!has(c,currentMemberId));
+          if (!first) mine=`내 문장은 다 썼어요 ✓ 모두의 문장이 열리길 기다리는 중`;
+          else {
+            // 목표일이 같은 이어지는 챕터는 한 묶음으로 보여준다 (예: 4·5장 11/20)
+            const date=book.schedules?.[first]; let last=first;
+            while (last<total && !has(last+1,currentMemberId) && date && book.schedules?.[last+1]===date) last++;
+            const diff=date?dayjs(date).startOf('day').diff(dayjs().startOf('day'),'day'):-1;
+            const when=date&&diff>=0?` · ${dayjs(date).format('M/D')} ${diff===0?"(오늘)":`(D-${diff})`}`:"";
+            mine=`내 다음 목표 · ${first===last?`Chapter ${first}`:`Chapter ${first}~${last}`}${when}`;
+          }
+        }
+        return `<div class="mt-4 rounded-xl bg-white/70 border border-deep/10 px-3 py-2.5"><p class="text-[11px] font-semibold text-deep/45 mb-2">함께 읽는 중</p><div class="flex flex-wrap gap-1.5">${chips}</div>${mine?`<p class="mt-2 text-xs font-medium text-gold">${mine}</p>`:""}</div>`;
+      }
+
       function renderReadingTab() {
         const sel=cache.books.find(b=>b.id===currentBookId)||cache.books[0];
         if (!sel) return `<main class="mx-auto max-w-content px-4 py-6 pb-28 text-sm text-deep/55">불러오는 중...</main>`;
@@ -1019,6 +1048,7 @@
             <div class="mb-3 flex items-center gap-2"><label for="reading-book-pick" class="text-[11px] font-semibold text-deep/45 whitespace-nowrap">읽는 중</label><select id="reading-book-pick" class="input-field !py-1.5 !text-sm">${cache.books.map(b=>`<option value="${b.id}" ${b.id===sel.id?"selected":""}>${escapeHtml(b.title)}${b.is_book_of_the_month?" · 이달의 책":""}</option>`).join("")}</select></div>
             <div class="flex items-center justify-between gap-4"><div><p class="text-[11px] uppercase tracking-[0.2em] text-gold font-bold">${sel.is_book_of_the_month?"이달의 책":"📖 미리 읽는 중"}</p><h2 class="font-serif text-2xl font-bold text-deep mt-1">${escapeHtml(sel.title)}</h2><p class="mt-2"><span class="guide-badge">⭐ 길잡이: ${escapeHtml(memberNameById(sel.guideId))}</span></p>${isDropout(sel,currentMemberId)?`<p class="mt-2 text-xs text-deep/50">이번 책은 쉬어가는 중이에요 ☕ 마음이 바뀌면 언제든 한 문장 남겨주세요~</p>`:""}</div><span class="text-sm font-bold text-gold bg-gold/10 px-3 py-1.5 rounded-full">${prog.done}/${prog.total} 완료</span></div>
             <div class="mt-4 h-3 overflow-hidden rounded-full bg-gray-200"><div class="h-full rounded-full bg-gradient-to-r from-gold to-accent transition-all duration-500" style="width:${prog.pct}%"></div></div>
+            ${renderProgressCard(sel)}
             <form id="form-reading-input" class="mt-5 grid gap-3"><select class="input-field" name="chapter">${chapterOpts}</select><textarea class="input-field" rows="3" name="sentence" placeholder="기억에 남는 문장을 입력하세요" required></textarea><button class="btn-primary font-medium">문장 기록</button></form>
           </section></div>
           <div class="schedule-section"><div class="schedule-display"><div class="schedule-title"><span class="font-bold">📅 챕터별 목표 일정</span>${isAdmin?`<button class="btn-ghost !px-3 !py-1.5 !text-xs font-medium" onclick="event.stopPropagation();window.openModal('schedule-settings',{bookId:'${sel.id}'})">일정 설정</button>`:''}</div>${renderScheduleCalendarView(sel)}</div></div>
