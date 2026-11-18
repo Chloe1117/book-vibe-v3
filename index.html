@@ -193,6 +193,12 @@
       [data-logo] { user-select: none; -webkit-tap-highlight-color: transparent; cursor: default; }
       [data-logo].logo-tap { animation: logo-tap 0.25s ease; }
       @keyframes logo-tap { 50% { transform: scale(0.96) rotate(-1deg); } }
+      /* 다음 책 엿보기 — 포장 풀기(11-18). 포장은 살짝 흔들리고, 풀면 카드가 펼쳐진다 */
+      @keyframes gift-wobble { 0%, 86%, 100% { transform: rotate(0deg); } 90% { transform: rotate(-8deg); } 95% { transform: rotate(6deg); } }
+      .gift-wobble { display: inline-block; animation: gift-wobble 3.2s ease-in-out infinite; }
+      @keyframes gift-unwrap { 0% { opacity: 0; transform: scale(0.92) rotateX(35deg); } 60% { opacity: 1; transform: scale(1.02) rotateX(0deg); } 100% { transform: scale(1); } }
+      .gift-unwrap { animation: gift-unwrap 0.55s ease-out both; transform-origin: top center; }
+      @media (prefers-reduced-motion: reduce) { .gift-wobble, .gift-unwrap { animation: none; } }
       /* 이스터에그 '두나 산책'(2026-10-23) — 로고 5연타 → 🐾 발자국이 로고 밑에서 왼쪽 아래로 걸어 내려가고,
          끝에서 두나(미라님 댁 고양이)가 하단 탭바 뒤에서 빼꼼 고개를 내민다. 탭하면 눈이 동그래지며 쏙 숨는다.
          손으로 그린 SVG 고양이는 퀄리티 한계가 있어(2026-10-23 VOC) 실사 사진으로 바꿨다.
@@ -1070,6 +1076,13 @@
         if (end && dayjs().isBefore(dayjs(end).subtract(PEEK_LEAD_DAYS,'day'),'day')) return { stage:0 };
         return { stage:1, end };
       }
+      // 포장 풀기(11-18 미라님): 회원에겐 후보가 🎁 + 선정 사유 힌트로만 보이고, 눌러야 제목이 나온다.
+      // 연 기록은 이 기기에만 둔다(DB 변경 없음). 다른 기기라도 이미 반응한 후보는 연 것으로 본다.
+      const PEEK_OPEN_KEY = "peekOpened";
+      let peekJustOpened = "";
+      function peekOpenedSet() { try { return new Set(JSON.parse(localStorage.getItem(PEEK_OPEN_KEY)||"[]")); } catch { return new Set(); } }
+      function peekIsOpen(cid) { return peekOpenedSet().has(cid) || candReactCache.some(r => r.candidate_id===cid && r.member_id===currentMemberId); }
+      function peekMarkOpen(cid) { const s = peekOpenedSet(); s.add(cid); try { localStorage.setItem(PEEK_OPEN_KEY, JSON.stringify([...s].slice(-30))); } catch {} }
       let peekDraft = {};   // 1단계 입력 중인 값 — realtime 재렌더로 카드가 다시 그려져도 지워지지 않게 보관
       // 길잡이는 Chad → Chloe → Mary 순서로 돈다(미라님 11-18). 다음 길잡이 = 이달의 책 길잡이의 다음 사람.
       // 후보를 올리고 확정·등록하는 권한은 다음 길잡이에게만 있다(설정 탭은 관리자 전용이라 거기 맡기면 다른 길잡이가 막힌다).
@@ -1085,6 +1098,12 @@
         const blank = b => Object.values(b.chapters||{}).every(rec => Object.values(rec||{}).every(t => !(t||"").trim()));
         return cache.books.filter(b => !b.is_book_of_the_month && !b.finalAt && placeholder(b) && blank(b))
           .sort((a,b) => bookIdSortIndex(a.id)-bookIdSortIndex(b.id))[0] || null;
+      }
+      // 책 상세는 교보문고 '검색 결과'로 보낸다(미라님 11-18 A안). 상세 페이지 직행은 ISBN 이 필요하고,
+      // 제목으로 자동 조회하면 번역본이 여럿인 책에서 엉뚱한 판본이 걸린다 → 판본은 회원이 검색 결과에서 고른다.
+      function kyoboLink(title, author) {
+        const q = encodeURIComponent(`${title||""} ${author||""}`.trim());
+        return `<a href="https://search.kyobobook.co.kr/search?keyword=${q}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-0.5 text-[11px] font-medium text-gold/80 underline-offset-2 hover:text-gold hover:underline">교보문고에서 보기 ↗</a>`;
       }
       function candReacts(cid, kind) { return candReactCache.filter(r => r.candidate_id===cid && r.kind===kind); }
       function myCandReact(cid, kind) { return candReactCache.find(r => r.candidate_id===cid && r.kind===kind && r.member_id===currentMemberId); }
@@ -1102,16 +1121,20 @@
         if (st.stage===3) {
           const p = st.picked, reg = st.reg, isG = p.proposed_by===currentMemberId;
           const sched = reg ? bookEndDate(reg) : "";
-          return wrap(`<p class="text-[11px] font-bold tracking-[0.2em] text-gold">NEXT BOOK</p><h3 class="mt-1 font-serif text-xl font-bold text-deep">🎉 다음 책은 《${escapeHtml(p.title)}》</h3><p class="mt-1 text-sm text-deep/60">${escapeHtml(p.author||"")}${p.author?" · ":""}길잡이 ${escapeHtml(memberNameById(p.proposed_by))}${reg?` · ${reg.totalChapters}장`:""}${sched?` · ${dayjs(sched).format('M/D')}까지`:""}</p>${reg?`<p class="mt-2 text-[11px] text-deep/40">북쉘프에 등록됐어요. 관리자가 이달의 책으로 바꾸면 시작돼요.</p>${isG?`<button type="button" class="btn-ghost mt-3 !px-3 !py-1.5 !text-xs" data-peek-schedule="${reg.id}">📅 챕터별 일정 ${sched?"수정":"설정"}</button>`:""}`:currentMemberId==='chloe'?`<p class="mt-2 text-[11px] text-deep/40">빈 책 자리가 없어 등록되지 않았어요. 설정 탭에서 자리를 추가해 주세요.</p>`:""}`);
+          return wrap(`<p class="text-[11px] font-bold tracking-[0.2em] text-gold">NEXT BOOK</p><h3 class="mt-1 font-serif text-xl font-bold text-deep">🎉 다음 책은 《${escapeHtml(p.title)}》</h3><p class="mt-1 text-sm text-deep/60">${escapeHtml(p.author||"")}${p.author?" · ":""}길잡이 ${escapeHtml(memberNameById(p.proposed_by))}${reg?` · ${reg.totalChapters}장`:""}${sched?` · ${dayjs(sched).format('M/D')}까지`:""}</p><p class="mt-1">${kyoboLink(p.title,p.author)}</p>${reg?`<p class="mt-2 text-[11px] text-deep/40">북쉘프에 등록됐어요. 관리자가 이달의 책으로 바꾸면 시작돼요.</p>${isG?`<button type="button" class="btn-ghost mt-3 !px-3 !py-1.5 !text-xs" data-peek-schedule="${reg.id}">📅 챕터별 일정 ${sched?"수정":"설정"}</button>`:""}`:currentMemberId==='chloe'?`<p class="mt-2 text-[11px] text-deep/40">빈 책 자리가 없어 등록되지 않았어요. 설정 탭에서 자리를 추가해 주세요.</p>`:""}`);
         }
         const guide = pr.list[0].proposed_by, isGuide = guide===currentMemberId;
         const others = Math.max(1, memberList().filter(m => m.id!==guide).length);
         const closes = dayjs(pr.list[0].closes_at), dleft = closes.startOf('day').diff(dayjs().startOf('day'),'day');
         const dTxt = dayjs().isAfter(closes) ? "엿보기 마감 · 길잡이가 고르는 중" : dleft===0 ? "오늘 마감" : `D-${dleft} · ${closes.format('M/D')}까지`;
         const pill = (on, attr, label) => `<button type="button" class="rounded-full px-3 py-1.5 text-xs font-semibold transition ${on?"bg-gold text-white shadow-sm":"bg-deep/5 text-deep/60 hover:bg-deep/10"}" ${attr}>${label}</button>`;
-        const cards = pr.list.map(c => {
+        const cards = pr.list.map((c, idx) => {
+          if (!isGuide && !peekIsOpen(c.id)) {
+            const hint = c.reason ? `<p class="mt-2 text-sm text-deep/70">“${escapeHtml(c.reason)}”</p><p class="mt-1 text-[11px] text-deep/40">— 길잡이가 이 책을 고른 이유</p>` : `<p class="mt-2 text-sm text-deep/55">어떤 책일까요?</p>`;
+            return `<li class="rounded-xl border border-dashed border-gold/40 bg-gradient-to-br from-gold/10 to-white p-4 text-center"><span class="gift-wobble text-4xl" style="animation-delay:${idx*0.6}s" aria-hidden="true">🎁</span><p class="mt-1 text-[11px] font-bold tracking-[0.15em] text-gold">${escapeHtml(memberNameById(c.proposed_by))}님이 포장한 후보${pr.list.length>1?` ${idx+1}`:""}</p>${hint}<button type="button" class="btn-primary mt-3 !px-4 !py-1.5 !text-xs" data-peek-open="${c.id}">포장 풀기</button></li>`;
+          }
           const want = candReacts(c.id,'want').length, unanimous = want>=others;
-          const head = `<div class="flex items-start justify-between gap-2"><div class="min-w-0"><p class="font-serif text-lg font-bold text-deep leading-snug">《${escapeHtml(c.title)}》</p>${c.author?`<p class="text-xs text-deep/55">${escapeHtml(c.author)}</p>`:""}</div>${unanimous?`<span class="shrink-0 rounded-full bg-sage/10 px-2 py-1 text-[11px] font-bold text-sage">만장일치 기대!${isGuide?"":" · 확정 대기"}</span>`:""}</div>${c.reason?`<p class="mt-2 text-sm text-deep/75">“${escapeHtml(c.reason)}”</p>`:""}`;
+          const head = `<div class="flex items-start justify-between gap-2"><div class="min-w-0"><p class="font-serif text-lg font-bold text-deep leading-snug">《${escapeHtml(c.title)}》</p><p class="text-xs text-deep/55">${c.author?`${escapeHtml(c.author)} · `:""}${kyoboLink(c.title,c.author)}</p></div>${unanimous?`<span class="shrink-0 rounded-full bg-sage/10 px-2 py-1 text-[11px] font-bold text-sage">만장일치 기대!${isGuide?"":" · 확정 대기"}</span>`:""}</div>${c.reason?`<p class="mt-2 text-sm text-deep/75">“${escapeHtml(c.reason)}”</p>`:""}`;
           let body;
           if (isGuide) {
             const read = candReacts(c.id,'read').length, wh = candReacts(c.id,'whisper');
@@ -1129,9 +1152,10 @@
             body = `<div class="mt-3 flex flex-wrap gap-1.5">${pill(!!myCandReact(c.id,'want'),`data-peek-react="want" data-cand="${c.id}"`,"🔖 기대돼요")}${pill(!!myCandReact(c.id,'read'),`data-peek-react="read" data-cand="${c.id}"`,"📚 읽어봤어요")}${myWh?pill(true,`data-peek-unwhisper="${myWh.id}"`,"💬 귀띔 보냄 · 취소"):pill(false,`data-peek-whisper-open="${c.id}"`,"💬 살짝 귀띔")}</div>
               <div id="peek-whisper-${c.id}" class="hidden mt-2 rounded-lg bg-white/80 p-2.5"><p class="text-[11px] text-deep/45 mb-1.5">길잡이에게 이름 없이 전해져요</p><div class="flex flex-wrap gap-1.5">${WHISPER_CHIPS.map(w => `<button type="button" class="rounded-full border border-deep/15 px-2.5 py-1 text-[11px] text-deep/70 hover:border-gold hover:text-gold" data-peek-whisper="${c.id}" data-note="${escapeHtml(w)}">${escapeHtml(w)}</button>`).join("")}</div><div class="mt-2 flex gap-2"><input id="peek-whisper-input-${c.id}" class="input-field !py-1.5 text-xs flex-1" maxlength="100" placeholder="직접 쓰기 (선택)"/><button type="button" class="btn-ghost !px-3 !py-1.5 !text-xs" data-peek-whisper="${c.id}">보내기</button></div></div>`;
           }
-          return `<li class="rounded-xl border border-deep/10 bg-white/90 p-4 shadow-sm">${head}${body}</li>`;
+          return `<li class="rounded-xl border border-deep/10 bg-white/90 p-4 shadow-sm${peekJustOpened===c.id?" gift-unwrap":""}">${head}${body}</li>`;
         }).join("");
         const sub = isGuide ? "회원들의 신호가 이름 없이 모여요. 모두 🔖 하면 확정할 수 있고, 귀띔이 많으면 다른 후보를 추가해 보세요."
+                            : pr.list.some(c => !peekIsOpen(c.id)) ? `${escapeHtml(memberNameById(guide))}님이 다음 책 후보를 포장해 뒀어요. 풀어 보고 끌리면 🔖 — 모두 🔖 하면 길잡이가 확정해요`
                             : `${escapeHtml(memberNameById(guide))}님이 고른 후보예요. 끌리는 책에 🔖, 읽은 책엔 📚 — 모두 🔖 하면 길잡이가 확정해요`;
         const add = isGuide && pr.list.length<3 ? `<button type="button" class="mt-3 w-full rounded-xl border border-dashed border-deep/20 py-2 text-xs font-medium text-deep/50 hover:border-gold hover:text-gold" data-peek-propose="add">＋ 후보 추가</button>` : "";
         return wrap(`<div class="flex items-start justify-between gap-2"><div><p class="text-[11px] font-bold tracking-[0.2em] text-gold">NEXT BOOK PEEK</p><h3 class="mt-1 font-serif text-xl font-bold text-deep">📚 다음 책 엿보기</h3></div><span class="shrink-0 rounded-full bg-gold/10 px-2.5 py-1 text-[11px] font-bold text-gold">${dTxt}</span></div><p class="mt-1 text-xs text-deep/55">${sub}</p><ul class="mt-4 space-y-3">${cards}</ul>${add}`);
@@ -1669,9 +1693,10 @@
           const closeMBtn=t.closest&&t.closest("[data-close-modal]");if(closeMBtn){closeModal();return renderApp();}
           const openBookEl=t.closest&&t.closest("[data-open-book]");if(openBookEl){openModal("book-detail",{bookId:openBookEl.getAttribute("data-open-book")});return;}
           // ── 다음 책 엿보기 ──
-          const peekEl=t.closest&&t.closest("[data-peek-propose],[data-peek-react],[data-peek-whisper-open],[data-peek-whisper],[data-peek-unwhisper],[data-peek-pick],[data-peek-del],[data-peek-drawer],[data-peek-schedule]");
+          const peekEl=t.closest&&t.closest("[data-peek-open],[data-peek-propose],[data-peek-react],[data-peek-whisper-open],[data-peek-whisper],[data-peek-unwhisper],[data-peek-pick],[data-peek-del],[data-peek-drawer],[data-peek-schedule]");
           if(peekEl){
             const d=peekEl.dataset;
+            if(d.peekOpen){peekMarkOpen(d.peekOpen);peekJustOpened=d.peekOpen;renderApp();peekJustOpened="";showToast("🎁 짠! 어떤 책인지 보세요");return;}
             if(d.peekSchedule){openModal("schedule-settings",{bookId:d.peekSchedule});return;}
             if(d.peekPropose){openModal("propose-candidates",{mode:d.peekPropose});return;}
             if(d.peekReact){await peekToggle(d.cand,d.peekReact);return;}
