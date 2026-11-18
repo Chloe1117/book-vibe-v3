@@ -340,7 +340,7 @@
         refreshAdminAuth().finally(() => {
           loadMembers().then(() => {
             refreshFromDb().then(() => {
-              Promise.all([loadDailyReadings(), loadAllMeetingData()]).then(() => {
+              Promise.all([loadDailyReadings(), loadAllMeetingData(), loadCandidates()]).then(() => {
                 subscribeRealtime(); renderApp();
               });
             });
@@ -961,6 +961,15 @@
             <p class="text-[11px] text-deep/45">실제 완료일을 비우면 "완료 · 날짜 미기록"으로 표시됩니다. 목표일은 계획, 완료일은 실적이라 서로 덮어쓰지 않습니다.</p>
             <button class="btn-primary w-full">저장</button></form></div>`;
 
+        } else if (type==="propose-candidates") {
+          // 후보 추가(add)면 진행 중 라운드의 대상 달·마감일을 그대로 쓰고 남은 칸 수만 연다
+          const pr=peekRound(), adding=meta.mode==="add"&&pr?.open;
+          const slots=adding?3-pr.list.length:3;
+          const nextMonth=dayjs().add(1,'month').format('YYYY-MM'), defClose=dayjs().add(3,'day').format('YYYY-MM-DD');
+          const drawer=candidatesCache.filter(c=>c.status==="drawer");
+          const rows=Array.from({length:slots},(_,i)=>`<fieldset class="rounded-xl border border-deep/10 bg-white/60 p-3 grid gap-2"><legend class="px-1 text-[11px] font-semibold text-deep/50">후보 ${adding?pr.list.length+i+1:i+1}${i===0?" (필수)":" (선택)"}</legend><input class="input-field text-sm" name="title-${i}" maxlength="120" placeholder="책 제목" ${i===0?"required":""}/><input class="input-field text-sm" name="author-${i}" maxlength="60" placeholder="저자"/><input class="input-field text-sm" name="reason-${i}" maxlength="200" placeholder="이 책을 고른 이유 한 줄"/></fieldset>`).join("");
+          content.innerHTML=`<div class="paper-panel max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-deep/12 p-5 shadow-2xl mx-4"><div class="mb-3 flex items-center justify-between"><h2 class="font-serif text-xl text-deep">${adding?"후보 추가":"다음 책 후보 올리기"}</h2><button type="button" class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><p class="mb-3 text-xs text-deep/55">후보를 2~3권 올리면 회원들이 부담 없이 '더 끌리는 책'을 고를 수 있어요. 올린 분이 이번 라운드의 길잡이가 됩니다.</p>${drawer.length?`<div class="mb-3"><p class="text-[11px] font-semibold text-deep/45 mb-1.5">📦 언젠가 읽을 책 서랍</p><div class="flex flex-wrap gap-1.5">${drawer.map(d=>`<button type="button" class="rounded-full border border-deep/15 px-2.5 py-1 text-[11px] text-deep/70 hover:border-gold hover:text-gold" data-peek-drawer="1" data-title="${escapeHtml(d.title)}" data-author="${escapeHtml(d.author||"")}">${escapeHtml(d.title)}</button>`).join("")}</div></div>`:""}<form id="form-propose-candidates" class="grid gap-3"><input type="hidden" name="mode" value="${adding?"add":"new"}"/>${adding?"":`<div class="grid grid-cols-2 gap-2"><div><label class="text-[11px] text-deep/50">어느 달의 책</label><input type="month" class="input-field mt-1 text-sm" name="round" value="${nextMonth}" required/></div><div><label class="text-[11px] text-deep/50">엿보기 마감</label><input type="date" class="input-field mt-1 text-sm" name="closes" value="${defClose}" min="${dayjs().format('YYYY-MM-DD')}" required/></div></div>`}${rows}<button class="btn-primary w-full">${adding?"추가하기":"엿보기 시작"}</button></form></div>`;
+
         } else if (type==="edit-book"||type==="book-settings") {
           const selId=meta.bookId||""; const selBook=bookById(selId);
           const opts=cache.books.map(b=>`<option value="${b.id}" ${selId===b.id?"selected":""}>${b.id} · ${escapeHtml(b.title)}</option>`).join("");
@@ -1012,6 +1021,73 @@
         return `<div class="mt-4 rounded-xl bg-white/70 border border-deep/10 px-3 py-2.5"><p class="text-[11px] font-semibold text-deep/45 mb-2">함께 읽는 중</p><div class="flex flex-wrap gap-1.5">${chips}</div>${mine?`<p class="mt-2 text-xs font-medium text-gold">${mine}</p>`:""}</div>`;
       }
 
+      // ── 다음 책 엿보기 (운영 W48 · ops/specs/next-book-peek.md · sql/book_candidates.sql) ──
+      // 길잡이가 다음 책 후보를 올리면 회원이 조용히 신호를 남긴다. '싫어요' 버튼은 일부러 없다 —
+      // 배려심 많은 회원들은 부정 버튼을 누르지 않으므로, 싫다는 뜻은 '기대돼요를 고르지 않음'으로 드러난다.
+      // 길잡이에게는 이름 없이 뭉뚱그린 신호만 보인다(3명이라 숫자가 곧 사람이 되기 때문).
+      let candidatesCache = [], candReactCache = [];
+      const WHISPER_CHIPS = ["다른 후보가 더 끌려요","지금은 조금 무거울 것 같아요","분량이 조금 걱정돼요","읽어봤지만 다시 읽어도 좋아요"];
+      async function loadCandidates() {
+        try {
+          const [c, r] = await Promise.all([
+            sb.from("book_candidates").select("*").order("created_at"),
+            sb.from("candidate_reactions").select("*")
+          ]);
+          if (c.error || r.error) throw (c.error || r.error);
+          candidatesCache = c.data||[]; candReactCache = r.data||[];
+        } catch (e) { console.warn("후보 책을 불러오지 못했습니다", e); candidatesCache = []; candReactCache = []; }
+      }
+      // 진행 중(open) 라운드, 없으면 결정된 지 7일 안 된 라운드(축하 카드)
+      function peekRound() {
+        const open = candidatesCache.find(c => c.status==="open");
+        if (open) return { open:true, round:open.round, list:candidatesCache.filter(c => c.round===open.round && c.status==="open") };
+        const picked = candidatesCache.filter(c => c.status==="picked" && c.decided_at && dayjs().diff(dayjs(c.decided_at),'day') < 7).pop();
+        return picked ? { open:false, round:picked.round, picked } : null;
+      }
+      function candReacts(cid, kind) { return candReactCache.filter(r => r.candidate_id===cid && r.kind===kind); }
+      function myCandReact(cid, kind) { return candReactCache.find(r => r.candidate_id===cid && r.kind===kind && r.member_id===currentMemberId); }
+      function renderPeekCard() {
+        const pr = peekRound();
+        const wrap = inner => `<section class="paper-panel rounded-2xl border border-gold/20 p-5 shadow-lg mb-6 bg-gradient-to-br from-white to-gold/5">${inner}</section>`;
+        if (!pr) return `<div class="-mt-2 mb-4 text-right"><button type="button" class="text-[11px] font-medium text-deep/40 hover:text-gold" data-peek-propose="1">🧭 다음 길잡이라면 · 후보 책 올리기</button></div>`;
+        if (!pr.open) {
+          const p = pr.picked;
+          return wrap(`<p class="text-[11px] font-bold tracking-[0.2em] text-gold">NEXT BOOK</p><h3 class="mt-1 font-serif text-xl font-bold text-deep">🎉 다음 책은 《${escapeHtml(p.title)}》</h3><p class="mt-1 text-sm text-deep/60">${escapeHtml(p.author||"")}${p.author?" · ":""}길잡이 ${escapeHtml(memberNameById(p.proposed_by))}</p>${currentMemberId==='chloe'?`<p class="mt-2 text-[11px] text-deep/40">관리자: 설정 탭 '책 정보 설정'에서 이 책을 등록해 주세요.</p>`:""}`);
+        }
+        const guide = pr.list[0].proposed_by, isGuide = guide===currentMemberId;
+        const others = Math.max(1, memberList().filter(m => m.id!==guide).length);
+        const closes = dayjs(pr.list[0].closes_at), dleft = closes.startOf('day').diff(dayjs().startOf('day'),'day');
+        const dTxt = dayjs().isAfter(closes) ? "엿보기 마감 · 길잡이가 고르는 중" : dleft===0 ? "오늘 마감" : `D-${dleft} · ${closes.format('M/D')}까지`;
+        const pill = (on, attr, label) => `<button type="button" class="rounded-full px-3 py-1.5 text-xs font-semibold transition ${on?"bg-gold text-white shadow-sm":"bg-deep/5 text-deep/60 hover:bg-deep/10"}" ${attr}>${label}</button>`;
+        const cards = pr.list.map(c => {
+          const want = candReacts(c.id,'want').length, unanimous = want>=others;
+          const head = `<div class="flex items-start justify-between gap-2"><div class="min-w-0"><p class="font-serif text-lg font-bold text-deep leading-snug">《${escapeHtml(c.title)}》</p>${c.author?`<p class="text-xs text-deep/55">${escapeHtml(c.author)}</p>`:""}</div>${unanimous?`<span class="shrink-0 rounded-full bg-sage/10 px-2 py-1 text-[11px] font-bold text-sage">만장일치 기대!</span>`:""}</div>${c.reason?`<p class="mt-2 text-sm text-deep/75">“${escapeHtml(c.reason)}”</p>`:""}`;
+          let body;
+          if (isGuide) {
+            const read = candReacts(c.id,'read').length, wh = candReacts(c.id,'whisper');
+            const sig = [unanimous?"" : want ? "🔖 기대 있음" : "🔖 아직 조용해요", read ? "📚 읽어본 분 있음" : ""].filter(Boolean)
+              .map(s => `<span class="rounded-full bg-deep/5 px-2.5 py-1 text-[11px] font-medium text-deep/65">${s}</span>`).join("");
+            const whs = wh.map(w => `<li class="text-xs text-deep/70">💬 ${escapeHtml(w.note)}</li>`).join("");
+            body = `<div class="mt-3 flex flex-wrap gap-1.5">${sig}</div>${whs?`<ul class="mt-2 space-y-1 rounded-lg bg-white/80 px-3 py-2">${whs}</ul>`:""}<div class="mt-3 flex items-center justify-between"><button type="button" class="text-[11px] text-deep/35 hover:text-red-500" data-peek-del="${c.id}">후보 빼기</button><button type="button" class="btn-primary !px-3 !py-1.5 !text-xs" data-peek-pick="${c.id}">이 책으로 정할게요</button></div>`;
+          } else {
+            const myWh = myCandReact(c.id,'whisper');
+            body = `<div class="mt-3 flex flex-wrap gap-1.5">${pill(!!myCandReact(c.id,'want'),`data-peek-react="want" data-cand="${c.id}"`,"🔖 기대돼요")}${pill(!!myCandReact(c.id,'read'),`data-peek-react="read" data-cand="${c.id}"`,"📚 읽어봤어요")}${myWh?pill(true,`data-peek-unwhisper="${myWh.id}"`,"💬 귀띔 보냄 · 취소"):pill(false,`data-peek-whisper-open="${c.id}"`,"💬 살짝 귀띔")}</div>
+              <div id="peek-whisper-${c.id}" class="hidden mt-2 rounded-lg bg-white/80 p-2.5"><p class="text-[11px] text-deep/45 mb-1.5">길잡이에게 이름 없이 전해져요</p><div class="flex flex-wrap gap-1.5">${WHISPER_CHIPS.map(w => `<button type="button" class="rounded-full border border-deep/15 px-2.5 py-1 text-[11px] text-deep/70 hover:border-gold hover:text-gold" data-peek-whisper="${c.id}" data-note="${escapeHtml(w)}">${escapeHtml(w)}</button>`).join("")}</div><div class="mt-2 flex gap-2"><input id="peek-whisper-input-${c.id}" class="input-field !py-1.5 text-xs flex-1" maxlength="100" placeholder="직접 쓰기 (선택)"/><button type="button" class="btn-ghost !px-3 !py-1.5 !text-xs" data-peek-whisper="${c.id}">보내기</button></div></div>`;
+          }
+          return `<li class="rounded-xl border border-deep/10 bg-white/90 p-4 shadow-sm">${head}${body}</li>`;
+        }).join("");
+        const sub = isGuide ? "회원들의 신호가 이름 없이 모여요. 마음이 정해지면 골라 주세요." : `${escapeHtml(memberNameById(guide))}님이 고른 후보예요. 끌리는 책에 🔖, 읽은 책엔 📚`;
+        const add = isGuide && pr.list.length<3 ? `<button type="button" class="mt-3 w-full rounded-xl border border-dashed border-deep/20 py-2 text-xs font-medium text-deep/50 hover:border-gold hover:text-gold" data-peek-propose="add">＋ 후보 추가</button>` : "";
+        return wrap(`<div class="flex items-start justify-between gap-2"><div><p class="text-[11px] font-bold tracking-[0.2em] text-gold">NEXT BOOK PEEK</p><h3 class="mt-1 font-serif text-xl font-bold text-deep">📚 다음 책 엿보기</h3></div><span class="shrink-0 rounded-full bg-gold/10 px-2.5 py-1 text-[11px] font-bold text-gold">${dTxt}</span></div><p class="mt-1 text-xs text-deep/55">${sub}</p><ul class="mt-4 space-y-3">${cards}</ul>${add}`);
+      }
+      async function peekToggle(cid, kind) {
+        const ex = myCandReact(cid, kind);
+        const res = ex ? await sb.from("candidate_reactions").delete().eq("id", ex.id).select()
+                       : await sb.from("candidate_reactions").insert({ candidate_id:cid, member_id:currentMemberId, kind }).select();
+        if (!applied(res)) { showToast("반영하지 못했어요. 잠시 후 다시 눌러 주세요."); return; }
+        await loadCandidates(); renderApp();
+      }
+
       function renderReadingTab() {
         const sel=cache.books.find(b=>b.id===currentBookId)||cache.books[0];
         if (!sel) return `<main class="mx-auto max-w-content px-4 py-6 pb-28 text-sm text-deep/55">불러오는 중...</main>`;
@@ -1039,6 +1115,7 @@
           }).join("")}</ul></section>`;
         }).join("");
         return `<main class="reading-tab-container mx-auto max-w-content pb-28">
+          ${renderPeekCard()}
           <section class="paper-panel rounded-2xl border border-white/10 p-5 shadow-lg mb-6 bg-gradient-to-br from-white to-gray-50">
             <h3 class="font-serif text-xl font-bold text-deep mb-4">📖 오늘의 읽기</h3>
             <div class="mb-4"><div class="flex gap-3"><input type="text" id="daily-reading-input" class="input-field flex-1 text-sm" placeholder="오늘의 독서 생각을 나눠보세요..." maxlength="${DAILY_MAX_LEN}"><button id="daily-reading-post" class="btn-primary px-4 py-2.5 text-sm font-medium">게시</button></div><p class="mt-2 flex items-center justify-between text-xs text-deep/50"><span>${currentMemberName}님으로 게시됩니다</span><span id="daily-reading-count">0/${DAILY_MAX_LEN}</span></p></div>
@@ -1468,6 +1545,7 @@
           if(tabEl){
             currentTab=tabEl.getAttribute("data-tab");
             if(currentTab==="meeting"&&!meetingEventsCache.length) await loadAllMeetingData();
+            if(currentTab==="reading") await loadCandidates();   // 후보 신호는 realtime 구독이 없어 탭 진입 때 새로 읽는다
             return renderApp();
           }
           if(t.id==="btn-logout"){logout();return;}
@@ -1534,6 +1612,41 @@
 
           const closeMBtn=t.closest&&t.closest("[data-close-modal]");if(closeMBtn){closeModal();return renderApp();}
           const openBookEl=t.closest&&t.closest("[data-open-book]");if(openBookEl){openModal("book-detail",{bookId:openBookEl.getAttribute("data-open-book")});return;}
+          // ── 다음 책 엿보기 ──
+          const peekEl=t.closest&&t.closest("[data-peek-propose],[data-peek-react],[data-peek-whisper-open],[data-peek-whisper],[data-peek-unwhisper],[data-peek-pick],[data-peek-del],[data-peek-drawer]");
+          if(peekEl){
+            const d=peekEl.dataset;
+            if(d.peekPropose){openModal("propose-candidates",{mode:d.peekPropose});return;}
+            if(d.peekReact){await peekToggle(d.cand,d.peekReact);return;}
+            if(d.peekWhisperOpen){document.getElementById(`peek-whisper-${d.peekWhisperOpen}`)?.classList.toggle("hidden");return;}
+            if(d.peekWhisper){
+              const note=(d.note||document.getElementById(`peek-whisper-input-${d.peekWhisper}`)?.value||"").trim().slice(0,100);
+              if(!note){showToast("귀띔할 말을 고르거나 적어 주세요.");return;}
+              if(!applied(await sb.from("candidate_reactions").insert({candidate_id:d.peekWhisper,member_id:currentMemberId,kind:"whisper",note}).select())){showToast("전하지 못했어요. 잠시 후 다시 시도해 주세요.");return;}
+              await loadCandidates();showToast("길잡이에게 살짝 전했어요 🤫");renderApp();return;
+            }
+            if(d.peekUnwhisper){
+              if(!applied(await sb.from("candidate_reactions").delete().eq("id",d.peekUnwhisper).select())){showToast("취소하지 못했어요.");return;}
+              await loadCandidates();renderApp();return;
+            }
+            if(d.peekDrawer){
+              const f=document.getElementById("form-propose-candidates");if(!f)return;
+              for(let i=0;i<3;i++){const ti=f.elements.namedItem(`title-${i}`);if(ti&&!ti.value.trim()){ti.value=d.title;const au=f.elements.namedItem(`author-${i}`);if(au)au.value=d.author;break;}}
+              return;
+            }
+            const c=candidatesCache.find(x=>x.id===(d.peekPick||d.peekDel));
+            if(!c||c.proposed_by!==currentMemberId)return;
+            if(d.peekDel){
+              if(!confirm(`《${c.title}》을(를) 후보에서 뺄까요? 남겨진 신호도 함께 지워집니다.`))return;
+              if(!applied(await sb.from("book_candidates").delete().eq("id",c.id).select())){showToast("빼지 못했어요.");return;}
+              await loadCandidates();renderApp();return;
+            }
+            if(!confirm(`다음 책을 《${c.title}》(으)로 정할까요?\n다른 후보는 '언젠가 읽을 책' 서랍으로 갑니다.`))return;
+            const now=new Date().toISOString();
+            if(!applied(await sb.from("book_candidates").update({status:"picked",decided_at:now}).eq("id",c.id).select())){showToast("정하지 못했어요. 잠시 후 다시 시도해 주세요.");return;}
+            await sb.from("book_candidates").update({status:"drawer",decided_at:now}).eq("round",c.round).eq("status","open").select();
+            await loadCandidates();renderApp();celebrate(`다음 책은 《${c.title}》! 📚`);return;
+          }
           const pickEl=t.closest&&t.closest("[data-select-final]");
           if(pickEl){
             const b=cache.books.find(x=>x.id===pickEl.getAttribute("data-book"));
@@ -1637,6 +1750,19 @@
         document.addEventListener("submit",async(e)=>{
           const form=e.target;if(form.tagName!=="FORM")return;e.preventDefault();
           try{
+            if(form.id==="form-propose-candidates"){
+              const g=n=>(form.elements.namedItem(n)?.value||"").trim();
+              const pr=peekRound(), adding=g("mode")==="add"&&pr?.open;
+              const round=adding?pr.round:g("round");
+              const closes=adding?pr.list[0].closes_at:dayjs(g("closes")).endOf('day').toISOString();
+              if(!adding&&pr?.open){alert("이미 진행 중인 엿보기가 있어요.");return;}
+              const rows=[0,1,2].map(i=>({title:g(`title-${i}`),author:g(`author-${i}`),reason:g(`reason-${i}`)})).filter(r=>r.title)
+                .map(r=>({...r,round,closes_at:closes,proposed_by:currentMemberId}));
+              if(!round||!rows.length){alert("대상 달과 후보 제목을 입력해 주세요.");return;}
+              if(!applied(await sb.from("book_candidates").insert(rows).select())){alert("후보를 올리지 못했어요. 잠시 후 다시 시도해 주세요.");return;}
+              await loadCandidates();closeModal();showToast(adding?"후보를 추가했어요.":"엿보기를 시작했어요! 📚");renderApp();
+              return;
+            }
             if(form.id==="form-new-meeting-event"){
               const bookId=form.elements.namedItem("bookId").value;
               const meetingDate=form.elements.namedItem("meetingDate").value;
