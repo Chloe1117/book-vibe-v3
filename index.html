@@ -954,7 +954,7 @@
               ${complete?"":`<p class="mt-1 text-[10px] text-deep/35">아직 완료되지 않은 챕터</p>`}
             </div>`;
           }).join("");
-          content.innerHTML=`<div class="paper-panel max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-deep/12 p-5 shadow-2xl"><div class="mb-4 flex items-center justify-between"><h2 class="font-serif text-xl text-deep">일정 설정 (관리자)</h2><button class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><form id="form-schedule-settings" class="grid gap-4"><input type="hidden" name="bookId" value="${meta.bookId}"/>
+          content.innerHTML=`<div class="paper-panel max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-deep/12 p-5 shadow-2xl"><div class="mb-4 flex items-center justify-between"><h2 class="font-serif text-xl text-deep">《${escapeHtml(book.title)}》 일정 설정</h2><button class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><form id="form-schedule-settings" class="grid gap-4"><input type="hidden" name="bookId" value="${meta.bookId}"/>
             <div class="grid gap-1"><label class="text-xs text-deep/60">독서 시작일</label><input type="date" name="startDate" value="${book.schedules?._start||""}" class="input-field text-sm"/></div>
             <div class="rounded-xl border border-deep/10 bg-white/60 p-3"><p class="text-xs font-semibold text-deep/70 mb-2">구간 일괄 설정</p><div class="flex flex-wrap items-end gap-2"><div class="grid gap-1"><label class="text-[11px] text-deep/50">시작 챕터</label><select id="bulk-start-ch" class="input-field text-sm !w-24">${chapterOpts}</select></div><div class="grid gap-1"><label class="text-[11px] text-deep/50">종료 챕터</label><select id="bulk-end-ch" class="input-field text-sm !w-24">${chapterOpts}</select></div><div class="grid gap-1"><label class="text-[11px] text-deep/50">목표일</label><input type="date" id="bulk-date" class="input-field text-sm"/></div><button type="button" id="bulk-apply-btn" class="btn-ghost !px-3 !py-2 !text-xs">적용</button></div><p class="mt-1.5 text-[11px] text-deep/40">예: 1~3챕터를 9/1까지로 한번에 지정하려면 시작 1, 종료 3, 날짜 9/1 선택 후 적용</p></div>
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">${inputs}</div>
@@ -965,10 +965,9 @@
           // 후보 추가(add)면 진행 중 라운드의 대상 달·마감일을 그대로 쓰고 남은 칸 수만 연다
           const pr=peekRound(), adding=meta.mode==="add"&&pr?.open;
           const slots=adding?3-pr.list.length:3;
-          const nextMonth=dayjs().add(1,'month').format('YYYY-MM'), defClose=dayjs().add(3,'day').format('YYYY-MM-DD');
           const drawer=candidatesCache.filter(c=>c.status==="drawer");
           const rows=Array.from({length:slots},(_,i)=>`<fieldset class="rounded-xl border border-deep/10 bg-white/60 p-3 grid gap-2"><legend class="px-1 text-[11px] font-semibold text-deep/50">후보 ${adding?pr.list.length+i+1:i+1}${i===0?" (필수)":" (선택)"}</legend><input class="input-field text-sm" name="title-${i}" maxlength="120" placeholder="책 제목" ${i===0?"required":""}/><input class="input-field text-sm" name="author-${i}" maxlength="60" placeholder="저자"/><input class="input-field text-sm" name="reason-${i}" maxlength="200" placeholder="이 책을 고른 이유 한 줄"/></fieldset>`).join("");
-          content.innerHTML=`<div class="paper-panel max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-deep/12 p-5 shadow-2xl mx-4"><div class="mb-3 flex items-center justify-between"><h2 class="font-serif text-xl text-deep">${adding?"후보 추가":"다음 책 후보 올리기"}</h2><button type="button" class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><p class="mb-3 text-xs text-deep/55">1권만 올려도 돼요. 귀띔이 많으면 나중에 '후보 추가'로 다른 책을 더 올리면 됩니다. 길잡이 외 모두가 🔖 하면 확정할 수 있어요. 올린 분이 이번 라운드의 길잡이가 됩니다.</p>${drawer.length?`<div class="mb-3"><p class="text-[11px] font-semibold text-deep/45 mb-1.5">📦 언젠가 읽을 책 서랍</p><div class="flex flex-wrap gap-1.5">${drawer.map(d=>`<button type="button" class="rounded-full border border-deep/15 px-2.5 py-1 text-[11px] text-deep/70 hover:border-gold hover:text-gold" data-peek-drawer="1" data-title="${escapeHtml(d.title)}" data-author="${escapeHtml(d.author||"")}">${escapeHtml(d.title)}</button>`).join("")}</div></div>`:""}<form id="form-propose-candidates" class="grid gap-3"><input type="hidden" name="mode" value="${adding?"add":"new"}"/>${adding?"":`<div class="grid grid-cols-2 gap-2"><div><label class="text-[11px] text-deep/50">어느 달의 책</label><input type="month" class="input-field mt-1 text-sm" name="round" value="${nextMonth}" required/></div><div><label class="text-[11px] text-deep/50">엿보기 마감</label><input type="date" class="input-field mt-1 text-sm" name="closes" value="${defClose}" min="${dayjs().format('YYYY-MM-DD')}" required/></div></div>`}${rows}<button class="btn-primary w-full">${adding?"추가하기":"엿보기 시작"}</button></form></div>`;
+          content.innerHTML=`<div class="paper-panel max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-deep/12 p-5 shadow-2xl mx-4"><div class="mb-3 flex items-center justify-between"><h2 class="font-serif text-xl text-deep">${adding?"후보 추가":"다음 책 후보 올리기"}</h2><button type="button" class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><p class="mb-3 text-xs text-deep/55">1권만 올려도 돼요. 귀띔이 많으면 나중에 '후보 추가'로 다른 책을 더 올리면 됩니다. 길잡이 외 모두가 🔖 하면 확정할 수 있어요. 올린 분이 이번 라운드의 길잡이가 됩니다.</p>${drawer.length?`<div class="mb-3"><p class="text-[11px] font-semibold text-deep/45 mb-1.5">📦 언젠가 읽을 책 서랍</p><div class="flex flex-wrap gap-1.5">${drawer.map(d=>`<button type="button" class="rounded-full border border-deep/15 px-2.5 py-1 text-[11px] text-deep/70 hover:border-gold hover:text-gold" data-peek-drawer="1" data-title="${escapeHtml(d.title)}" data-author="${escapeHtml(d.author||"")}">${escapeHtml(d.title)}</button>`).join("")}</div></div>`:""}<form id="form-propose-candidates" class="grid gap-3"><input type="hidden" name="mode" value="${adding?"add":"new"}"/>${rows}<button class="btn-primary w-full">${adding?"추가하기":"엿보기 시작"}</button></form></div>`;
 
         } else if (type==="confirm-candidate") {
           const c=candidatesCache.find(x=>x.id===meta.cid), slot=emptyBookSlot();
@@ -1045,10 +1044,33 @@
       // 진행 중(open) 라운드, 없으면 결정된 지 7일 안 된 라운드(축하 카드)
       function peekRound() {
         const open = candidatesCache.find(c => c.status==="open");
-        if (open) return { open:true, round:open.round, list:candidatesCache.filter(c => c.round===open.round && c.status==="open") };
-        const picked = candidatesCache.filter(c => c.status==="picked" && c.decided_at && dayjs().diff(dayjs(c.decided_at),'day') < 7).pop();
-        return picked ? { open:false, round:picked.round, picked } : null;
+        return open ? { open:true, round:open.round, list:candidatesCache.filter(c => c.round===open.round && c.status==="open") } : null;
       }
+      // NEXT BOOK 카드는 단계별로만 보인다(미라님 11-18)
+      //   0 숨김   : 이달의 책 마지막 목표일 3주 전까지
+      //   1 등록   : 3주 전부터, 다음 길잡이에게만 — 후보 1~3권 입력 → '모두에게 공개'
+      //   2 피드백 : 공개 후 전원 — 회원 🔖📚💬, 길잡이 확정(→ 책 등록 → 챕터 일정 설정)
+      //   3 확정   : 관리자가 이달의 책을 새 책으로 바꾸기 전까지 전원 — 바꾸면 카드가 사라진다
+      const PEEK_LEAD_DAYS = 21;
+      function bookEndDate(b) {
+        const v = Object.entries(b?.schedules||{}).filter(([k,d]) => k!=="_start" && d).map(([,d]) => d).sort();
+        return v.length ? v[v.length-1] : "";
+      }
+      function peekStage() {
+        const pr = peekRound();
+        if (pr) return { stage:2, ...pr };
+        const picked = candidatesCache.filter(c => c.status==="picked").sort((a,b) => String(a.decided_at).localeCompare(String(b.decided_at))).pop();
+        if (picked) {
+          const reg = cache.books.find(b => b.title===picked.title) || null;
+          if (reg ? (!reg.is_book_of_the_month && !reg.finalAt) : dayjs().diff(dayjs(picked.decided_at),'day') < 30) return { stage:3, picked, reg };
+        }
+        const botm = cache.books.find(b => b.is_book_of_the_month); if (!botm) return { stage:0 };
+        const end = bookEndDate(botm);
+        // 일정이 없으면 시점을 계산할 수 없다 → 막지 않고 등록 단계로 둔다
+        if (end && dayjs().isBefore(dayjs(end).subtract(PEEK_LEAD_DAYS,'day'),'day')) return { stage:0 };
+        return { stage:1, end };
+      }
+      let peekDraft = {};   // 1단계 입력 중인 값 — realtime 재렌더로 카드가 다시 그려져도 지워지지 않게 보관
       // 길잡이는 Chad → Chloe → Mary 순서로 돈다(미라님 11-18). 다음 길잡이 = 이달의 책 길잡이의 다음 사람.
       // 후보를 올리고 확정·등록하는 권한은 다음 길잡이에게만 있다(설정 탭은 관리자 전용이라 거기 맡기면 다른 길잡이가 막힌다).
       const GUIDE_ORDER = ["chad","chloe","mary"];
@@ -1067,16 +1089,20 @@
       function candReacts(cid, kind) { return candReactCache.filter(r => r.candidate_id===cid && r.kind===kind); }
       function myCandReact(cid, kind) { return candReactCache.find(r => r.candidate_id===cid && r.kind===kind && r.member_id===currentMemberId); }
       function renderPeekCard() {
-        const pr = peekRound();
+        const st = peekStage(), pr = st.stage===2 ? st : null;
         const wrap = inner => `<section class="paper-panel rounded-2xl border border-gold/20 p-5 shadow-lg mb-6 bg-gradient-to-br from-white to-gold/5">${inner}</section>`;
-        if (!pr) {
-          // 진행 중인 엿보기가 없으면 다음 길잡이에게만 시작 버튼을 보인다
-          if (!currentMemberId || currentMemberId!==nextGuideId()) return "";
-          return `<div class="-mt-2 mb-4 text-right"><button type="button" class="text-[11px] font-semibold text-gold/80 hover:text-gold" data-peek-propose="1">🧭 다음 길잡이 ${escapeHtml(memberNameById(currentMemberId))}님 차례예요 · 후보 책 올리기</button></div>`;
+        if (st.stage===0 || !currentMemberId) return "";
+        if (st.stage===1) {
+          if (currentMemberId!==nextGuideId()) return "";
+          const v = n => escapeHtml(peekDraft[n]||"");
+          const rows = [0,1,2].map(i => `<fieldset class="rounded-xl border border-deep/10 bg-white/80 p-3 grid gap-2"><legend class="px-1 text-[11px] font-semibold text-deep/50">후보 ${i+1}${i===0?" (필수)":" (선택)"}</legend><input class="input-field text-sm" name="title-${i}" value="${v(`title-${i}`)}" maxlength="120" placeholder="책 제목" ${i===0?"required":""}/><input class="input-field text-sm" name="author-${i}" value="${v(`author-${i}`)}" maxlength="60" placeholder="작가"/><input class="input-field text-sm" name="reason-${i}" value="${v(`reason-${i}`)}" maxlength="200" placeholder="선정 사유 한 줄"/></fieldset>`).join("");
+          const drawer = candidatesCache.filter(c => c.status==="drawer");
+          return wrap(`<p class="text-[11px] font-bold tracking-[0.2em] text-gold">NEXT BOOK · 길잡이 ${escapeHtml(memberNameById(currentMemberId))}님 차례</p><h3 class="mt-1 font-serif text-xl font-bold text-deep">🧭 다음 책을 선정하고 등록하세요</h3><p class="mt-1 text-xs text-deep/55">후보는 1~3권 올릴 수 있어요.${st.end?` 지금 책 일정은 ${dayjs(st.end).format('M/D')}에 끝나요.`:""} 이 카드는 아직 길잡이에게만 보여요.</p>${drawer.length?`<div class="mt-3"><p class="text-[11px] font-semibold text-deep/45 mb-1.5">📦 언젠가 읽을 책 서랍</p><div class="flex flex-wrap gap-1.5">${drawer.map(d=>`<button type="button" class="rounded-full border border-deep/15 px-2.5 py-1 text-[11px] text-deep/70 hover:border-gold hover:text-gold" data-peek-drawer="1" data-title="${escapeHtml(d.title)}" data-author="${escapeHtml(d.author||"")}">${escapeHtml(d.title)}</button>`).join("")}</div></div>`:""}<form id="form-propose-candidates" class="mt-4 grid gap-3"><input type="hidden" name="mode" value="new"/>${rows}<button class="btn-primary w-full">모두에게 공개</button></form>`);
         }
-        if (!pr.open) {
-          const p = pr.picked, reg = cache.books.find(b => b.title===p.title && !b.finalAt);
-          return wrap(`<p class="text-[11px] font-bold tracking-[0.2em] text-gold">NEXT BOOK</p><h3 class="mt-1 font-serif text-xl font-bold text-deep">🎉 다음 책은 《${escapeHtml(p.title)}》</h3><p class="mt-1 text-sm text-deep/60">${escapeHtml(p.author||"")}${p.author?" · ":""}길잡이 ${escapeHtml(memberNameById(p.proposed_by))}${reg?` · ${reg.totalChapters}장`:""}</p>${reg?`<p class="mt-2 text-[11px] text-deep/40">북쉘프에 등록됐어요. 지금 책을 마치면 이달의 책으로 넘어가요.</p>`:currentMemberId==='chloe'?`<p class="mt-2 text-[11px] text-deep/40">빈 책 자리가 없어 등록되지 않았어요. 설정 탭에서 자리를 추가해 주세요.</p>`:""}`);
+        if (st.stage===3) {
+          const p = st.picked, reg = st.reg, isG = p.proposed_by===currentMemberId;
+          const sched = reg ? bookEndDate(reg) : "";
+          return wrap(`<p class="text-[11px] font-bold tracking-[0.2em] text-gold">NEXT BOOK</p><h3 class="mt-1 font-serif text-xl font-bold text-deep">🎉 다음 책은 《${escapeHtml(p.title)}》</h3><p class="mt-1 text-sm text-deep/60">${escapeHtml(p.author||"")}${p.author?" · ":""}길잡이 ${escapeHtml(memberNameById(p.proposed_by))}${reg?` · ${reg.totalChapters}장`:""}${sched?` · ${dayjs(sched).format('M/D')}까지`:""}</p>${reg?`<p class="mt-2 text-[11px] text-deep/40">북쉘프에 등록됐어요. 관리자가 이달의 책으로 바꾸면 시작돼요.</p>${isG?`<button type="button" class="btn-ghost mt-3 !px-3 !py-1.5 !text-xs" data-peek-schedule="${reg.id}">📅 챕터별 일정 ${sched?"수정":"설정"}</button>`:""}`:currentMemberId==='chloe'?`<p class="mt-2 text-[11px] text-deep/40">빈 책 자리가 없어 등록되지 않았어요. 설정 탭에서 자리를 추가해 주세요.</p>`:""}`);
         }
         const guide = pr.list[0].proposed_by, isGuide = guide===currentMemberId;
         const others = Math.max(1, memberList().filter(m => m.id!==guide).length);
@@ -1158,7 +1184,7 @@
             ${renderProgressCard(sel)}
             <form id="form-reading-input" class="mt-5 grid gap-3"><select class="input-field" name="chapter">${chapterOpts}</select><textarea class="input-field" rows="3" name="sentence" placeholder="기억에 남는 문장을 입력하세요" required></textarea><button class="btn-primary font-medium">문장 기록</button></form>
           </section></div>
-          <div class="schedule-section"><div class="schedule-display"><div class="schedule-title"><span class="font-bold">📅 챕터별 목표 일정</span>${isAdmin?`<button class="btn-ghost !px-3 !py-1.5 !text-xs font-medium" onclick="event.stopPropagation();window.openModal('schedule-settings',{bookId:'${sel.id}'})">일정 설정</button>`:''}</div>${renderScheduleCalendarView(sel)}</div></div>
+          <div class="schedule-section"><div class="schedule-display"><div class="schedule-title"><span class="font-bold">📅 챕터별 목표 일정</span>${isAdmin||isGuideFor(sel)?`<button class="btn-ghost !px-3 !py-1.5 !text-xs font-medium" onclick="event.stopPropagation();window.openModal('schedule-settings',{bookId:'${sel.id}'})">일정 설정</button>`:''}</div>${renderScheduleCalendarView(sel)}</div></div>
           <section>${rows}</section>
         </main>`;
       }
@@ -1643,9 +1669,10 @@
           const closeMBtn=t.closest&&t.closest("[data-close-modal]");if(closeMBtn){closeModal();return renderApp();}
           const openBookEl=t.closest&&t.closest("[data-open-book]");if(openBookEl){openModal("book-detail",{bookId:openBookEl.getAttribute("data-open-book")});return;}
           // ── 다음 책 엿보기 ──
-          const peekEl=t.closest&&t.closest("[data-peek-propose],[data-peek-react],[data-peek-whisper-open],[data-peek-whisper],[data-peek-unwhisper],[data-peek-pick],[data-peek-del],[data-peek-drawer]");
+          const peekEl=t.closest&&t.closest("[data-peek-propose],[data-peek-react],[data-peek-whisper-open],[data-peek-whisper],[data-peek-unwhisper],[data-peek-pick],[data-peek-del],[data-peek-drawer],[data-peek-schedule]");
           if(peekEl){
             const d=peekEl.dataset;
+            if(d.peekSchedule){openModal("schedule-settings",{bookId:d.peekSchedule});return;}
             if(d.peekPropose){openModal("propose-candidates",{mode:d.peekPropose});return;}
             if(d.peekReact){await peekToggle(d.cand,d.peekReact);return;}
             if(d.peekWhisperOpen){document.getElementById(`peek-whisper-${d.peekWhisperOpen}`)?.classList.toggle("hidden");return;}
@@ -1661,7 +1688,7 @@
             }
             if(d.peekDrawer){
               const f=document.getElementById("form-propose-candidates");if(!f)return;
-              for(let i=0;i<3;i++){const ti=f.elements.namedItem(`title-${i}`);if(ti&&!ti.value.trim()){ti.value=d.title;const au=f.elements.namedItem(`author-${i}`);if(au)au.value=d.author;break;}}
+              for(let i=0;i<3;i++){const ti=f.elements.namedItem(`title-${i}`);if(ti&&!ti.value.trim()){ti.value=d.title;const au=f.elements.namedItem(`author-${i}`);if(au)au.value=d.author;if(f.closest("section")){peekDraft[`title-${i}`]=d.title;peekDraft[`author-${i}`]=d.author;}break;}}
               return;
             }
             const c=candidatesCache.find(x=>x.id===(d.peekPick||d.peekDel));
@@ -1762,6 +1789,8 @@
 
         // 오늘의 읽기 글자수 카운터 (maxlength 만 두면 남은 글자를 알 수 없다)
         document.addEventListener("input",(e)=>{
+          // NEXT BOOK 1단계 카드(인라인 폼)의 입력은 재렌더에 날아가지 않게 peekDraft 에 담아 둔다
+          if(e.target?.form?.id==="form-propose-candidates"&&e.target.closest("section")&&e.target.name){peekDraft[e.target.name]=e.target.value;return;}
           if(e.target?.id!=="daily-reading-input")return;
           const el=document.getElementById("daily-reading-count");
           if(el)el.textContent=`${e.target.value.length}/${DAILY_MAX_LEN}`;
@@ -1779,15 +1808,19 @@
             if(form.id==="form-propose-candidates"){
               const g=n=>(form.elements.namedItem(n)?.value||"").trim();
               const pr=peekRound(), adding=g("mode")==="add"&&pr?.open;
-              const round=adding?pr.round:g("round");
-              const closes=adding?pr.list[0].closes_at:dayjs(g("closes")).endOf('day').toISOString();
+              // 새 라운드: 피드백 기간은 지금 책의 마지막 목표일까지(이미 지났으면 3일), 대상 달은 그다음 날이 속한 달
+              const end=bookEndDate(cache.books.find(b=>b.is_book_of_the_month));
+              const closeAt=end&&dayjs(end).endOf('day').isAfter(dayjs())?dayjs(end).endOf('day'):dayjs().add(3,'day').endOf('day');
+              const round=adding?pr.round:closeAt.add(1,'day').format('YYYY-MM');
+              const closes=adding?pr.list[0].closes_at:closeAt.toISOString();
               if(!adding&&pr?.open){alert("이미 진행 중인 엿보기가 있어요.");return;}
               if(!adding&&currentMemberId!==nextGuideId()){alert(`이번 후보는 다음 길잡이 ${memberNameById(nextGuideId())}님이 올려요.`);return;}
               const rows=[0,1,2].map(i=>({title:g(`title-${i}`),author:g(`author-${i}`),reason:g(`reason-${i}`)})).filter(r=>r.title)
                 .map(r=>({...r,round,closes_at:closes,proposed_by:currentMemberId}));
               if(!round||!rows.length){alert("대상 달과 후보 제목을 입력해 주세요.");return;}
               if(!applied(await sb.from("book_candidates").insert(rows).select())){alert("후보를 올리지 못했어요. 잠시 후 다시 시도해 주세요.");return;}
-              await loadCandidates();closeModal();showToast(adding?"후보를 추가했어요.":"엿보기를 시작했어요! 📚");renderApp();
+              if(!adding)peekDraft={};
+              await loadCandidates();closeModal();showToast(adding?"후보를 추가했어요.":"모두에게 공개했어요! 📚");renderApp();
               return;
             }
             if(form.id==="form-confirm-candidate"){
@@ -1811,7 +1844,10 @@
               if(!applied(await sb.from("book_candidates").update({status:"picked",decided_at:now}).eq("id",c.id).select())){alert("확정하지 못했어요. 잠시 후 다시 시도해 주세요.");return;}
               await sb.from("book_candidates").update({status:"drawer",decided_at:now}).eq("round",c.round).eq("status","open").select();
               await Promise.all([loadCandidates(), refreshFromDb()]);
-              closeModal();renderApp();celebrate(`다음 책은 《${c.title}》! 📚`);
+              renderApp();celebrate(`다음 책은 《${c.title}》! 📚`);
+              // 확정 → 바로 챕터별 일정 설정으로 이어준다(길잡이가 자기 책 일정을 직접 정한다)
+              if(slot){openModal("schedule-settings",{bookId:slot.id});showToast("등록됐어요. 챕터별 목표일을 정해 주세요.");}
+              else closeModal();
               return;
             }
             if(form.id==="form-new-meeting-event"){
@@ -1831,8 +1867,9 @@
               return;
             }
             if(form.id==="form-schedule-settings"){
-              if(currentMemberId!=='chloe'){alert("관리자 기능에 접근할 수 없습니다.");return;}
               const bookId=form.elements.namedItem("bookId").value, book=cache.books.find(b=>b.id===bookId);if(!book)return;
+              // 관리자 + 그 책의 길잡이(자기 책 일정은 길잡이가 직접 정한다 — 11-18)
+              if(currentMemberId!=='chloe'&&!isGuideFor(book)){alert("이 책의 길잡이와 관리자만 일정을 정할 수 있어요.");return;}
               const schedules={};
               const startVal=form.elements.namedItem("startDate")?.value;
               if(startVal)schedules._start=startVal;
