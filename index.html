@@ -977,9 +977,10 @@
           content.innerHTML=`<div class="paper-panel max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-deep/12 p-5 shadow-2xl mx-4"><div class="mb-3 flex items-center justify-between"><h2 class="font-serif text-xl text-deep">${adding?"후보 추가":"다음 책 후보 올리기"}</h2><button type="button" class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><p class="mb-3 text-xs text-deep/55">1권만 올려도 돼요. 귀띔이 많으면 나중에 '후보 추가'로 다른 책을 더 올리면 됩니다. 길잡이 외 모두가 🔖 하면 확정할 수 있어요. 올린 분이 이번 라운드의 길잡이가 됩니다.</p>${drawer.length?`<div class="mb-3"><p class="text-[11px] font-semibold text-deep/45 mb-1.5">📦 언젠가 읽을 책 서랍</p><div class="flex flex-wrap gap-1.5">${drawer.map(d=>`<button type="button" class="rounded-full border border-deep/15 px-2.5 py-1 text-[11px] text-deep/70 hover:border-gold hover:text-gold" data-peek-drawer="1" data-title="${escapeHtml(d.title)}" data-author="${escapeHtml(d.author||"")}">${escapeHtml(d.title)}</button>`).join("")}</div></div>`:""}<form id="form-propose-candidates" class="grid gap-3"><input type="hidden" name="mode" value="${adding?"add":"new"}"/>${rows}<button class="btn-primary w-full">${adding?"추가하기":"엿보기 시작"}</button></form></div>`;
 
         } else if (type==="confirm-candidate") {
-          const c=candidatesCache.find(x=>x.id===meta.cid), slot=emptyBookSlot();
+          const c=candidatesCache.find(x=>x.id===meta.cid), {slot,reuse}=candidateSlot(c);
+          const kept=reuse?Object.keys(slot.schedules||{}).filter(k=>/^\d+$/.test(k)&&slot.schedules[k]).length:0;
           if (!c) { content.innerHTML=`<div class="paper-panel p-6">후보를 찾을 수 없습니다.</div>`; return; }
-          content.innerHTML=`<div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/12 p-5 shadow-2xl mx-4"><div class="mb-3 flex items-center justify-between"><h2 class="font-serif text-xl text-deep">다음 책 확정</h2><button type="button" class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><p class="font-serif text-lg font-bold text-deep">《${escapeHtml(c.title)}》</p>${c.author?`<p class="text-xs text-deep/55">${escapeHtml(c.author)}</p>`:""}<form id="form-confirm-candidate" class="mt-4 grid gap-3"><input type="hidden" name="cid" value="${c.id}"/><div><label class="text-xs text-deep/60">몇 장으로 나눠 읽을까요? (1~10)</label><input class="input-field mt-1" type="number" name="totalChapters" min="1" max="10" value="8" required/></div><p class="text-[11px] text-deep/45">${slot?`북쉘프의 '${escapeHtml(slot.title)}' 자리에 ${escapeHtml(memberNameById(c.proposed_by))}님을 길잡이로 등록합니다. 다른 후보는 '언젠가 읽을 책' 서랍으로 가요.`:"빈 책 자리가 없어 확정만 됩니다. 관리자에게 자리 추가를 부탁해 주세요."}</p><button class="btn-primary w-full">확정하고 등록</button></form></div>`;
+          content.innerHTML=`<div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/12 p-5 shadow-2xl mx-4"><div class="mb-3 flex items-center justify-between"><h2 class="font-serif text-xl text-deep">다음 책 확정</h2><button type="button" class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><p class="font-serif text-lg font-bold text-deep">《${escapeHtml(c.title)}》</p>${c.author?`<p class="text-xs text-deep/55">${escapeHtml(c.author)}</p>`:""}<form id="form-confirm-candidate" class="mt-4 grid gap-3"><input type="hidden" name="cid" value="${c.id}"/><div><label class="text-xs text-deep/60">몇 장으로 나눠 읽을까요? (1~10)</label><input class="input-field mt-1" type="number" name="totalChapters" min="1" max="10" value="${reuse?slot.totalChapters:8}" required/></div><p class="text-[11px] text-deep/45">${reuse?`미리 입력해 둔 일정(${kept}개 장)을 그대로 이어 써요. 확정 후 일정 창에서 고칠 수 있어요.`:slot?`북쉘프의 '${escapeHtml(slot.title)}' 자리에 ${escapeHtml(memberNameById(c.proposed_by))}님을 길잡이로 등록합니다. 다른 후보는 '언젠가 읽을 책' 서랍으로 가요.`:"빈 책 자리가 없어 확정만 됩니다. 관리자에게 자리 추가를 부탁해 주세요."}</p><button class="btn-primary w-full">확정하고 등록</button></form></div>`;
 
         } else if (type==="edit-book"||type==="book-settings") {
           const selId=meta.bookId||""; const selBook=bookById(selId);
@@ -1099,6 +1100,13 @@
         const blank = b => Object.values(b.chapters||{}).every(rec => Object.values(rec||{}).every(t => !(t||"").trim()));
         return cache.books.filter(b => !b.is_book_of_the_month && !b.finalAt && placeholder(b) && blank(b))
           .sort((a,b) => bookIdSortIndex(a.id)-bookIdSortIndex(b.id))[0] || null;
+      }
+      // 확정할 자리: 같은 제목으로 이미 등록된 자리(확정을 미뤘다가 다시 확정하는 경우, 11-22 미라님)가 있으면
+      // 그 자리와 입력해 둔 일정을 그대로 쓴다. 없으면 빈 자리.
+      function candidateSlot(c) {
+        const blank = b => Object.values(b.chapters||{}).every(rec => Object.values(rec||{}).every(t => !(t||"").trim()));
+        const reuse = c && cache.books.find(b => !b.is_book_of_the_month && !b.finalAt && b.title===c.title && blank(b));
+        return { slot: reuse || emptyBookSlot(), reuse: !!reuse };
       }
       // 책 상세는 교보문고 '검색 결과'로 보낸다(미라님 11-18 A안). 상세 페이지 직행은 ISBN 이 필요하고,
       // 제목으로 자동 조회하면 번역본이 여럿인 책에서 엉뚱한 판본이 걸린다 → 판본은 회원이 검색 결과에서 고른다.
@@ -1859,10 +1867,12 @@
               const need=memberList().filter(m=>m.id!==c.proposed_by).length;
               if(candReacts(c.id,'want').length<need){closeModal();showToast("그새 마음을 바꾼 분이 있어요. 신호를 다시 확인해 주세요.");renderApp();return;}
               // 책 등록을 먼저 한다 — 실패하면 확정도 하지 않아야 '확정됐는데 책이 없음' 상태가 안 생긴다
-              const slot=emptyBookSlot();
+              const {slot,reuse}=candidateSlot(c);
               if(slot){
+                // 다시 확정이면 입력해 둔 일정을 살린다(장 수를 줄였으면 넘치는 장의 날짜만 뺀다)
+                const keepSched=reuse?Object.fromEntries(Object.entries(slot.schedules||{}).filter(([k])=>!/^\d+$/.test(k)||+k<=n)):{};
                 const book={...slot,title:c.title,author:c.author||"",coverUrl:"",guideId:c.proposed_by,guide_id:c.proposed_by,
-                  totalChapters:n,chapters:alignChaptersToTotal({},n),dropouts:[],completedAt:{},schedules:{},
+                  totalChapters:n,chapters:alignChaptersToTotal({},n),dropouts:[],completedAt:{},schedules:keepSched,
                   final_sentence_text:"",final_sentence_member_id:"",final_sentence_chapter:null,finalAt:null,is_book_of_the_month:false};
                 try{ await persistBook(book); }catch(err){ console.error(err); alert("책을 등록하지 못했어요. 잠시 후 다시 시도해 주세요."); return; }
               }
