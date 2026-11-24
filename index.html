@@ -194,6 +194,16 @@
       [data-logo].logo-tap { animation: logo-tap 0.25s ease; }
       @keyframes logo-tap { 50% { transform: scale(0.96) rotate(-1deg); } }
       /* 다음 책 엿보기 — 포장 풀기(11-18). 포장은 살짝 흔들리고, 풀면 카드가 펼쳐진다 */
+      /* 12월 문장 달력 — 문을 떼면 안쪽이 보인다(운영 W49) */
+      .advent-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; max-width: 26rem; margin: 0 auto; }
+      .advent-door { aspect-ratio: 1; border-radius: 10px; font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0; border: 0; line-height: 1; }
+      .advent-door.locked { background: rgba(26, 26, 46, 0.05); color: rgba(26, 26, 46, 0.3); cursor: default; }
+      .advent-door.ready { background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%); color: #ffffff; border: 2px dashed rgba(255, 255, 255, 0.65); }
+      .advent-door.ready.today { box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.35); }
+      .advent-door.opened { background: rgba(108, 92, 231, 0.1); color: #6c5ce7; box-shadow: inset 0 2px 5px rgba(26, 26, 46, 0.1); }
+      .advent-door.tearing { animation: advent-tear 0.6s ease-in both; transform-origin: top left; pointer-events: none; }
+      @keyframes advent-tear { 35% { transform: rotate(8deg); } 100% { transform: translateY(70px) rotate(40deg); opacity: 0; } }
+      @media (prefers-reduced-motion: reduce) { .advent-door.tearing { animation: none; } }
       @keyframes gift-wobble { 0%, 86%, 100% { transform: rotate(0deg); } 90% { transform: rotate(-8deg); } 95% { transform: rotate(6deg); } }
       .gift-wobble { display: inline-block; animation: gift-wobble 3.2s ease-in-out infinite; }
       @keyframes gift-unwrap { 0% { opacity: 0; transform: scale(0.92) rotateX(35deg); } 60% { opacity: 1; transform: scale(1.02) rotateX(0deg); } 100% { transform: scale(1); } }
@@ -222,7 +232,7 @@
       @keyframes duna-tilt { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-10deg); } 55% { transform: rotate(6deg); } }
       @keyframes duna-jump { 45% { transform: translateY(-12px) scale(1.08); } }
       /* 챕터 공개 축하 — 위에서 🔖📖💗✨ 가 흩날린다. 노드는 3.5초 뒤 스스로 지운다 */
-      .confetti-piece { position: fixed; top: -40px; z-index: 9000; pointer-events: none; line-height: 1;
+      .confetti-piece { position: fixed; top: -40px; z-index: 10001; pointer-events: none; line-height: 1;
         animation: confetti-fall var(--dur, 2.8s) cubic-bezier(.25,.6,.45,1) var(--delay, 0s) forwards; }
       @keyframes confetti-fall {
         0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
@@ -254,6 +264,7 @@
       <div id="modal-content" class="relative" style="pointer-events:auto;"></div>
     </div>
     <script type="module">
+      const ADVENT_TEST = new URLSearchParams(window.location.search).get("advent") || "";
       import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
       const SUPABASE_URL = "https://gmhnnahtfjcgnbeyzctq.supabase.co";
@@ -916,6 +927,8 @@
           const opts=cache.books.map(b=>`<option value="${b.id}">${escapeHtml(b.title)}</option>`).join("");
           content.innerHTML=`<div class="paper-panel w-full max-w-sm rounded-2xl border border-deep/12 p-5 shadow-2xl mx-4"><div class="mb-4 flex items-center justify-between"><h2 class="font-serif text-xl text-deep">새 모임 기록</h2><button class="btn-ghost !px-2.5 !py-1 !text-xs" data-close-modal="1">닫기</button></div><form id="form-new-meeting-event" class="grid gap-3"><div><label class="text-xs text-deep/60">읽은 책</label><select class="input-field mt-1" name="bookId"><option value="">책 미지정</option>${opts}</select></div><div><label class="text-xs text-deep/60">모임 날짜</label><input class="input-field mt-1" type="date" name="meetingDate" required/></div><div><label class="text-xs text-deep/60">장소</label><input class="input-field mt-1" type="text" name="location" placeholder="예: 성수동 카페 북바이브" required/></div><button class="btn-primary w-full">모임 만들기</button></form></div>`;
 
+        } else if (type==="advent") {
+          content.innerHTML=renderAdventModal(meta.day);
         } else if (type==="book-detail") {
           // ★ 수정된 book-detail 모달: 블라인드 로직 적용
           const book=cache.books.find(b=>b.id===meta.bookId);
@@ -1002,6 +1015,56 @@
       // ── 렌더 ──
       function renderHeader() {
         return `<header class="sticky top-0 z-20 border-b border-white/10 bg-white/80 backdrop-blur-lg shadow-sm"><div class="mx-auto flex max-w-content items-center justify-between px-4 py-4"><div data-logo><p class="leading-none text-gold"><span class="boda-logo">보다</span><span class="ml-3 text-[10px] font-medium italic text-gold/70">more than books</span></p><h1 class="font-serif text-xl font-bold text-deep">2026 Book Club</h1></div><div class="flex items-center gap-3"><span class="rounded-full bg-gradient-to-r from-gold to-accent px-3 py-1.5 text-[11px] font-semibold text-white shadow-md">${escapeHtml(currentMemberName)}</span><button id="btn-logout" class="btn-ghost !px-4 !py-2 !text-xs font-medium">로그아웃</button></div></div></header>`;
+      }
+
+      // ── 12월 문장 달력(미라님 아이디어, 11-25) ──
+      // 공개 저장소라 문장 원문은 넣지 않는다. 책:장:회원 위치만 두고 문장은 DB 에서 읽는다(ops/advent_pick.py 로 생성).
+      // 연 기록은 이 기기에만 둔다(DB 변경 없음).
+      const ADVENT_YEAR = 2026;
+      const ADVENT_PICKS = "b5:2:chad b3:7:chloe b3:2:mary b6:3:chloe b3:4:mary b6:6:chloe b6:6:mary b5:1:chad b3:7:mary b6:5:chloe b3:3:chad b6:2:chloe b4:1:chad b3:1:mary b2:1:chloe b6:5:mary b5:6:chad b5:3:chloe b6:7:mary b4:6:chad b1:1:chloe b5:4:chad b3:4:chloe b4:2:chad b4:4:mary b6:1:chad b6:4:mary b4:7:chad b4:4:chloe b6:3:mary".split(" ");
+      let adventAll = false;
+      function adventNow() {
+        // 시작 전 확인용 ?advent=YYYY-MM-DD — 운영 주소에서는 무시한다
+        const ok = location.hostname==="localhost" || location.hostname.includes("-git-dev-");
+        return dayjs(ok && ADVENT_TEST ? ADVENT_TEST : undefined);
+      }
+      // 열 수 있는 마지막 날. 0 = 달력 숨김. 놓친 문을 열 수 있게 1/3 까지 남겨 둔다
+      function adventDay() {
+        const n = adventNow().startOf('day'), d = n.diff(dayjs(`${ADVENT_YEAR}-12-01`),'day')+1;
+        return d>=1 && d<=34 && n.format('YYYY-MM-DD')>=`${ADVENT_YEAR}-12-01` ? Math.min(31, d) : 0;
+      }
+      function adventLog() { try { return JSON.parse(localStorage.getItem(`advent${ADVENT_YEAR}:${currentMemberId}`)||"{}") || {}; } catch { return {}; } }
+      function adventSave(day, guess) { const l = adventLog(); l[day] = guess; try { localStorage.setItem(`advent${ADVENT_YEAR}:${currentMemberId}`, JSON.stringify(l)); } catch {} }
+      function adventPick(day) {
+        const [bid, ch, mid] = (ADVENT_PICKS[day-1]||"").split(":"), book = bid && cache.books.find(b => b.id===bid);
+        const text = (book?.chapters?.[ch]?.[mid]||"").trim();
+        return text ? { book, ch, mid, text } : null;
+      }
+      function adventHits() { const l = adventLog(); return Object.keys(l).filter(d => l[d] && adventPick(+d)?.mid===l[d]).length; }
+      function renderAdventCard() {
+        const today = adventDay(); if (!today || !currentMemberId) return "";
+        const log = adventLog(), left = Array.from({length:today},(_,i)=>i+1).filter(d => !(d in log)).length;
+        const door = d => {
+          if (d>today) return `<span class="advent-door locked" role="img" aria-label="${d}일, 아직 열 수 없어요">${d}</span>`;
+          const open = d in log, hit = open && log[d] && adventPick(d)?.mid===log[d];
+          return `<button type="button" class="advent-door ${open?"opened":"ready"}${d===today?" today":""}" data-advent-day="${d}" aria-label="${d}일 ${open?"다시 보기":"문 열기"}">${open?(d===31?"🎁":hit?"💗":"📖"):d}</button>`;
+        };
+        const shown = adventAll ? Array.from({length:31},(_,i)=>i+1) : Array.from({length:7},(_,i)=>Math.floor((today-1)/7)*7+i+1).filter(d => d<=31);
+        return `<section id="advent-card" class="paper-panel rounded-2xl border border-gold/20 p-5 shadow-lg mb-6 bg-gradient-to-br from-white to-gold/5"><div class="flex items-start justify-between gap-2"><div><p class="text-[11px] font-bold tracking-[0.2em] text-gold">DECEMBER ${ADVENT_YEAR}</p><h3 class="mt-1 font-serif text-xl font-bold text-deep">🎄 12월 문장 달력</h3></div><button type="button" class="btn-ghost shrink-0 !px-3 !py-1.5 !text-xs" data-advent-all="1">${adventAll?"접기":"전체 보기"}</button></div><p class="mt-1 mb-3 text-xs text-deep/55">${left?`하루에 한 문장. 아직 열지 않은 문이 ${left}개 있어요`:today<31?"오늘의 문장을 열었어요. 내일 또 만나요":"모든 문을 열었어요 🎉"}</p><div class="advent-grid">${shown.map(door).join("")}</div></section>`;
+      }
+      function adventRefresh() { const el = document.getElementById("advent-card"); if (el) el.outerHTML = renderAdventCard(); }
+      function renderAdventModal(day) {
+        const shell = inner => `<div class="paper-panel max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-deep/12 p-6 shadow-2xl" style="width:calc(100vw - 2rem)"><div class="mb-4 flex items-center justify-between"><p class="text-xs font-bold tracking-[0.15em] text-gold">12월 ${day}일</p><button type="button" class="btn-ghost !px-2.5 !py-1 !text-xs" data-advent-close="1">닫기</button></div>${inner}</div>`;
+        if (day===31) {
+          const done = cache.books.filter(b => b.finalAt && dayjs(b.finalAt).year()===ADVENT_YEAR);
+          const count = done.reduce((n,b) => n + Object.values(b.chapters||{}).reduce((k,r) => k + memberList().filter(m => (r?.[m.id]||"").trim()).length, 0), 0);
+          return shell(`<h3 class="font-serif text-2xl font-bold text-deep">🎁 올해 우리는</h3><p class="mt-3 text-deep/80">함께 <b>${done.length}권</b>을 읽고, <b>${count}개</b>의 문장을 남겼어요.</p><ul class="mt-3 space-y-1 text-sm text-deep/70">${done.sort((a,b)=>bookIdSortIndex(a.id)-bookIdSortIndex(b.id)).map(b=>`<li>《${escapeHtml(b.title)}》</li>`).join("")}</ul><p class="mt-4 text-sm text-deep/60">${adventHits()?`이번 달 누가 골랐는지 ${adventHits()}번 알아맞혔어요. `:""}새해에도 함께 읽어요 💗</p>`);
+        }
+        const p = adventPick(day), g = adventLog()[day]||"";
+        if (!p) return shell(`<p class="text-sm text-deep/60">오늘은 문장이 쉬어가는 날이에요 ☕</p>`);
+        const quote = `<p class="font-serif text-lg leading-relaxed text-deep whitespace-pre-line">${escapeHtml(p.text)}</p>`;
+        if (!g) return shell(`${quote}<p class="mt-5 mb-2 text-xs font-semibold text-deep/55">누가 고른 문장일까요?</p><div class="grid grid-cols-3 gap-2">${memberList().map(m=>`<button type="button" class="btn-ghost !px-2 !py-2 !text-sm" data-advent-guess="${m.id}" data-day="${day}">${m.id===currentMemberId?"나":escapeHtml(m.display_name)}</button>`).join("")}</div>`);
+        return shell(`${quote}<p class="mt-4 text-sm text-deep/70">《${escapeHtml(p.book.title)}》 ${p.ch}장</p><p class="mt-1 text-sm font-semibold ${g===p.mid?"text-sage":"text-gold"}">${g===p.mid?"💗 맞았어요!":"📖"} ${p.mid===currentMemberId?"내가":`${escapeHtml(memberNameById(p.mid))}님이`} 고른 문장이에요</p>`);
       }
 
       // 이달의 책 진행 현황: 회원별로 몇 장까지 썼는지와 '내 다음 목표'를 보여준다.
@@ -1204,6 +1267,7 @@
           }).join("")}</ul></section>`;
         }).join("");
         return `<main class="reading-tab-container mx-auto max-w-content pb-28">
+          ${renderAdventCard()}
           ${renderPeekCard()}
           <section class="paper-panel rounded-2xl border border-white/10 p-5 shadow-lg mb-6 bg-gradient-to-br from-white to-gray-50">
             <h3 class="font-serif text-xl font-bold text-deep mb-4">📖 오늘의 읽기</h3>
@@ -1701,6 +1765,18 @@
 
           const closeMBtn=t.closest&&t.closest("[data-close-modal]");if(closeMBtn){closeModal();return renderApp();}
           const openBookEl=t.closest&&t.closest("[data-open-book]");if(openBookEl){openModal("book-detail",{bookId:openBookEl.getAttribute("data-open-book")});return;}
+          // ── 12월 문장 달력 ── (입력 중인 글이 지워지지 않게 달력만 다시 그린다)
+          const advEl=t.closest&&t.closest("[data-advent-day],[data-advent-all],[data-advent-guess],[data-advent-close]");
+          if(advEl){
+            const d=advEl.dataset;
+            if(d.adventClose){closeModal();return;}
+            if(d.adventAll){adventAll=!adventAll;adventRefresh();return;}
+            if(d.adventGuess){const day=+d.day;adventSave(day,d.adventGuess);openModal("advent",{day});adventRefresh();if(adventPick(day)?.mid===d.adventGuess)celebrate("💗 딱 맞혔어요!");return;}
+            const day=+d.adventDay;if(!(day>=1&&day<=adventDay()))return;
+            const show=()=>{openModal("advent",{day});adventRefresh();};
+            if(day in adventLog()){show();return;}
+            adventSave(day,"");advEl.classList.add("tearing");setTimeout(()=>{show();if(day===31)celebrate("🎁 올해도 함께 읽어서 좋았어요!");},600);return;
+          }
           // ── 다음 책 엿보기 ──
           const peekEl=t.closest&&t.closest("[data-peek-open],[data-peek-propose],[data-peek-react],[data-peek-whisper-open],[data-peek-whisper],[data-peek-unwhisper],[data-peek-pick],[data-peek-del],[data-peek-drawer],[data-peek-schedule]");
           if(peekEl){
