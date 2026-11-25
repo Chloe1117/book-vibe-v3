@@ -357,7 +357,7 @@
         refreshAdminAuth().finally(() => {
           loadMembers().then(() => {
             refreshFromDb().then(() => {
-              Promise.all([loadDailyReadings(), loadAllMeetingData(), loadCandidates()]).then(() => {
+              Promise.all([loadDailyReadings(), loadAllMeetingData(), loadCandidates(), adventSync()]).then(() => {
                 subscribeRealtime(); renderApp();
               });
             });
@@ -1019,7 +1019,7 @@
 
       // ── 12월 문장 달력(미라님 아이디어, 11-25) ──
       // 공개 저장소라 문장 원문은 넣지 않는다. 책:장:회원 위치만 두고 문장은 DB 에서 읽는다(ops/advent_pick.py 로 생성).
-      // 연 기록은 이 기기에만 둔다(DB 변경 없음).
+      // 연 문은 이 기기에, 답은 DB advent_guesses 에도 둔다(sql/advent_guesses.sql). ?advent= 미리보기는 DB 에 쓰지 않는다.
       const ADVENT_YEAR = 2026;
       const ADVENT_PICKS = "b5:2:chad b3:7:chloe b3:2:mary b6:3:chloe b3:4:mary b6:6:chloe b6:6:mary b5:1:chad b3:7:mary b6:5:chloe b3:3:chad b6:2:chloe b4:1:chad b3:1:mary b2:1:chloe b6:5:mary b5:6:chad b5:3:chloe b6:7:mary b4:6:chad b1:1:chloe b5:4:chad b3:4:chloe b4:2:chad b4:4:mary b6:1:chad b6:4:mary b4:7:chad b4:4:chloe b6:3:mary".split(" ");
       let adventAll = false;
@@ -1031,26 +1031,82 @@
       // 열 수 있는 마지막 날. 0 = 달력 숨김. 놓친 문을 열 수 있게 1/3 까지 남겨 둔다
       function adventDay() {
         const n = adventNow().startOf('day'), d = n.diff(dayjs(`${ADVENT_YEAR}-12-01`),'day')+1;
-        return d>=1 && d<=34 && n.format('YYYY-MM-DD')>=`${ADVENT_YEAR}-12-01` ? Math.min(31, d) : 0;
+        return d>=1 && d<=38 && n.format('YYYY-MM-DD')>=`${ADVENT_YEAR}-12-01` ? Math.min(31, d) : 0;
       }
-      function adventLog() { try { return JSON.parse(localStorage.getItem(`advent${ADVENT_YEAR}:${currentMemberId}`)||"{}") || {}; } catch { return {}; } }
-      function adventSave(day, guess) { const l = adventLog(); l[day] = guess; try { localStorage.setItem(`advent${ADVENT_YEAR}:${currentMemberId}`, JSON.stringify(l)); } catch {} }
+      const adventTesting = () => !!ADVENT_TEST && (location.hostname==="localhost" || location.hostname.includes("-git-dev-"));
+      // 1/4~1/7 은 결과만 본다(문은 더 열지 않는다)
+      function adventLate() { const n = adventNow().format('YYYY-MM-DD'); return n>=`${ADVENT_YEAR+1}-01-04` && n<=`${ADVENT_YEAR+1}-01-07`; }
+      const adventKey = () => `${adventTesting()?"advent-test":"advent"}${ADVENT_YEAR}:${currentMemberId}`;
+      function adventLog() { try { return JSON.parse(localStorage.getItem(adventKey())||"{}") || {}; } catch { return {}; } }
+      function adventWrite(l) { try { localStorage.setItem(adventKey(), JSON.stringify(l)); } catch {} }
+      function adventSave(day, guess) { const l = adventLog(); if (l[day]) return; l[day] = guess; adventWrite(l); }
+      // 답 동기화: DB 의 내 답을 이 기기에 합치고, 아직 못 보낸 답을 보낸다. 같은 날은 먼저 저장된 답이 이긴다
+      let adventRows = null;
+      async function adventSync() {
+        const me = currentMemberId; if (!me || !adventDay()) return;
+        try {
+          const read = async () => { const r = await sb.from("advent_guesses").select("day,member_id,guess").eq("year", ADVENT_YEAR); if (r.error) throw r.error; return r.data||[]; };
+          let rows = await read();
+          if (!adventTesting()) {
+            const l = adventLog(), mine = new Set(rows.filter(r => r.member_id===me).map(r => r.day));
+            const unsent = Object.keys(l).map(Number).filter(d => d>=1 && d<=30 && l[d] && !mine.has(d));
+            if (unsent.length) {
+              const w = await sb.from("advent_guesses").upsert(unsent.map(d => ({ year:ADVENT_YEAR, day:d, member_id:me, guess:l[d] })), { onConflict:"year,day,member_id", ignoreDuplicates:true });
+              if (w.error) throw w.error;
+              rows = await read();
+            }
+            if (me===currentMemberId) { const cur = adventLog(); rows.filter(r => r.member_id===me).forEach(r => { cur[r.day] = r.guess; }); adventWrite(cur); }
+          }
+          adventRows = rows;
+        } catch (e) { console.warn("달력 답을 맞추지 못했습니다", e); adventRows = null; }
+      }
+      // 채점 대상: 문장이 있는 날 중 내가 고른 문장이 아닌 날
+      const adventDays = mid => Array.from({length:30},(_,i)=>i+1).filter(d => { const p = adventPick(d); return p && p.mid!==mid; });
+      function adventGuesses(mid) {
+        const o = {}; (adventRows||[]).forEach(r => { if (r.member_id===mid) o[r.day] = r.guess; });
+        if (mid===currentMemberId) { const l = adventLog(); Object.keys(l).forEach(d => { if (l[d]) o[d] = l[d]; }); }
+        return o;
+      }
+      function renderAdventResult() {
+        const mine = adventGuesses(currentMemberId), left = adventDays(currentMemberId).filter(d => !mine[d]).length;
+        const box = inner => `<div class="mt-5 rounded-xl border border-gold/20 bg-gold/5 p-4"><p class="font-serif font-bold text-deep">💗 우리는 서로를 얼마나 알까</p>${inner}</div>`;
+        if (left && !adventLate()) return box(`<p class="mt-2 text-sm text-deep/60">남은 ${left}문제에 답하면 모두의 결과가 열려요. 달력에서 ❔ 표시나 아직 안 연 문을 찾아보세요.</p>`);
+        if (!adventRows) return box(`<p class="mt-2 text-sm text-deep/60">결과를 불러오지 못했어요. 잠시 후 다시 열어 주세요.</p>`);
+        const pairs = []; let all = true;
+        const lines = memberList().map(m => {
+          const g = adventGuesses(m.id), days = adventDays(m.id), name = escapeHtml(m.display_name);
+          if (days.some(d => !g[d])) { all = false; return `<li><b>${name}</b> <span class="text-deep/50">${adventLate()?"이번엔 여기까지 풀었어요":"아직 푸는 중"}</span></li>`; }
+          const part = memberList().filter(o => o.id!==m.id).map(o => {
+            const ds = days.filter(d => adventPick(d).mid===o.id), hit = ds.filter(d => g[d]===o.id).length;
+            if (ds.length) pairs.push({ who:name, of:escapeHtml(o.display_name), rate:hit/ds.length });
+            return `${escapeHtml(o.display_name)}의 문장 ${hit}/${ds.length}`;
+          });
+          return `<li><b>${name}</b> ${days.filter(d => g[d]===adventPick(d).mid).length}/${days.length}<br><span class="text-xs text-deep/55">${part.join(" · ")}</span></li>`;
+        });
+        let extra = "";
+        if (all && pairs.length) {
+          const top = Math.max(...pairs.map(p => p.rate)), best = pairs.filter(p => p.rate===top);
+          const hard = Array.from({length:30},(_,i)=>i+1).filter(d => { const p = adventPick(d); return p && memberList().every(m => m.id===p.mid || adventGuesses(m.id)[d]!==p.mid); });
+          extra = `<div class="mt-3 space-y-1 border-t border-gold/20 pt-3 text-sm text-deep/75">${top>0?best.slice(0,3).map(p => `<p>🔍 <b>${p.of} 문장 감별사</b>: ${p.who}</p>`).join(""):""}<p>🎭 ${hard.length?`아무도 못 맞힌 문장: ${hard.slice(0,5).map(d => `12/${d}`).join(", ")}${hard.length>5?` 외 ${hard.length-5}개`:""}`:"모든 문장을 누군가는 알아봤어요"}</p></div>`;
+        }
+        return box(`<ul class="mt-3 space-y-2 text-sm text-deep/80">${lines.join("")}</ul><p class="mt-2 text-[11px] text-deep/45">내가 고른 문장은 빼고 셌어요</p>${extra}`);
+      }
       function adventPick(day) {
         const [bid, ch, mid] = (ADVENT_PICKS[day-1]||"").split(":"), book = bid && cache.books.find(b => b.id===bid);
         const text = (book?.chapters?.[ch]?.[mid]||"").trim();
         return text ? { book, ch, mid, text } : null;
       }
-      function adventHits() { const l = adventLog(); return Object.keys(l).filter(d => l[d] && adventPick(+d)?.mid===l[d]).length; }
       function renderAdventCard() {
         const today = adventDay(); if (!today || !currentMemberId) return "";
-        const log = adventLog(), left = Array.from({length:today},(_,i)=>i+1).filter(d => !(d in log)).length;
+        if (adventLate()) return `<section id="advent-card" class="paper-panel rounded-2xl border border-gold/20 p-5 shadow-lg mb-6 bg-gradient-to-br from-white to-gold/5"><h3 class="font-serif text-xl font-bold text-deep">🎄 12월 문장 달력</h3><p class="mt-1 mb-3 text-xs text-deep/55">달력이 끝났어요. 결과는 1월 7일까지 볼 수 있어요</p><button type="button" class="btn-primary w-full" data-advent-day="31">🎁 우리의 결과 보기</button></section>`;
+        const log = adventLog(), todo = d => !(d in log) || (d<31 && !log[d] && !!adventPick(d)), left = Array.from({length:today},(_,i)=>i+1).filter(todo).length;
         const door = d => {
           if (d>today) return `<span class="advent-door locked" role="img" aria-label="${d}일, 아직 열 수 없어요">${d}</span>`;
           const open = d in log, hit = open && log[d] && adventPick(d)?.mid===log[d];
-          return `<button type="button" class="advent-door ${open?"opened":"ready"}${d===today?" today":""}" data-advent-day="${d}" aria-label="${d}일 ${open?"다시 보기":"문 열기"}">${open?(d===31?"🎁":hit?"💗":"📖"):d}</button>`;
+          return `<button type="button" class="advent-door ${open?"opened":"ready"}${d===today?" today":""}" data-advent-day="${d}" aria-label="${d}일 ${open?"다시 보기":"문 열기"}">${open?(d===31?"🎁":todo(d)?"❔":hit?"💗":"📖"):d}</button>`;
         };
         const shown = adventAll ? Array.from({length:31},(_,i)=>i+1) : Array.from({length:7},(_,i)=>Math.floor((today-1)/7)*7+i+1).filter(d => d<=31);
-        return `<section id="advent-card" class="paper-panel rounded-2xl border border-gold/20 p-5 shadow-lg mb-6 bg-gradient-to-br from-white to-gold/5"><div class="flex items-start justify-between gap-2"><div><p class="text-[11px] font-bold tracking-[0.2em] text-gold">DECEMBER ${ADVENT_YEAR}</p><h3 class="mt-1 font-serif text-xl font-bold text-deep">🎄 12월 문장 달력</h3></div><button type="button" class="btn-ghost shrink-0 !px-3 !py-1.5 !text-xs" data-advent-all="1">${adventAll?"접기":"전체 보기"}</button></div><p class="mt-1 mb-3 text-xs text-deep/55">${left?`하루에 한 문장. 아직 열지 않은 문이 ${left}개 있어요`:today<31?"오늘의 문장을 열었어요. 내일 또 만나요":"모든 문을 열었어요 🎉"}</p><div class="advent-grid">${shown.map(door).join("")}</div></section>`;
+        return `<section id="advent-card" class="paper-panel rounded-2xl border border-gold/20 p-5 shadow-lg mb-6 bg-gradient-to-br from-white to-gold/5"><div class="flex items-start justify-between gap-2"><div><p class="text-[11px] font-bold tracking-[0.2em] text-gold">DECEMBER ${ADVENT_YEAR}</p><h3 class="mt-1 font-serif text-xl font-bold text-deep">🎄 12월 문장 달력</h3></div><button type="button" class="btn-ghost shrink-0 !px-3 !py-1.5 !text-xs" data-advent-all="1">${adventAll?"접기":"전체 보기"}</button></div><p class="mt-1 mb-3 text-xs text-deep/55">${left?`하루에 한 문장. 아직 풀지 않은 문이 ${left}개 있어요`:today<31?"오늘의 문장을 열었어요. 내일 또 만나요":"모든 문을 열었어요 🎉"}</p><div class="advent-grid">${shown.map(door).join("")}</div></section>`;
       }
       function adventRefresh() { const el = document.getElementById("advent-card"); if (el) el.outerHTML = renderAdventCard(); }
       function renderAdventModal(day) {
@@ -1058,7 +1114,7 @@
         if (day===31) {
           const done = cache.books.filter(b => b.finalAt && dayjs(b.finalAt).year()===ADVENT_YEAR);
           const count = done.reduce((n,b) => n + Object.values(b.chapters||{}).reduce((k,r) => k + memberList().filter(m => (r?.[m.id]||"").trim()).length, 0), 0);
-          return shell(`<h3 class="font-serif text-2xl font-bold text-deep">🎁 올해 우리는</h3><p class="mt-3 text-deep/80">함께 <b>${done.length}권</b>을 읽고, <b>${count}개</b>의 문장을 남겼어요.</p><ul class="mt-3 space-y-1 text-sm text-deep/70">${done.sort((a,b)=>bookIdSortIndex(a.id)-bookIdSortIndex(b.id)).map(b=>`<li>《${escapeHtml(b.title)}》</li>`).join("")}</ul><p class="mt-4 text-sm text-deep/60">${adventHits()?`이번 달 누가 골랐는지 ${adventHits()}번 알아맞혔어요. `:""}새해에도 함께 읽어요 💗</p>`);
+          return shell(`<h3 class="font-serif text-2xl font-bold text-deep">🎁 올해 우리는</h3><p class="mt-3 text-deep/80">함께 <b>${done.length}권</b>을 읽고, <b>${count}개</b>의 문장을 남겼어요.</p><ul class="mt-3 space-y-1 text-sm text-deep/70">${done.sort((a,b)=>bookIdSortIndex(a.id)-bookIdSortIndex(b.id)).map(b=>`<li>《${escapeHtml(b.title)}》</li>`).join("")}</ul>${renderAdventResult()}<p class="mt-4 text-sm text-deep/60">새해에도 함께 읽어요 💗</p>`);
         }
         const p = adventPick(day), g = adventLog()[day]||"";
         if (!p) return shell(`<p class="text-sm text-deep/60">오늘은 문장이 쉬어가는 날이에요 ☕</p>`);
@@ -1698,7 +1754,7 @@
           if(tabEl){
             currentTab=tabEl.getAttribute("data-tab");
             if(currentTab==="meeting"&&!meetingEventsCache.length) await loadAllMeetingData();
-            if(currentTab==="reading") await loadCandidates();   // 후보 신호는 realtime 구독이 없어 탭 진입 때 새로 읽는다
+            if(currentTab==="reading") await Promise.all([loadCandidates(), adventSync()]);   // 후보 신호는 realtime 구독이 없어 탭 진입 때 새로 읽는다
             return renderApp();
           }
           if(t.id==="btn-logout"){logout();return;}
@@ -1771,10 +1827,11 @@
             const d=advEl.dataset;
             if(d.adventClose){closeModal();return;}
             if(d.adventAll){adventAll=!adventAll;adventRefresh();return;}
-            if(d.adventGuess){const day=+d.day;adventSave(day,d.adventGuess);openModal("advent",{day});adventRefresh();if(adventPick(day)?.mid===d.adventGuess)celebrate("💗 딱 맞혔어요!");return;}
+            if(d.adventGuess){const day=+d.day;if(adventLog()[day]||adventLate())return;adventSave(day,d.adventGuess);openModal("advent",{day});adventRefresh();adventSync();if(adventPick(day)?.mid===d.adventGuess)celebrate("💗 딱 맞혔어요!");return;}
             const day=+d.adventDay;if(!(day>=1&&day<=adventDay()))return;
-            const show=()=>{openModal("advent",{day});adventRefresh();};
-            if(day in adventLog()){show();return;}
+            const ready=day===31?adventSync():null;
+            const show=async()=>{await ready;openModal("advent",{day});adventRefresh();};
+            if(adventLate()||day in adventLog()){show();return;}
             adventSave(day,"");advEl.classList.add("tearing");setTimeout(()=>{show();if(day===31)celebrate("🎁 올해도 함께 읽어서 좋았어요!");},600);return;
           }
           // ── 다음 책 엿보기 ──
